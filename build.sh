@@ -42,42 +42,42 @@ MAKE_LOG_FILE=${BUILD_LOG_PATH}/make.log.${TIMESTAMP}
 CMAKE_LOG_FILE=${BUILD_LOG_PATH}/cmake.log.${TIMESTAMP}
 
 # init build path and go to build path
-DYNAMORIO_BUILD_PATH=${DYNAMORIO_ROOT_PATH}/build
-rm -rf ${DYNAMORIO_BUILD_PATH}
-mkdir ${DYNAMORIO_BUILD_PATH}
+BUILD_PATH=${CUR_DIR}/build
+rm -rf ${BUILD_PATH}
+mkdir ${BUILD_PATH}
 
 #=============================================================================
-echo -e "Enter \033[34m${DYNAMORIO_BUILD_PATH}\033[0m.."
-# enter DYNAMORIO_BUILD_PATH
-cd ${DYNAMORIO_BUILD_PATH}
+echo -e "Enter \033[34m${BUILD_PATH}\033[0m.."
+# enter BUILD_PATH
+cd ${BUILD_PATH}
 
 echo -e "Running Cmake..(See \033[34m${CMAKE_LOG_FILE}\033[0m for detail)"
 # run cmake
-cmake .. >${CMAKE_LOG_FILE} 2>&1
+cmake ${DYNAMORIO_ROOT_PATH} >${CMAKE_LOG_FILE} 2>&1
 
 echo -e "Running make..(See \033[34m${MAKE_LOG_FILE}\033[0m for detail)"
 # start make
 make -j >${MAKE_LOG_FILE} 2>&1
 
-echo -e "Leave \033[34m${DYNAMORIO_BUILD_PATH}\033[0m.."
-# leave DYNAMORIO_BUILD_PATH
+echo -e "Leave \033[34m${BUILD_PATH}\033[0m.."
+# leave BUILD_PATH
 cd ${CUR_DIR}
 
 echo -e "\033[32m Build successfully! \033[0m"
 
-DRRUN_DIRECTORY=${DYNAMORIO_BUILD_PATH}/bin64
+RUN_DIRECTORY=${BUILD_PATH}/bin64
 
 set +euo pipefail
 cd ${BUILD_LOG_PATH}
-echo "-----Testing Dynamorio---------" && ${DRRUN_DIRECTORY}/drrun echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 1---------" && ${DRRUN_DIRECTORY}/drrun -t drcctlib_client -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 2---------" && ${DRRUN_DIRECTORY}/drrun -t drcctlib_client_mem_only -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 3---------" && ${DRRUN_DIRECTORY}/drrun -t drcctlib_data_centric -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 4---------" && ${DRRUN_DIRECTORY}/drrun -t drcctlib_data_centric_tree_based -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 5---------" && ${DRRUN_DIRECTORY}/drrun -t drcctlib_deadspy -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 6---------" && ${DRRUN_DIRECTORY}/drrun -t drcctlib_deadspy -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 7---------" && ${DRRUN_DIRECTORY}/drrun -t drcctlib_reader -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 8---------" && ${DRRUN_DIRECTORY}/drrun -t drcctlib_data_centric -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Testing Dynamorio---------" && ${RUN_DIRECTORY}/drrun echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 2---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client_mem_only -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 3---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 4---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric_tree_based -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 5---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_deadspy -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+# echo "-----Test 6---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_deadspy -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+# echo "-----Test 7---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_reader -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+# echo "-----Test 8---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 echo "*************************************************"
 echo "************* ALL TESTS PASSED ******************"
 echo "*************************************************"
