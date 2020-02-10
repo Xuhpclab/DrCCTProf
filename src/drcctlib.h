@@ -1,23 +1,18 @@
 #ifndef _DRCCTLIB_H_
 #define _DRCCTLIB_H_
 
-#include <iostream>
 #include <string>
 #include <vector>
 
 #include "dr_api.h"
-#include "drmgr.h"
-#include "drsyms.h"
-#include "drutil.h"
-#include "drwrap.h"
+
 
 using namespace std;
 #define CCTLIB_N_MAX_FILE_PATH (200)
 
 typedef uint32_t ContextHandle_t;
 // Data type returned when a client tool queries  GetFullCallingContext
-typedef struct Context_t
-{
+typedef struct Context_t {
     string functionName;
     string filePath;
     string disassembly;
@@ -26,8 +21,7 @@ typedef struct Context_t
     app_pc ip;
 } Context_t;
 // The handle representing a data object
-typedef struct DataHandle_t
-{
+typedef struct DataHandle_t {
     uint8_t objectType;
     union {
         ContextHandle_t pathHandle;
@@ -41,40 +35,38 @@ typedef bool (*IsInterestingInsFptr)(instr_t *ins);
 typedef void (*CCTLibInstrumentInsCallback)(void *drcontext, instrlist_t *ilist,
                                             instr_t *ins, void *v, uint slot);
 typedef void (*CallbackFunc)();
-typedef struct CallbackFuncs
-{
+typedef struct {
     CallbackFunc initFunc;
     CallbackFunc finiFunc;
     CallbackFunc threadStartFunc;
     CallbackFunc threadEndFunc;
-} * CCTLibCallbackFuncsPtr_t;
+} CCTLibCallbackFuncStruct;
 typedef int TLS_KEY;
 
 // Enum representing different data object types
-enum ObjectTypeEnum
-{
-    STACK_OBJECT,
-    DYNAMIC_OBJECT,
-    STATIC_OBJECT,
-    UNKNOWN_OBJECT
-};
-enum CCTLibUsageMode
-{
-    CCT_LIB_MODE_COLLECTION = 1,
-    CCT_LIB_MODE_POSTMORTEM = 2
-};
+enum ObjectTypeEnum { STACK_OBJECT, DYNAMIC_OBJECT, STATIC_OBJECT, UNKNOWN_OBJECT };
+enum CCTLibUsageMode { CCT_LIB_MODE_COLLECTION = 1, CCT_LIB_MODE_POSTMORTEM = 2 };
 
 // Predefined callback for tracking no INS
 DR_EXPORT
-inline bool InterestingInsNone(instr_t *ins) { return false; }
+inline bool
+InterestingInsNone(instr_t *ins)
+{
+    return false;
+}
 
 // Predefined callback for tracking all INS
 DR_EXPORT
-inline bool InterestingInsAll(instr_t *ins) { return true; }
+inline bool
+InterestingInsAll(instr_t *ins)
+{
+    return true;
+}
 
 // Predefined callback for tracking all memory INS
 DR_EXPORT
-inline bool InterestingInsMemoryAccess(instr_t *instr)
+inline bool
+InterestingInsMemoryAccess(instr_t *instr)
 {
     return (instr_reads_memory(instr) || instr_writes_memory(instr));
 }
@@ -99,12 +91,11 @@ inline bool InterestingInsMemoryAccess(instr_t *instr)
    attribution.
 */
 DR_EXPORT
-int drcctlib_init(IsInterestingInsFptr isInterestingIns, file_t logFile,
-                  CCTLibInstrumentInsCallback userCallback,
-                  void *userCallbackArg,
-                  CCTLibCallbackFuncsPtr_t callbackFuncs = nullptr,
-                  bool doDataCentric = false);
-
+int
+drcctlib_init(IsInterestingInsFptr isInterestingIns, file_t logFile,
+              CCTLibInstrumentInsCallback userCallback, void *userCallbackArg,
+              CCTLibCallbackFuncStruct *callbackFuncs = nullptr,
+              bool doDataCentric = false);
 
 /*
     Description:
@@ -112,7 +103,8 @@ int drcctlib_init(IsInterestingInsFptr isInterestingIns, file_t logFile,
    (ContextHandle_t). Arguments: drcontext: slot:
 */
 DR_EXPORT
-ContextHandle_t GetContextHandle(void *drcontext, const uint32_t slot);
+ContextHandle_t
+GetContextHandle(void *drcontext, const uint32_t slot);
 
 /*
     Description:
@@ -121,21 +113,32 @@ ContextHandle_t GetContextHandle(void *drcontext, const uint32_t slot);
    which the data object is needed.
 */
 DR_EXPORT
-DataHandle_t GetDataObjectHandle(void *drcontext, void *address);
+DataHandle_t
+GetDataObjectHandle(void *drcontext, void *address);
 /*
     Description:
             Client tools call this API when they need the char string for a
    symbol from string pool index. Arguments: index: a string pool index
 */
 DR_EXPORT
-char *GetStringFromStringPool(const uint32_t index);
+char *
+GetStringFromStringPool(const uint32_t index);
 
 /*
     Description:
             Prints the full calling context whose handle is ctxtHandle.
 */
 DR_EXPORT
-void PrintFullCallingContext(const ContextHandle_t ctxtHandle);
+void
+PrintFullCallingContext(const ContextHandle_t ctxtHandle);
+
+DR_EXPORT
+void
+PrintContextMessage(ContextHandle_t curCtxtHndle);
+
+DR_EXPORT
+void
+PrintFullCallingContextIfIsAppIns(ContextHandle_t curCtxtHndle);
 
 /*
     Description:
@@ -147,52 +150,59 @@ void PrintFullCallingContext(const ContextHandle_t ctxtHandle);
    path.
 */
 DR_EXPORT
-void GetFullCallingContext(const ContextHandle_t ctxtHandle,
-                           vector<Context_t> &contextVec);
+void
+GetFullCallingContext(const ContextHandle_t ctxtHandle, vector<Context_t> &contextVec);
 
 DR_EXPORT
-bool HaveSameCallerPrefix(ContextHandle_t ctxt1, ContextHandle_t ctxt2);
+bool
+HaveSameCallerPrefix(ContextHandle_t ctxt1, ContextHandle_t ctxt2);
 
 /**
  * TODO: next week finish
-*/
+ */
 #ifdef UNFINISHFUNCTION
-    /*
-        Description:
-                Reads serialized CCT metadata and rebuilds CCTs for postmortem
-    analysis. Caution: This should never be called with PinCCTLibInit().
-        Arguments:
-                logFile: file pointer where CCTLib will put its output data.
-                serializedFilesDirectory: Path to directory where previously files
-    were serialized.
-    */
-    // undefined++++++++++++++++++++++
-    DR_EXPORT
-    int drcctlib_init_for_postmortem_analysis(FILE *logFile,
-                                            string serializedFilesDirectory);
+/*
+    Description:
+            Reads serialized CCT metadata and rebuilds CCTs for postmortem
+analysis. Caution: This should never be called with PinCCTLibInit().
+    Arguments:
+            logFile: file pointer where CCTLib will put its output data.
+            serializedFilesDirectory: Path to directory where previously files
+were serialized.
+*/
+// undefined++++++++++++++++++++++
+DR_EXPORT
+int
+drcctlib_init_for_postmortem_analysis(FILE *logFile, string serializedFilesDirectory);
 
-    // undefined++++++++++++++++++++++
-    DR_EXPORT
-    void SerializeMetadata(string directoryForSerializationFiles = "");
-    // undefined++++++++++++++++++++++
-    DR_EXPORT
-    void DottifyAllCCTs();
+// undefined++++++++++++++++++++++
+DR_EXPORT
+void
+SerializeMetadata(string directoryForSerializationFiles = "");
+// undefined++++++++++++++++++++++
+DR_EXPORT
+void
+DottifyAllCCTs();
 
-    // undefined++++++++++++++++++++++
-    DR_EXPORT
-    bool IsSameSourceLine(ContextHandle_t ctxt1, ContextHandle_t ctxt2);
+// undefined++++++++++++++++++++++
+DR_EXPORT
+bool
+IsSameSourceLine(ContextHandle_t ctxt1, ContextHandle_t ctxt2);
 
-    // undefined++++++++++++++++++++++
-    DR_EXPORT
-    void AppendLoadModulesToStream(iostream &ios);
+// undefined++++++++++++++++++++++
+DR_EXPORT
+void
+AppendLoadModulesToStream(iostream &ios);
 
-    // undefined++++++++++++++++++++++
-    DR_EXPORT
-    void LogContexts(iostream &ios, ContextHandle_t ctxt1, ContextHandle_t ctxt2);
+// undefined++++++++++++++++++++++
+DR_EXPORT
+void
+LogContexts(iostream &ios, ContextHandle_t ctxt1, ContextHandle_t ctxt2);
 
-    // undefined++++++++++++++++++++++
-    DR_EXPORT
-    void GetParentIPs(ContextHandle_t ctxtHandle, vector<ADDRINT> &parentIPs);
+// undefined++++++++++++++++++++++
+DR_EXPORT
+void
+GetParentIPs(ContextHandle_t ctxtHandle, vector<ADDRINT> &parentIPs);
 #endif
 // }
 

@@ -14,7 +14,10 @@
 using namespace std;
 
 void SimpleCCTQuery(const uint32_t slot) {
-    GetContextHandle(dr_get_current_drcontext(), slot);
+    // GetContextHandle(dr_get_current_drcontext(), slot);
+    ContextHandle_t curContextHandle = GetContextHandle(dr_get_current_drcontext(), slot);
+    // PrintContextMessage(curContextHandle);
+    PrintFullCallingContextIfIsAppIns(curContextHandle);
 }
 
 void InstrumentInsCallback(void *drcontext, instrlist_t *ilist, instr_t* ins, void * v, uint slot) {
@@ -58,11 +61,10 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_client'", "http://dynamorio.org/issues");
+    dr_set_client_name("DynamoRIO Client 'drcctlib_client'",
+                       "http://dynamorio.org/issues");
     ClientInit(argc, argv);
-
     drcctlib_init(INTERESTING_INS_ALL, gTraceFile, InstrumentInsCallback, 0);
-
 }
 
 #ifdef __cplusplus

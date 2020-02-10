@@ -39,3 +39,5 @@ use_DynamoRIO_extension(drcctlib_static drwrap_static)
 
 install_ext_header(shadow_memory.h)
 install_ext_header(drcctlib.h)
+install_ext_header(drcctlib_define.h)
+install_ext_header(drcctlib_debug.h)

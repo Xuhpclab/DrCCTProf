@@ -63,7 +63,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_set_client_name("DynamoRIO Client 'drcctlibtest'", "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
-    drcctlib_init(INTERESTING_INS_ALL, gTraceFile, InstrumentInsCallback, 0);
+    drcctlib_init(INTERESTING_INS_ALL, gTraceFile, InstrumentInsCallback, 0, nullptr, true);
 
 }
 

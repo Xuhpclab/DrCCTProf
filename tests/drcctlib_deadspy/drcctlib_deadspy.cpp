@@ -154,7 +154,7 @@ struct UnrolledLoop{
         UnrolledLoop<start+incr, end, incr>::BodySamePage(prevIP, prevType, handle);
     }
     static __attribute__((always_inline)) void BodyStraddlePage(uint64 addr, const ContextHandle_t handle){
-        tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = shadowMem.GetOrCreateShadowBaseAddress((uint64_t)addr+start);
+        tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = * (shadowMem.GetOrCreateShadowBaseAddress((uint64_t)addr+start));
         uint8_t* prevType = &(get<0>(t)[PAGE_OFFSET(((uint64_t)addr+start))]);
         ContextHandle_t * prevIP = &(get<1>(t)[PAGE_OFFSET(((uint64_t)addr+start))]);
    
@@ -191,7 +191,7 @@ struct DeadSpyAnalysis{
     //on memory read, update access type, no need to update context
     static void OnMemRead(void* addr){
 
-        tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = shadowMem.GetOrCreateShadowBaseAddress((uint64)addr);
+        tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = *(shadowMem.GetOrCreateShadowBaseAddress((uint64)addr));
         uint8_t* prevIP = &(get<0>(t)[PAGE_OFFSET(((uint64)addr))]);
         if(*((T*)prevIP) != READ_ACTION)
             *((T*)prevIP) = READ_ACTION;
@@ -202,7 +202,7 @@ struct DeadSpyAnalysis{
         const bool isAccessWithinPageBoundary = IS_ACCESS_WITHIN_PAGE_BOUNDARY( (uint64_t)addr, AccessLen);
         ContextHandle_t curCxt = GetContextHandle(dr_get_current_drcontext(), slot);
         if(isAccessWithinPageBoundary){
-            tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = shadowMem.GetOrCreateShadowBaseAddress((uint64)addr);
+            tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = *(shadowMem.GetOrCreateShadowBaseAddress((uint64)addr));
             uint8_t* prevTypeIP = &(get<0>(t)[PAGE_OFFSET(((uint64)addr))]);
             ContextHandle_t * prevCxtIP = &(get<1>(t)[PAGE_OFFSET(((uint64)addr))]);
             T tmp = *(T*)prevTypeIP;
@@ -224,7 +224,7 @@ struct DeadSpyAnalysis{
     }
 };
 static void OnLargeMemRead(void* addr, uint accessLen){
-    tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = shadowMem.GetOrCreateShadowBaseAddress((uint64)addr);
+    tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = *(shadowMem.GetOrCreateShadowBaseAddress((uint64)addr));
     uint8_t* prevIP = &(get<0>(t)[PAGE_OFFSET(((uint64)addr))]);
     memset(prevIP, READ_ACTION, accessLen);
 }
@@ -234,7 +234,7 @@ static void OnLargeMemWrite(void* addr, uint accessLen, uint slot){
     ContextHandle_t curCxt = GetContextHandle(dr_get_current_drcontext(), slot);
 
     for(uint i=0; i<accessLen; ++i){
-        tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = shadowMem.GetOrCreateShadowBaseAddress((uint64)addr+i);
+        tuple<uint8_t[SHADOW_PAGE_SIZE], ContextHandle_t[SHADOW_PAGE_SIZE]> &t = *(shadowMem.GetOrCreateShadowBaseAddress((uint64)addr+i));
         uint8_t* prevIP = &(get<0>(t)[PAGE_OFFSET(((uint64)addr+i))]);
         ContextHandle_t* prevCxt = &(get<1>(t)[PAGE_OFFSET(((uint64)addr+i))]);
         if(prevIP[0] == ONE_BYTE_WRITE_ACTION) AddToDeadTable(MAKE_CONTEXT_PAIR(prevCxt[0], curCxt), 1);
@@ -370,7 +370,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Client 'drcctlib_deadspy'", "http://dynamorio.org/issues");
     ClientInit(argc, argv);
-    CCTLibCallbackFuncsPtr_t drCallbackFuncs = new CallbackFuncs();
+    CCTLibCallbackFuncStruct* drCallbackFuncs = new CCTLibCallbackFuncStruct();
     drCallbackFuncs->initFunc = DrDeadspyInit;
     drCallbackFuncs->finiFunc = DrDeadspyFini;
     drCallbackFuncs->threadStartFunc = DrThreadStart;
