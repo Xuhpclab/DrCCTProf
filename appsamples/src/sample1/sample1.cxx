@@ -2,116 +2,139 @@
 #include <stdio.h>   
 #include <stdlib.h> 
 #include <vector>
+#include <pthread.h>
 using namespace std;
 
-#define CATCH_IN_SubFun 0
-#define CATCH_IN_Fun 1
-#define CATCH_IN_Main 2
-#define NO_CATCH 3
-// int MyArray[10];
-int global_int = 0;
-class TestClass{
-    public:
-        int classIntValue;
-};
-
-struct TestWarpcontentArgs {
-    int intValue;
-    char *charPtrValue;
-    vector<int> verctorValue;
-    TestClass* userDefineClassPtrValue;
-};
 
 
-int TestWarp(TestWarpcontentArgs args0, TestWarpcontentArgs *args1){
-    cerr << args0.userDefineClassPtrValue->classIntValue << endl;
-    cerr<< args1->userDefineClassPtrValue->classIntValue << endl;
-
-    return 100;
+void t1_sub_fun() {
+    printf("t1_sub_fun\n");
 }
 
-int * Create(){
-    return (int *)malloc(10 * sizeof(int));
+void t1_fun1() {
+    t1_sub_fun();
 }
 
-void ExceptionTest() {
-    if (global_int > CATCH_IN_SubFun) {
-        throw global_int;
-    }
+void t1_fun2() {
+    t1_sub_fun();
 }
 
-void DataCreate() {
-    int * p;
-    p = Create();
-    p[5] = global_int;
-    ExceptionTest();
+void *thread_1(void *arg)
+{
+    t1_fun1();
+    t1_fun2();
 }
 
-void SubFun1() {
-    // cout<<"SubFun1()"<<endl;
+void exception_fun() {
+    throw 10;
+}
+
+void t2_subfun1() {
+    exception_fun();
+}
+
+void t2_subfun2() {
+    printf("t2_subfun2\n");
+}
+
+void t2_fun1(){
     try {
-        global_int ++;
-        DataCreate();
-    }catch (int e) {
-        cerr << "SubFun: global_int = " << e << endl;
+        t2_subfun1();
+    } catch (int e) {
+        printf("t2_fun1 cache throw %d\n", e);
+    }
+    t2_subfun2();
+}
+
+void t2_fun2() {
+    t2_subfun2();
+}
+
+void *thread_2(void *arg)
+{
+    t2_fun1();
+    t2_fun2();
+}
+static int sub_thread_deep = 0;
+pthread_mutex_t t3_sub_mutex;
+extern void *t3_sub_thread(void *arg);
+void *t3_sub_thread(void *arg)
+{
+    printf("new t3_sub_thread \n");
+    int cur_deep = sub_thread_deep;
+    pthread_mutex_lock(&t3_sub_mutex);
+    if(sub_thread_deep < 10) {
+        sub_thread_deep ++;
+        pthread_mutex_unlock(&t3_sub_mutex);
+        pthread_t sub_pd;
+        int pt = pthread_create(&sub_pd, NULL, t3_sub_thread, NULL);
+        pthread_join(sub_pd, NULL);
+    }
+    else
+    {
+        pthread_mutex_unlock(&t3_sub_mutex);
     }
     
 }
 
-void SubFun2() {
-    DataCreate();
+void *thread_3(void *arg)
+{
+    printf("new thread_3 \n");
+    pthread_mutex_init(&t3_sub_mutex, NULL);
+    pthread_t sub_pd;
+    int pt = pthread_create(&sub_pd, NULL, t3_sub_thread, NULL);
+    pthread_join(sub_pd, NULL);
+    pthread_mutex_destroy(&t3_sub_mutex);
 }
 
-void Fun1() {
-    SubFun1();
+int* t4_memory_create()
+{
+    return (int*)malloc(100*sizeof(int)); 
 }
 
-void Fun2() {
-    try {
-        global_int ++;
-        SubFun2();
-    } catch (int e) {
-        cerr << "Fun: global_int = " << e << endl;
+void t4_memory_free(int* array)
+{
+    free((void*)array);
+}
+
+int global_int = 1024;
+void *thread_4(void *arg)
+{
+    int** int_tensor = (int**)malloc(100*sizeof(int*));
+    for(int i = 0; i < 100; i++){
+        int_tensor[i] = t4_memory_create();
     }
+    for (int i = 0; i < 100; i++) {
+        for(int j = 0; j < 100; j++){
+            int_tensor[i][j] = global_int;
+            printf("thread_4 init int_tensor[%d][%d]\n", i, j);
+        }
+    }
+    for(int i = 0; i < 100; i++){
+        t4_memory_free(int_tensor[i]);
+    }
+    free((void*)int_tensor);
 }
-
-void Fun3() {
-    SubFun2();
-}
-
+#define THREAD_NUM 1
 int main(){
-    
-    TestClass* testClass = new TestClass();
-    TestClass* testClass1 = new TestClass();
-    testClass->classIntValue = 11;
-    testClass1->classIntValue = 22;
-    TestWarpcontentArgs testStruct;
-    testStruct.intValue = 1;
-    testStruct.userDefineClassPtrValue = testClass;
-    testStruct.verctorValue.push_back(2);
-    testStruct.charPtrValue = (char*)malloc(10*sizeof(char));
-    for (int i = 0; i < 9; i++) {
-        testStruct.charPtrValue[i] = 'c';
-    }
-    testStruct.charPtrValue[9] = '\n';
-    TestWarpcontentArgs testStruct1;
-    testStruct1.intValue = 1;
-    testStruct1.userDefineClassPtrValue = testClass1;
-    testStruct1.verctorValue.push_back(2);
-    testStruct1.charPtrValue = (char*)malloc(10*sizeof(char));
-    for (int i = 0; i < 9; i++) {
-        testStruct1.charPtrValue[i] = 'c';
-    }
-    testStruct1.charPtrValue[9] = '\n';
-    
-    TestWarp(testStruct, &testStruct1);
+    int pt1, pt2, pt4;
+    // int pt3;
+    pthread_t thread[THREAD_NUM];
+    pt1 = pthread_create(&thread[0], NULL, thread_1, NULL);
+    pt2 = pthread_create(&thread[1], NULL, thread_2, NULL);
+    // pt3 = pthread_create(&thread[0], NULL, thread_3, NULL);
+    pt4 = pthread_create(&thread[2], NULL, thread_4, NULL);
+    // if (pt3)
+    // if (pt1&&pt2&&pt3&&pt4)
+    // {
+    //     printf("ERROR; return code is %d\n", pt3);
+    //     // printf("ERROR; return code is %d, %d, %d, %d\n\n", pt1, pt2, pt3, pt4);
+    //     return EXIT_FAILURE;
+    // }
 
-    Fun1();
-    Fun2();
-    try {
-        global_int ++;
-        Fun3();
-    } catch (int e) {
-        cerr << "main: global_int = " << e << endl;
+    for(int i = 0; i < THREAD_NUM; i++)
+    {
+        pthread_join(thread[i], NULL);
     }
+    return EXIT_SUCCESS;
 }

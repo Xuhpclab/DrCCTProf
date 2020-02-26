@@ -32,9 +32,17 @@ RUN_DIRECTORY=${BUILD_PATH}/bin64
 
 # set +euo pipefail
 cd ${BUILD_LOG_PATH}
+echo "-----Build sample -----" && g++ -g ../appsamples/src/sample/sample.cxx -o ../appsamples/build/sample && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+# g++ -g ../appsamples/src/sample1/sample1.cxx -o ../appsamples/build/sample1 -lpthread
+
+echo -e "-----Test tool-----(See\033[34m${DR_LOG_FILE}\033[0m for detail)"
+${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${CUR_DIR}/appsamples/build/sample > ${DR_LOG_FILE} 2>&1
+
 # gdb ${RUN_DIRECTORY}/drrun
 # echo "-----Testing Dynamorio---------" && ${RUN_DIRECTORY}/drrun echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${CUR_DIR}/appsamples/build/sample1 > ${DR_LOG_FILE} 2>&1
+# echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ls > ${DR_LOG_FILE} 2>&1
+# echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${CUR_DIR}/appsamples/build/sample1 
+# echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${CUR_DIR}/appsamples/build/sample1 > ${DR_LOG_FILE} 2>&1
 # echo "-----Test 2---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client_mem_only -- ${CUR_DIR}/appsamples/build/sample1.o > ${DR_LOG_FILE} 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 # echo "-----Test 3---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric -- ${CUR_DIR}/appsamples/build/sample1.o > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 # echo "-----Test 4---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric_tree_based -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)

@@ -1,24 +1,3 @@
-// #define __STDC_FORMAT_MACROS
-
-#include "drcctlib.h"
-#include "drcctlib_define.h"
-
-#include "dr_api.h"
-#include "drmgr.h"
-#include "drsyms.h"
-#include "drutil.h"
-#include "drwrap.h"
-
-#include "shadow_memory.h"
-
-#include <algorithm>
-#include <cstring>
-#include <iostream>
-#include <unordered_map>
-#include <vector>
-#include <sstream>
-#include <string>
-
 #include <fcntl.h>
 #include <gelf.h>
 #include <inttypes.h>
@@ -26,1188 +5,1086 @@
 #include <limits.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <stdarg.h>
+#include <string.h>
 #include <unwind.h>
 
 #include <sys/resource.h>
 #include <sys/mman.h>
 
-#define DRCCTLIB_TEST
-#ifdef DRCCTLIB_TEST
-#include <drcctlib_debug.h>
-#endif
+#include "dr_api.h"
+#include "drmgr.h"
+#include "drsyms.h"
+#include "drutil.h"
+#include "drwrap.h"
+#include "hashtable.h"
+
+#include "drcctlib_debug.h"
+#include "drcctlib.h"
+#include "splay_tree.h"
+#include "drcctlib_if.h"
+#include "shadow_memory.h"
 
 
-using namespace std;
+typedef struct _instr_instrument_cb_str_t {
+    drcctlib_instr_instrument_cb_t callback;
+    void *data;
+} instr_instrument_cb_str_t;
 
+typedef struct _bb_shadow_t {
+    app_pc *ip_shadow;
+    char *state_shadow;
+    char *disasm_shadow;
+    bool is_in_exception_moudle;
+    slot_t slot_num;
+} bb_shadow_t;
 
-
-#if __cplusplus > 199711L
-
-#else
-#define nullptr NULL
-#endif
-
-// #define CCTLIB_USE_STACK_STATUS
-#ifdef CCTLIB_USE_STACK_STATUS
-    #define CALL_INITIATED (0b1)
-    #define STACK_PTR_STASHED (0b10)
-    #define SET_STACK_STATUS(v, flag) \
-        (v = v | flag)
-    #define UNSET_STACK_STATUS(v, flag) \
-        (v = v & (~flag))
-    #define RESET_STACK_STATUS(v) \
-        (v = 0)
-    #define IS_STACK_STATUS(v, flag) \
-        (v & flag)
-#endif
-
-#define CCTLIB_MAXIMUM_SYMNAME 256
-
-#ifndef __GNUC__
-#    pragma region DataStructRegion
-#endif
-
+typedef hashtable_t instr_asm_shadow_t;
+typedef char *instr_asm_t;
 
 /**
  * ref "2014 - Call paths for pin tools - Chabbi, Liu, Mellor-Crummey" figure
- *2,3,4 A CCTLib BBNode logically represents a dynamorio basic block.(different
+ *2,3,4 A cct_bb_node_t logically represents a dynamorio basic block.(different
  *with Pin CCTLib)
  **/
-struct BBNode {
-    ContextHandle_t callerCtxtHndl;
-    ContextHandle_t childCtxtStartIdx;
-    uint64_t bbKey; // max of 2^32 basic blocks allowed
-    uint32_t nSlots;
-};
-struct BBSplay {
-    uint32_t key;
-    BBNode *value;
-    BBSplay *left;
-    BBSplay *right;
-};
-struct IPNode {
-    BBNode *parentBBNode;
-    BBSplay *calleeBBNodes;
-};
+typedef struct _cct_bb_node_t {
+    bb_key_t key;
+    context_handle_t caller_ctxt_hndl;
+    context_handle_t child_ctxt_start_idx;
+    slot_t max_slots;
+} cct_bb_node_t;
 
-struct SerializedBBNode {
-    uint64_t bbKey;
-    uint32_t nSlots;
-    ContextHandle_t childCtxtStartIdx;
-};
-struct NormalizedIP {
-    int lm_id;
-    uint32_t offset;
-};
+typedef struct _cct_ip_node_t {
+    cct_bb_node_t *parent_bb_node;
+    splay_tree_t *callee_splay_tree;
+}cct_ip_node_t;
 
 // TLS(thread local storage)
-struct ThreadData {
-    uint32_t tlsThreadId;
+typedef struct _per_thread_t {
+    pt_id_t id;
+    // for current handle
+    context_handle_t cur_ctxt_hndl;
+    cct_bb_node_t *cur_bb_node;
+    slot_t cur_slot_idx;
+    // for root
+    context_handle_t root_ctxt_hndl;
+    cct_bb_node_t *root_bb_node;
+    // for parent_thread
+    context_handle_t parent_thread_ctxt_hndl;
+    cct_bb_node_t *parent_thread_bb_node;
+    // for exception
+    context_handle_t exception_hndl_ctxt_hndle;
+    cct_bb_node_t *exception_hndl_bb_node;
+    app_pc exception_hndl_pc;
+    bool in_exception;
 
-    ContextHandle_t tlsCurrentCtxtHndl;
-    ContextHandle_t tlsCurrentChildContextStartIndex;
-    BBNode *tlsCurrentBBNode;
+    bool inited_call;
 
-    ContextHandle_t tlsRootCtxtHndl;
-    BBNode *tlsRootBBNode;
-#ifdef CCTLIB_USE_STACK_STATUS
-    uint32_t tlsStackStatus;
-#else
-    bool tlsInitiatedCall;
-#endif
+    hashtable_t *long_jmp_buff_tb;
+    void *long_jmp_hold_buff;
 
-    ContextHandle_t tlsParentThreadCtxtHndl;
-    BBNode *tlsParentThreadBBNode;
-    
-    // dynamorio bug:  unordered_map.insert in tls can cause crash
-    unordered_map<uint64_t, ContextHandle_t> * tlsLongJmpMap; 
-    uint64_t tlsLongJmpHoldBuf;
-
-    uint32_t tlsCurSlotNo;
-
-    // The caller that can handle the current exception
-    BBNode *tlsExceptionHandlerBBNode;
-    ContextHandle_t tlsExceptionHandlerCtxtHndle;
-
-    void *tlsStackBase;
-    void *tlsStackEnd;
+    void *stack_base;
+    void *stack_end;
     // DO_DATA_CENTRIC
-    size_t tlsDynamicMemoryAllocationSize;
-    ContextHandle_t tlsDynamicMemoryAllocationPathHandle;
-} __attribute__((aligned));
+    size_t dmem_alloc_size;
+    context_handle_t dmem_alloc_ctxt_hndl;
 
-// Global State
-struct GlobalState {
-    // Should data-centric attribution be perfomed?
-    bool doDataCentric; // false  by default
+} per_thread_t;
 
-    uint32_t usageMode;
 
-    file_t logFile;
+typedef struct _pt_cache_t
+{
+    bool dead;
+    per_thread_t *active_data;
+    per_thread_t *cache_data;
+} pt_cache_t;
 
-    CCTLibInstrumentInsCallback userInstrumentationCallback;
-    void *userInstrumentationCallbackArg;
 
-    IPNode *preAllocatedContextBuffer;
-    uint32_t curPreAllocatedContextBufferIndex __attribute__((
-        aligned(128))); // align to eliminate any false
-                                             // sharing with other members
+// typedef struct _global_data_t
+// {
+//     instr_instrument_cb_str_t instr_instrument_pre_cb_str;
+//     instr_instrument_cb_str_t instr_instrument_post_cb_str;
 
-    char *preAllocatedStringPool;
-    uint32_t curPreAllocatedStringPoolIndex __attribute__((
-        aligned(128))); // align to eliminate any false
-                                             // sharing with other members
+//     cct_ip_node_t *ip_node_buff;
+//     context_handle_t ip_node_buff_idle_idx = 1;
 
-    // Load module info
-    unordered_map<module_handle_t, const module_data_t *> moduleDataMap;
+//     // static hashtable_t global_threadDataMap;
+//     void *thread_manager_lock;
+//     /* protected by thread_manager_lock */
+//     pt_id_t thread_id_max = 1;
+//     pt_id_t thread_create_count = 0;
+//     pt_id_t thread_capture_count = 0;
+//     cct_bb_node_t *cur_thread_create_bb_node = NULL;
+//     context_handle_t cur_thread_create_ctxt_hndl = 0;
+// } global_data_t;
 
-    // serialization directory path
-    string serializationDirectory;
-    // Deserialized CCTs
-    vector<ThreadData> deserializedCCTs;
+// static global_data_t drcctlib_gdata;
 
-    unordered_map<uint64, void *> bbShadowMap;
-    unordered_map<uint64, void *> bbShadowMapInsState;
+static int drcctlib_init_count = 0;
+/* TLS.  OK to be callback-shared: just more nesting. */
+static int tls_idx;
 
-    void *lock;
+static instr_instrument_cb_str_t global_instr_instrument_pre_cb_str;
+static instr_instrument_cb_str_t global_instr_instrument_post_cb_str;
 
-    IsInterestingInsFptr isInterestingIns;
+static void *flags_lock;
+/* protected by flags_lock */
+static drcctlib_global_flags_t global_flags = DRCCTLIB_DEFAULT;
 
-    unordered_map<uint64, vector<pair<app_pc, string>>> blockInterestInstrs;
+static drcctlib_interest_filter_t global_interest_filter = (drcctlib_interest_filter_t)DRCCTLIB_FILTER_ZERO_INSTR;
 
-    // key for accessing TLS storage in the threads. initialized once in main()
-    /**
-     * set tls field different with Pin
-     * dynamorio: (drcontect, tlskey)->tData;
-     * pin: (threadid, tlskey)->tData
-     **/
-    TLS_KEY CCTLibTlsKey __attribute__((
-        aligned(128))); // align to eliminate any false
-                                             // sharing with other  members
-    // initial value = 0
-    uint32_t numThreads __attribute__((
-        aligned(128))); // align to eliminate any false
-                                             // sharing with other  members
-    unordered_map<uint32_t, ThreadData *> threadDataMap;
-    // keys to associate parent child threads
-    volatile uint64_t threadCreateCount __attribute__((
-        aligned(128))); // initial value = 0  // align to eliminate
-                                             // any false sharing with other  members
-    volatile uint64_t threadCaptureCount __attribute__((
-        aligned(128))); // initial value = 0  // align to eliminate
-                                             // any false sharing with other  members
-    volatile BBNode *threadCreatorBBNode __attribute__((
-        aligned(128))); // align to eliminate any false
-                                             // sharing with other  members
-    volatile ContextHandle_t threadCreatorCtxtHndl __attribute__((
-        aligned(128))); // align to eliminate any false
-                                             // sharing with other  members
-    volatile bool DSLock;
+static cct_ip_node_t *global_ip_node_buff;
+static context_handle_t global_ip_node_buff_idle_idx;
 
-    CCTLibCallbackFuncStruct *callbackFuncs;
-};
+static hashtable_t global_bb_shadow_table;
 
-#ifndef __GNUC__
-#    pragma endregion DataStructRegion
-#endif
-// thread shared global veriables
-static GlobalState g_GlobalState;
+// static hashtable_t global_threadDataMap;
+static void *thread_manager_lock;
+/* protected by thread_manager_lock */
+static pt_id_t global_thread_id_max = 0;
+static pt_id_t global_thread_create_count = 0;
+static pt_id_t global_thread_capture_count = 0;
+static cct_bb_node_t *cur_thread_create_bb_node = NULL;
+static context_handle_t cur_thread_create_ctxt_hndl = 0;
 
+static file_t global_logfile;
+
+static hashtable_t global_pt_cache_map;
+
+static char *global_string_pool;
+static int global_string_pool_idle_idx;
 static ConcurrentShadowMemory<DataHandle_t> g_DataCentricShadowMemory;
 
-#ifndef __GNUC__
-#    pragma region PrivateFunctionRegion
-#endif
 
-static inline ContextHandle_t
-GetContextHandleFromIPNode(IPNode *ipNode)
-{
-    return ((ContextHandle_t)(
-        (ipNode) ? ((ipNode)-g_GlobalState.preAllocatedContextBuffer) : 0));
-}
-static inline IPNode *
-GetIPNodeFromContextHandle(ContextHandle_t contextHandle)
-{
-    return g_GlobalState.preAllocatedContextBuffer + contextHandle;
-}
-static inline bool
-IsValidContextHandle(ContextHandle_t contextHandle)
-{
-    return contextHandle != 0;
-}
+#define BB_TABLE_HASH_BITS 10
+#define BB_SUB_TABLE_HASH_BITS 6
+#define PT_LONGJMP_BUFF_TABLE_HASH_BITS 4
+#define PT_CACHE_TABLE_HASH_BITS 6
 
-static inline void
-CCTLibCallbackFunc(CCTLibCallbackFuncStruct *funcsStructPtr,
-                           CCTLibCallbackState callbackState)
+#define X86_DIRECT_CALL_SITE_ADDR_FROM_RETURN_ADDR(callsite) \
+    (callsite - 5)
+#define X86_INDIRECT_CALL_SITE_ADDR_FROM_RETURN_ADDR(callsite) \
+    (callsite - 2)
+
+#define FUNC_NAME_PTHREAD_CREATE "pthread_create"
+
+#define MODULE_NAME_INSTRUMENT_JMP "libc.so"
+#define FUNC_NAME_ARCH_LONGJMP "__longjmp"
+#define FUNC_NAME_SETJMP "_setjmp"
+#define FUNC_NAME_LONGJMP FUNC_NAME_ARCH_LONGJMP
+#define FUNC_NAME_SIGSETJMP "sigsetjmp"
+#define FUNC_NAME_SIGLONGJMP FUNC_NAME_ARCH_LONGJMP
+
+#define MODULE_NAME_INSTRUMENT_EXCEPTION "libgcc_s.so"
+#define FUNC_NAME_UNWIND_SETIP "_Unwind_SetIP"
+#define FUNC_NAME_UNWIND_RAISEEXCEPTION "_Unwind_RaiseException"
+#define FUNC_NAME_UNWIND_RESUME "_Unwind_Resume"
+#define FUNC_NAME_UNWIND_FORCEUNWIND "_Unwind_ForcedUnwind"
+#define FUNC_NAME_UNWIND_RESUME_OR_RETHROW "_Unwind_Resume_or_Rethrow"
+
+#define FUNC_NAME_MALLOC "malloc"
+#define FUNC_NAME_CALLOC "calloc"
+#define FUNC_NAME_REALLOC "realloc"
+#define FUNC_NAME_FREE "free"
+
+#define MAX_CCT_PRINT_DEPTH 5
+
+
+//ctxt ipnode
+static inline context_handle_t
+drcctlib_ip_to_ctxt(cct_ip_node_t *ip)
 {
-    if (funcsStructPtr == nullptr) {
-        return;
-    }
-    switch (callbackState) {
-    case CCTLibInitCallback:
-        if (funcsStructPtr->initFunc != nullptr) {
-            (funcsStructPtr->initFunc)();
-        }
-        break;
-    case CCTLibFiniCallback:
-        if (funcsStructPtr->finiFunc != nullptr) {
-            (funcsStructPtr->finiFunc)();
-        }
-        break;
-    case CCTLibThreadStartCallback:
-        if (funcsStructPtr->threadStartFunc != nullptr) {
-            (funcsStructPtr->threadStartFunc)();
-        }
-        break;
-    case CCTLibThreadEndCallback:
-        if (funcsStructPtr->threadEndFunc != nullptr) {
-            (funcsStructPtr->threadEndFunc)();
-        }
-        break;
-    }
+    return ((context_handle_t)((ip) ? ((ip)-global_ip_node_buff) : 0));
 }
 
-// function to get the next unique key for a basic block
-static uint64_t
-GetNextBBKey()
+static inline cct_ip_node_t *
+drcctlib_ctxt_to_ip(context_handle_t ctxt)
 {
-    static uint64_t bbKey = 0;
-    uint64_t key = __sync_fetch_and_add(&bbKey, 1);
+    return global_ip_node_buff + ctxt;
+}
 
-    if (key == UINT_MAX) {
-        cerr << "UINT_MAX basic blocks created! Exiting..." << endl;
+DR_EXPORT
+bool
+drcctlib_ctxt_is_valid(context_handle_t ctxt)
+{
+    return ctxt != 0;
+}
+
+static inline context_handle_t
+drcctlib_next_child_ctxt_start_idx(slot_t num)
+{
+    context_handle_t next_idx = ATOM_ADD_CTXT_HNDL(global_ip_node_buff_idle_idx, num);
+    if(next_idx >= CONTEXT_HANDLE_MAX) {
+        dr_printf("\nPreallocated IPNodes exhausted. CCTLib couldn't fit your "
+                   "application in its memory. Try a smaller program.\n");
         dr_exit_process(-1);
     }
 
+    return next_idx - num;
+}
+
+// instr state flag
+static inline bool
+instr_state_contain(char instr_state_flag, int identy_state_num, ...)
+{
+    bool res = true;
+    va_list identy_state_list;
+    va_start(identy_state_list, identy_state_num);
+    for (int i = 0; i < identy_state_num; i++) {
+        res =
+            res && ((instr_state_flag & va_arg(identy_state_list, drcctlib_instr_state_flag_t)) > 0);
+    }
+    va_end(identy_state_list);
+    return res;
+}
+
+static inline bool
+instr_need_instrument_check_f(char instr_state_flag)
+{
+    return instr_state_flag > 0;
+}
+
+static inline bool
+instr_need_instrument(instr_t *instr)
+{
+    if (instr_is_call_direct(instr) || instr_is_call_indirect(instr) ||
+        instr_is_return(instr)) {
+        return true;
+    }
+    if(global_interest_filter(instr)){
+        return true;
+    }
+    return false;
+}
+
+static inline void
+instr_state_init(instr_t *instr, char *instr_state_flag_ptr)
+{
+    if (global_interest_filter(instr)) {
+        *instr_state_flag_ptr = *instr_state_flag_ptr | DRCCTLIB_INSTR_STATE_USER_INTEREST;
+    }
+    if (instr_is_call_direct(instr)) {
+        *instr_state_flag_ptr = *instr_state_flag_ptr | DRCCTLIB_INSTR_STATE_CALL_DIRECT;
+    }
+    else if (instr_is_call_indirect(instr)) {
+        *instr_state_flag_ptr = *instr_state_flag_ptr | DRCCTLIB_INSTR_STATE_CALL_IN_DIRECT;
+    }
+    else if (instr_is_return(instr)) {
+        *instr_state_flag_ptr = *instr_state_flag_ptr | DRCCTLIB_INSTR_STATE_RETURN;
+    }
+}
+
+
+static inline slot_t
+bb_get_num_interest_instr(instr_t *bb_first, instr_t *bb_last_next)
+{
+    slot_t num = 0;
+    for (instr_t *instr = bb_first; instr != bb_last_next;
+         instr = instr_get_next_app(instr)) {
+        if (instr_need_instrument(instr)) {
+            num++;
+        }
+    }
+    return num;
+}
+
+static inline bb_key_t
+bb_get_new_key()
+{
+    static bb_key_t global_bb_next_key = 0;
+    bb_key_t key = ATOM_GET_NEXT_BB_KEY(global_bb_next_key);
+    key = key - 1;
+    if (key == BB_KEY_MAX) {
+        dr_printf("MAX basic blocks created! Exiting..\n");
+        dr_exit_process(-1);
+    }
+    // dr_printf("bb_get_new_key %d\n", key);
     return key;
 }
 
-// function to access thread-specific data
-static inline ThreadData *
-CCTLibGetTLS(void *drcontext)
-{
-    ThreadData *tData = static_cast<ThreadData *>(
-        drmgr_get_tls_field(drcontext, g_GlobalState.CCTLibTlsKey));
-    return tData;
-}
+// static inline bool
+// bb_is_fragment_in_funcs(instr_t *start, const char* mode_name, int num_func, ...)
+// {
+//     module_data_t *mdata;
+//     app_pc start_addr = instr_get_app_pc(start);
+//     mdata = dr_lookup_module(start_addr);
+//     if(mdata == NULL || strstr(dr_module_preferred_name(mdata), mode_name) == NULL) {
+//         return false;
+//     }
+//     drsym_error_t symres;
+//     drsym_info_t sym;
+//     char name[MAXIMUM_SYMNAME];
+//     char file[MAXIMUM_PATH];
+//     sym.struct_size = sizeof(sym);
+//     sym.name = name;
+//     sym.name_size = MAXIMUM_SYMNAME;
+//     sym.file = file;
+//     sym.file_size = MAXIMUM_PATH;
+//     symres = drsym_lookup_address(mdata->full_path, start_addr - mdata->start, &sym,
+//                                   DRSYM_DEFAULT_FLAGS);
+//     if (symres != DRSYM_SUCCESS && symres != DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+//         return false;
+//     }
+//     bool res = false;
+//     va_list func_name_list;
+//     va_start(func_name_list, num_func);
+//     for (int i = 0; i < num_func; i++) {
+//         res =
+//             res || (strcmp(sym.name, va_arg(func_name_list, const char *)) == 0);
+//     }
+//     va_end(func_name_list);
+//     return res;
+// }
 
-static inline ThreadData *
-CCTLibGetTLS(uint32_t threadIndex)
-{
-    ThreadData *tData = g_GlobalState.threadDataMap[threadIndex];
-    return tData;
-}
+// static inline  bool
+// bb_is_fragment_in_module(instr_t *start, const char* mode_name)
+// {
+//     module_data_t *mdata;
+//     app_pc start_addr = instr_get_app_pc(start);
+//     mdata = dr_lookup_module(start_addr);
+//     if(mdata == NULL || strstr(dr_module_preferred_name(mdata), mode_name) == NULL) {
+//         return false;
+//     }
+//     return true;
+// }
 
-static inline ThreadData *
-CCTLibGetTLS()
-{
-    ThreadData *tData = static_cast<ThreadData *>(
-        drmgr_get_tls_field(dr_get_current_drcontext(), g_GlobalState.CCTLibTlsKey));
-    return tData;
-}
-
-static inline void
-UpdateCurBBAndIp(ThreadData *tData, BBNode *const bbNode, ContextHandle_t const ctxtHndle)
-{
-    tData->tlsCurrentBBNode = bbNode;
-    tData->tlsCurrentChildContextStartIndex = bbNode->childCtxtStartIdx;
-    tData->tlsCurrentCtxtHndl = ctxtHndle;
-}
-
-static inline void
-UpdateCurBBAndIp(ThreadData *tData, BBNode *const bbNode)
-{
-    UpdateCurBBAndIp(tData, bbNode, bbNode->childCtxtStartIdx);
-}
-
-static inline void
-UpdateCurBBOnly(ThreadData *tData, BBNode *const bbNode)
-{
-    tData->tlsCurrentBBNode = bbNode;
-    tData->tlsCurrentChildContextStartIndex = bbNode->childCtxtStartIdx;
-}
 
 static bool
-IsRootIPNode(ContextHandle_t curCtxtHndle, uint32_t *threadId)
+has_same_func(app_pc pc1, app_pc pc2)
 {
-    *threadId = -1;
-    for (uint32_t index = 0; index < g_GlobalState.numThreads; index++) {
-        ThreadData *tData = g_GlobalState.threadDataMap[index];
-
-        if (tData->tlsRootCtxtHndl == curCtxtHndle){
-            *threadId = index;
-            return true;
-        }
+    module_data_t *mdata1, *mdata2;
+    mdata1 = dr_lookup_module(pc1);
+    mdata2 = dr_lookup_module(pc2);
+    if(strcmp(dr_module_preferred_name(mdata1), dr_module_preferred_name(mdata1))!=0){
+        return false;
     }
-    return false;
+    drsym_error_t symres1, symres2;
+    drsym_info_t sym1, sym2;
+    char name1[MAXIMUM_SYMNAME];
+    char name2[MAXIMUM_SYMNAME];
+    char file1[MAXIMUM_PATH];
+    char file2[MAXIMUM_PATH];
+    sym1.struct_size = sizeof(sym1);
+    sym1.name = name1;
+    sym1.name_size = MAXIMUM_SYMNAME;
+    sym1.file = file1;
+    sym1.file_size = MAXIMUM_PATH;
+    symres1 = drsym_lookup_address(mdata1->full_path, pc1 - mdata1->start, &sym1,
+                                  DRSYM_DEFAULT_FLAGS);
+    sym2.struct_size = sizeof(sym2);
+    sym2.name = name2;
+    sym2.name_size = MAXIMUM_SYMNAME;
+    sym2.file = file2;
+    sym2.file_size = MAXIMUM_PATH;
+    symres2 = drsym_lookup_address(mdata2->full_path, pc2 - mdata2->start, &sym2,
+                                  DRSYM_DEFAULT_FLAGS);
+    if ((symres1 != DRSYM_SUCCESS && symres1 != DRSYM_ERROR_LINE_NOT_AVAILABLE) ||
+        (symres2 != DRSYM_SUCCESS && symres2 != DRSYM_ERROR_LINE_NOT_AVAILABLE))
+    {
+        return false;
+    }
+    if(strcmp(sym1.name, sym2.name) != 0) 
+    {
+        return false;
+    }
+    return true;
+}
+
+static inline bb_shadow_t* 
+bb_shadow_create(slot_t num, bool is_in_exception_moudle)
+{
+    bb_shadow_t* bb_shadow = (bb_shadow_t *)dr_global_alloc(sizeof(bb_shadow_t));
+    bb_shadow->slot_num = num;
+    bb_shadow->ip_shadow = (app_pc *)dr_global_alloc(num * sizeof(app_pc));
+    bb_shadow->state_shadow = (char *)dr_global_alloc(num * sizeof(char));
+    bb_shadow->disasm_shadow = (char *)dr_global_alloc(DISASM_CACHE_SIZE * num * sizeof(char*));
+    bb_shadow->is_in_exception_moudle = is_in_exception_moudle;
+    return bb_shadow;
 }
 
 static inline void
-TakeLock()
+bb_shadow_free(void *shadow)
 {
-    do {
-        while (g_GlobalState.DSLock)
-            ;
-    } while (!__sync_bool_compare_and_swap(&g_GlobalState.DSLock, 0, 1));
+    bb_shadow_t *bb_shadow = (bb_shadow_t *)shadow;
+    slot_t num = bb_shadow->slot_num;
+    dr_global_free((void *)bb_shadow->ip_shadow, num * sizeof(app_pc));
+    dr_global_free((void *)bb_shadow->state_shadow, num * sizeof(char));
+    dr_global_free((void *)bb_shadow->disasm_shadow, DISASM_CACHE_SIZE * num * sizeof(char *));
+    dr_global_free(shadow, sizeof(bb_shadow_t));
 }
 
 static inline void
-ReleaseLock()
+cct_bb_node_free(void *node)
 {
-    g_GlobalState.DSLock = 0;
+    dr_global_free((cct_bb_node_t *)node, sizeof(cct_bb_node_t));
 }
 
-// Pauses creator thread from thread creation until the previously created child
-// thread has noted its parent.
-static void
-ThreadCreatePoint(void *wrapcxt, void *user_data)
+static inline cct_bb_node_t *
+cct_bb_node_create(per_thread_t *pt, bb_key_t key, slot_t num)
 {
-    cerr<<"ThreadCreatePoint"<<endl;
-    while (1) {
-        TakeLock();
-
-        if (g_GlobalState.threadCreateCount > g_GlobalState.threadCaptureCount)
-            ReleaseLock();
-        else
-            break;
+    cct_bb_node_t *new_node = (cct_bb_node_t *)dr_global_alloc(sizeof(cct_bb_node_t));
+    new_node->caller_ctxt_hndl = pt->cur_ctxt_hndl;
+    new_node->key = key;
+    if (num <= 0) {
+        num = 1;
     }
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    g_GlobalState.threadCreatorBBNode = tData->tlsCurrentBBNode;
-    g_GlobalState.threadCreatorCtxtHndl = tData->tlsCurrentCtxtHndl;
-
-    g_GlobalState.threadCreateCount++;
-    ReleaseLock();
-    cerr<<"EndThreadCreatePoint"<<endl;
-}
-
-// Sets the child thread's CCT's parent to its creator thread's CCT node.
-static inline void
-ThreadCapturePoint(ThreadData *tData)
-{
-    // cerr<<"ThreadCapturePoint"<<endl;
-    TakeLock();
-    if (g_GlobalState.threadCreateCount == g_GlobalState.threadCaptureCount) {
-        // Base thread, no parent
-        // fprintf(g_GlobalState.logFile, "\n ThreadCapturePoint, no parent ");
-    } else {
-        // This will be always 0 for flat profiles
-        tData->tlsParentThreadBBNode = (BBNode *)g_GlobalState.threadCreatorBBNode;
-        tData->tlsParentThreadCtxtHndl = g_GlobalState.threadCreatorCtxtHndl;
-        // fprintf(g_GlobalState.logFile, "\n ThreadCapturePoint, parent BB =
-        // %p, parent ip = %p", g_GlobalState.threadCreatorBBNode,
-        // g_GlobalState.threadCreatorCtxtHndl);
-        g_GlobalState.threadCaptureCount++;
+    new_node->child_ctxt_start_idx = drcctlib_next_child_ctxt_start_idx(num);
+    new_node->max_slots = num;
+    cct_ip_node_t *child = drcctlib_ctxt_to_ip(new_node->child_ctxt_start_idx);
+    for (slot_t i = 0; i < num; ++i) {
+        child[i].parent_bb_node = new_node;
+        child[i].callee_splay_tree = splay_tree_create(cct_bb_node_free);
     }
-    ReleaseLock();
-    // cerr<<"EndThreadCapturePoint"<<endl;
-}
-
-static inline ContextHandle_t
-GetNextIPVecBuffer(uint32_t num)
-{
-    // Multithreaded compatible
-    // ensure (oldBufIndex = g_GlobalState.curPreAllocatedContextBufferIndex)
-    // g_GlobalState.curPreAllocatedContextBufferIndex = next pre allocated
-    uint32_t oldBufIndex =
-        __sync_fetch_and_add(&g_GlobalState.curPreAllocatedContextBufferIndex, num);
-
-    if (oldBufIndex + num >= kMaxIPNodesNum) {
-        dr_fprintf(g_GlobalState.logFile,
-                   "\nPreallocated IPNodes exhausted. CCTLib couldn't fit your application in its memory. Try a smaller program.\n");
-        dr_exit_process(-1);
-    }
-
-    return (ContextHandle_t)oldBufIndex;
-}
-
-static inline uint32_t __attribute__((__unused__)) GetNextStringPoolIndex(char *name)
-{
-    uint32_t len = strlen(name) + 1;
-    uint64_t oldStringPoolIndex =
-        __sync_fetch_and_add(&g_GlobalState.curPreAllocatedStringPoolIndex, len);
-
-    if (oldStringPoolIndex + len >= kMaxStringPoolNodesNum) {
-        dr_fprintf(g_GlobalState.logFile,
-                   "\nPreallocated String Pool exhausted. CCTLib couldn't fit your "
-                   "application "
-                   "in its memory. Try by changing kMaxStringPoolNodesNum "
-                   "macro.\n");
-        dr_exit_process(-1);
-    }
-
-    // copy contents
-    strncpy(g_GlobalState.preAllocatedStringPool + oldStringPoolIndex, name, len);
-    return oldStringPoolIndex;
+    
+    return new_node;
 }
 
 static inline void
-CCTLibInitThreadData(void *drcontext, ThreadData *const tData, uint32_t threadId)
+pt_init(void *drcontext, per_thread_t *const pt, pt_id_t id)
 {
-    BBNode *bbNode = new BBNode();
-    bbNode->callerCtxtHndl = 0;
-    bbNode->nSlots = 1;
-    bbNode->childCtxtStartIdx = GetNextIPVecBuffer(1);
-    IPNode *ipNode = GetIPNodeFromContextHandle(bbNode->childCtxtStartIdx);
-    ipNode->parentBBNode = bbNode;
-    ipNode->calleeBBNodes = nullptr;
+    cct_bb_node_t *bb_node = (cct_bb_node_t *)dr_global_alloc(sizeof(cct_bb_node_t));
+    bb_node->key = -1;
+    bb_node->caller_ctxt_hndl = 0;
+    bb_node->max_slots = 1;
+    bb_node->child_ctxt_start_idx = drcctlib_next_child_ctxt_start_idx(1);
+    cct_ip_node_t *ipNode = drcctlib_ctxt_to_ip(bb_node->child_ctxt_start_idx);
+    ipNode->parent_bb_node = bb_node;
+    ipNode->callee_splay_tree = splay_tree_create(cct_bb_node_free);
 
-    tData->tlsThreadId = threadId;
-    tData->tlsRootBBNode = bbNode;
-    tData->tlsRootCtxtHndl = bbNode->childCtxtStartIdx;
-    UpdateCurBBAndIp(tData, bbNode);
-    tData->tlsParentThreadCtxtHndl = 0;
-    tData->tlsParentThreadBBNode = nullptr;
-#ifdef CCTLIB_USE_STACK_STATUS
-    RESET_STACK_STATUS(tData->tlsStackStatus);
-    SET_STACK_STATUS(tData->tlsStackStatus, CALL_INITIATED);
-#else
-    tData->tlsInitiatedCall = true;
-#endif
+    pt->id = id;
 
-    tData->tlsLongJmpMap = new unordered_map<uint64_t, ContextHandle_t>();
-    tData->tlsCurSlotNo = 0;
+    pt->cur_ctxt_hndl = bb_node->child_ctxt_start_idx;
+    pt->cur_bb_node = bb_node;
+    pt->cur_slot_idx = 0;
+    
+    pt->root_ctxt_hndl = bb_node->child_ctxt_start_idx;
+    pt->root_bb_node = bb_node;
+
+    pt->parent_thread_ctxt_hndl = 0;
+    pt->parent_thread_bb_node = NULL;
+
+    pt->exception_hndl_ctxt_hndle = 0;
+    pt->exception_hndl_bb_node = NULL;
+    pt->exception_hndl_pc = 0;
+    pt->in_exception = false;
+
+    pt->inited_call = true;
+
+    pt->long_jmp_buff_tb = (hashtable_t *)dr_thread_alloc(drcontext, sizeof(hashtable_t));
+    hashtable_init(pt->long_jmp_buff_tb, PT_LONGJMP_BUFF_TABLE_HASH_BITS, HASH_INTPTR, false);
+    pt->long_jmp_hold_buff = NULL;
 
     // Set stack sizes if data-centric is needed
-    if (g_GlobalState.doDataCentric) {
-        uint64_t s = (uint64_t)reg_get_value(DR_REG_RSP, (dr_mcontext_t *)drcontext);
-        tData->tlsStackBase = (void *)s;
-        struct rlimit rlim;
+    void * s = (void *)(ptr_int_t)reg_get_value(DR_REG_RSP, (dr_mcontext_t *)drcontext);
+    pt->stack_base = (void *)s;
+    struct rlimit rlim;
 
-        if (getrlimit(RLIMIT_STACK, &rlim)) {
-            cerr << "\n Failed to getrlimit()\n";
-            dr_exit_process(-1);
-        }
-
-        if (rlim.rlim_cur == RLIM_INFINITY) {
-            cerr << "\n Need a finite stack size. Dont use unlimited.\n";
-            dr_exit_process(-1);
-        }
-
-        tData->tlsStackEnd = (void *)(s - rlim.rlim_cur);
+    if (getrlimit(RLIMIT_STACK, &rlim)) {
+        dr_printf("\n Failed to getrlimit()\n");
+        dr_exit_process(-1);
     }
-}
 
-
-static void
-CCTLibThreadStart(void *drcontext)
-{
-    uint32_t threadId = -1;
-    dr_mutex_lock(g_GlobalState.lock);
-    threadId = g_GlobalState.numThreads;
-    g_GlobalState.numThreads++;
-    dr_mutex_unlock(g_GlobalState.lock);
-
-    void *tData = dr_thread_alloc(drcontext, sizeof(ThreadData));
-    DR_ASSERT(tData != NULL);
-
-    CCTLibInitThreadData(drcontext, (ThreadData *)tData, threadId);
-    g_GlobalState.threadDataMap[threadId] = (ThreadData *)tData;
-    drmgr_set_tls_field(drcontext, g_GlobalState.CCTLibTlsKey, tData);
-    ThreadCapturePoint((ThreadData *)tData);
-
-    CCTLibCallbackFunc(g_GlobalState.callbackFuncs, CCTLibThreadStartCallback);
-}
-
-static void
-CCTLibThreadEnd(void *drcontext)
-{
-    CCTLibCallbackFunc(g_GlobalState.callbackFuncs, CCTLibThreadEndCallback);
-    ThreadData *tData =
-        (ThreadData *)drmgr_get_tls_field(drcontext, g_GlobalState.CCTLibTlsKey);
-    g_GlobalState.threadDataMap.erase(tData->tlsThreadId);
-    delete tData->tlsLongJmpMap;
-    dr_thread_free(drcontext, tData, sizeof(ThreadData));
-}
-
-static void
-AtCall(uint slot)
-{
-    ThreadData *tData = (ThreadData *)drmgr_get_tls_field(dr_get_current_drcontext(),
-                                                          g_GlobalState.CCTLibTlsKey);
-#ifdef CCTLIB_USE_STACK_STATUS
-    SET_STACK_STATUS(tData->tlsStackStatus, CALL_INITIATED);
-#else
-    tData->tlsInitiatedCall = true;
-#endif
-    tData->tlsCurrentCtxtHndl = tData->tlsCurrentBBNode->childCtxtStartIdx + slot;
-}
-
-static void
-AtReturn()
-{
-    // cerr<<"atreturn"<<endl;
-    ThreadData *tData = (ThreadData *)drmgr_get_tls_field(dr_get_current_drcontext(),
-                                                          g_GlobalState.CCTLibTlsKey);
-    // If we reach the root trace, then fake the call
-    if (tData->tlsCurrentBBNode->callerCtxtHndl == tData->tlsRootCtxtHndl) {
-#ifdef CCTLIB_USE_STACK_STATUS
-        SET_STACK_STATUS(tData->tlsStackStatus, CALL_INITIATED);
-#else
-        tData->tlsInitiatedCall = true;
-#endif
+    if (rlim.rlim_cur == RLIM_INFINITY) {
+        dr_printf("\n Need a finite stack size. Dont use unlimited.\n");
+        dr_exit_process(-1);
     }
-    tData->tlsCurrentCtxtHndl = tData->tlsCurrentBBNode->callerCtxtHndl;
-    UpdateCurBBOnly(
-        tData,
-        GetIPNodeFromContextHandle(tData->tlsCurrentCtxtHndl)->parentBBNode);
+
+    pt->stack_end = (void *)((ptr_int_t)s - rlim.rlim_cur);
+    pt->dmem_alloc_size = 0;
+    pt->dmem_alloc_ctxt_hndl = 0;
 }
 
-static void
-RememberSlotNoInTLS(uint slot)
+static inline void
+pt_cache_free(void *cache)
 {
-    ThreadData *tData = (ThreadData *)drmgr_get_tls_field(dr_get_current_drcontext(),
-                                                          g_GlobalState.CCTLibTlsKey);
-    tData->tlsCurSlotNo = slot;
+    pt_cache_t *pt_cache = (pt_cache_t *)cache;
+    dr_global_free(pt_cache->cache_data, sizeof(per_thread_t));
+    dr_global_free(cache, sizeof(pt_cache_t));
 }
 
-static inline bool
-IsCallOrRetIns(instr_t *ins)
+static inline void
+pt_update_cur_bb_and_ip(per_thread_t *pt, cct_bb_node_t *bb_node,
+                        context_handle_t ctxt_hndle)
 {
-    if (instr_is_call_direct(ins) || instr_is_call_indirect(ins) ||
-        instr_is_return(ins)) {
-        return true;
-    }
-    return false;
+    pt->cur_bb_node = bb_node;
+    pt->cur_ctxt_hndl = ctxt_hndle;
 }
 
-static inline bool
-IsCallIns(instr_t *ins)
+static inline void
+pt_update_cur_bb(per_thread_t *pt, cct_bb_node_t *bb_node)
 {
-    if (instr_is_call_direct(ins) || instr_is_call_indirect(ins)) {
-        return true;
-    }
-    return false;
+    pt->cur_bb_node = bb_node;
 }
 
-static inline uint32_t
-GetNumInterestingInsInBB(instrlist_t *bb)
+static inline app_pc
+moudle_get_function_entry(const module_data_t *info, const char* func_name,
+                          bool check_internal_func)
 {
-    uint32_t count = 0;
-    instr_t *start = instrlist_first_app(bb);
-    for (instr_t *ins = start; ins != NULL; ins = instr_get_next_app(ins)) {
-        if (IsCallOrRetIns(ins) || g_GlobalState.isInterestingIns(ins)) {
-            count++;
-        }
-    }
-    return count;
-}
-
-static BBSplay *
-UpdateSplayTree(BBSplay *root, uint32_t newKey)
-{
-    if (root != nullptr) {
-        BBSplay *dummyNode = new BBSplay();
-        BBSplay *ltreeMaxNode, *rtreeMinNode, *tempNode;
-        ltreeMaxNode = rtreeMinNode = dummyNode;
-        while (newKey != root->key) {
-            if (newKey < root->key) {
-                if (root->left == nullptr) {
-                    BBSplay *newRoot = new BBSplay();
-                    newRoot->key = newKey;
-                    root->left = newRoot;
-                }
-                if (newKey < root->left->key) {
-                    tempNode = root->left;
-                    root->left = tempNode->right;
-                    tempNode->right = root;
-                    root = tempNode;
-                    if (root->left == nullptr) {
-                        BBSplay *newRoot = new BBSplay();
-                        newRoot->key = newKey;
-                        root->left = newRoot;
-                    }
-                }
-                rtreeMinNode->left = root;
-                rtreeMinNode = root;
-                root = root->left;
-            } else if (newKey > root->key) {
-                if (root->right == nullptr) {
-                    BBSplay *newRoot = new BBSplay();
-                    newRoot->key = newKey;
-                    root->right = newRoot;
-                }
-                if (newKey > root->right->key) {
-                    tempNode = root->right;
-                    root->right = tempNode->left;
-                    tempNode->left = root;
-                    root = tempNode;
-                    if (root->right == nullptr) {
-                        BBSplay *newRoot = new BBSplay();
-                        newRoot->key = newKey;
-                        root->right = newRoot;
-                    }
-                }
-                ltreeMaxNode->right = root;
-                ltreeMaxNode = root;
-                root = root->right;
-            }
-        }
-        ltreeMaxNode->right = root->left;
-        rtreeMinNode->left = root->right;
-        root->left = dummyNode->right;
-        root->right = dummyNode->left;
-    } else {
-        BBSplay *newRoot = new BBSplay();
-        newRoot->key = newKey;
-        root = newRoot;
-    }
-    return root;
-}
-
-static void
-AtBBEntry(uint newKey, uint numInstrs)
-{
-    ThreadData *tData = (ThreadData *)drmgr_get_tls_field(dr_get_current_drcontext(),
-                                                          g_GlobalState.CCTLibTlsKey);
-#ifdef CCTLIB_USE_STACK_STATUS
-    // If the stack pointer is stashed, reset the tlsCurrentBbNode to the root
-    if (IS_STACK_STATUS(tData->tlsStackStatus, STACK_PTR_STASHED)) {
-        tData->tlsCurrentCtxtHndl = tData->tlsRootCtxtHndl;
-    } else if (!IS_STACK_STATUS(tData->tlsStackStatus,
-                                         CALL_INITIATED)) {
-        // if landed here w/o a call instruction, then let's make this bb a sibling.
-        // The trick to do it is to go to the parent BbNode and make this bb a child
-        // of it
-        tData->tlsCurrentCtxtHndl = tData->tlsCurrentBBNode->callerCtxtHndl;
-    } else {
-        // tlsCurrentCtxtHndl must be pointing to the call IP in the parent bb
-    }
-    RESET_STACK_STATUS(tData->tlsStackStatus);
-#else
-    if (!tData->tlsInitiatedCall) {
-        tData->tlsCurrentCtxtHndl = tData->tlsCurrentBBNode->callerCtxtHndl;
-    } else {
-        tData->tlsInitiatedCall = false;
-    }
-#endif
-
-    IPNode *curParent =
-        GetIPNodeFromContextHandle(tData->tlsCurrentCtxtHndl);
-    BBSplay *newTreeRoot = UpdateSplayTree(curParent->calleeBBNodes, newKey);
-    BBNode *treeRootBBNode = newTreeRoot->value;
-    if (treeRootBBNode == nullptr) {
-        treeRootBBNode = new BBNode();
-        treeRootBBNode->callerCtxtHndl = tData->tlsCurrentCtxtHndl;
-        treeRootBBNode->bbKey = (uint64_t)newKey;
-        if (numInstrs) {
-            treeRootBBNode->childCtxtStartIdx = GetNextIPVecBuffer(numInstrs);
-            treeRootBBNode->nSlots = numInstrs;
-            IPNode *child = GetIPNodeFromContextHandle(
-                treeRootBBNode->childCtxtStartIdx);
-            for (uint i = 0; i < numInstrs; ++i) {
-                child[i].parentBBNode = treeRootBBNode;
-                child[i].calleeBBNodes = nullptr;
-            }
+    app_pc functionEntry;
+    if (check_internal_func) {
+        size_t offs;
+        if (drsym_lookup_symbol(info->full_path, func_name, &offs,
+                                DRSYM_DEMANGLE) == DRSYM_SUCCESS) {
+            functionEntry = offs + info->start;
         } else {
-            treeRootBBNode->childCtxtStartIdx = 0;
-            treeRootBBNode->nSlots = 0;
-        }
-    }
-    curParent->calleeBBNodes = newTreeRoot;
-    UpdateCurBBAndIp(tData, treeRootBBNode);
-}
-
-#ifdef CCTLIB_USE_STACK_STATUS
-    static inline void
-    SetCallStackPtrStashFlag()
-    {
-        ThreadData *tData = (ThreadData *)drmgr_get_tls_field(dr_get_current_drcontext(),
-                                                            g_GlobalState.CCTLibTlsKey);
-        SET_STACK_STATUS(tData->tlsStackStatus, STACK_PTR_STASHED);
-    }
-
-    static bool
-    TrashesStackPtr(instr_t *instr)
-    {
-        bool result = false;
-        bool read = false;
-        bool write = false;
-        bool isImplicit = false;
-        // stack ptr is modified
-        int numReadDsts = instr_num_srcs(instr);
-        for (int i = 0; i < numReadDsts; i++) {
-            opnd_t opnd = instr_get_src(instr, i);
-            if (opnd_is_reg(opnd)) {
-                if (opnd_get_reg(opnd) == DR_REG_ESP || opnd_get_reg(opnd) == DR_REG_RSP) {
-                    read = true;
-                    break;
-                }
-            }
-        }
-        int numWriteDsts = instr_num_dsts(instr);
-        for (int i = 0; i < numWriteDsts; i++) {
-            opnd_t opnd = instr_get_dst(instr, i);
-            if (opnd_is_reg(opnd)) {
-                if (opnd_get_reg(opnd) == DR_REG_ESP || opnd_get_reg(opnd) == DR_REG_RSP) {
-                    write = true;
-                    break;
-                }
-            }
-        }
-
-        /*
-
-        */
-        if (!read && write && !isImplicit) {
-            char disassem[80];
-            instr_disassemble_to_buffer(dr_get_current_drcontext(), instr, disassem, 80);
-            string code(disassem);
-            cerr << code << endl;
-            result = true;
-        }
-        return result;
-    }
-#endif
-
-static inline Context_t
-GetContext(ContextHandle_t curCtxtHndle, app_pc addr, string code)
-{
-    drsym_error_t symres;
-    drsym_info_t sym;
-    char name[CCTLIB_MAXIMUM_SYMNAME];
-    char file[MAXIMUM_PATH];
-    module_data_t *data;
-    data = dr_lookup_module(addr);
-    if (data == NULL) {
-        Context_t context = { "badIp" /*functionName*/,
-                              "" /*filePath */,
-                              code /*disassembly*/,
-                              curCtxtHndle /*ctxtHandle*/,
-                              0 /*lineNo*/,
-                              addr /*ip*/ };
-        return context;
-    }
-    sym.struct_size = sizeof(sym);
-    sym.name = name;
-    sym.name_size = CCTLIB_MAXIMUM_SYMNAME;
-    sym.file = file;
-    sym.file_size = MAXIMUM_PATH;
-    symres = drsym_lookup_address(data->full_path, addr - data->start, &sym,
-                                  DRSYM_DEFAULT_FLAGS);
-    if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
-        if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
-            Context_t context = { 
-                sym.name /*functionName*/,
-                data->full_path,
-                code /*disassembly*/,
-                curCtxtHndle /*ctxtHandle*/,
-                0 /*lineNo*/,
-                addr /*ip*/ 
-            };
-            dr_free_module_data(data);
-            return context;
-        } else {
-            Context_t context = { 
-                sym.name /*functionName*/, 
-                data->full_path,
-                code /*disassembly*/,
-                curCtxtHndle /*ctxtHandle*/,
-                sym.line /*lineNo*/,
-                addr /*ip*/ 
-            };
-            dr_free_module_data(data);
-            return context;
+            functionEntry = NULL;
         }
     } else {
-        Context_t context = {
-            "<noname>",
-            data->full_path,
-            code /*disassembly*/,
-            curCtxtHndle /*ctxtHandle*/,
-            0 /*lineNo*/,
-            addr /*ip*/
-        };
-        dr_free_module_data(data);
-        return context;
+        functionEntry = (app_pc)dr_get_proc_address(info->handle, func_name);
     }
-}
-
-static inline Context_t
-GetContext(ContextHandle_t curCtxtHndle){
-    BBNode *bb = GetIPNodeFromContextHandle(curCtxtHndle)->parentBBNode;
-    return GetContext(
-                curCtxtHndle,
-                g_GlobalState
-                    .blockInterestInstrs[bb->bbKey][curCtxtHndle - bb->childCtxtStartIdx]
-                    .first,
-                g_GlobalState
-                    .blockInterestInstrs[bb->bbKey][curCtxtHndle - bb->childCtxtStartIdx]
-                    .second);
-}
-
-static inline bool
-IsAppInsContextHandle(ContextHandle_t curCtxtHndle){
-    BBNode *bb = GetIPNodeFromContextHandle(curCtxtHndle)->parentBBNode;
-    module_data_t *data;
-    data = dr_lookup_module(g_GlobalState
-                    .blockInterestInstrs[bb->bbKey][curCtxtHndle - bb->childCtxtStartIdx]
-                    .first);
-#ifdef DRCCTLIB_TEST
-    // cerr<<data->full_path<<endl;
-#endif
-    char appPath[] = "/home/dolanwm/Github/drcctlib/appsamples/build/sample1";
-    return strcmp(data->full_path, appPath) == 0;
+    return functionEntry;
 }
 
 static void
-PrintContext(app_pc addr, string code)
+pt_update_excetion_info(per_thread_t *pt, app_pc rtn_ip)
 {
-    drsym_error_t symres;
-    drsym_info_t sym;
-    char name[CCTLIB_MAXIMUM_SYMNAME];
-    char file[MAXIMUM_PATH];
-    module_data_t *data;
-    data = dr_lookup_module(addr);
-    if (data == NULL) {
-        dr_fprintf(g_GlobalState.logFile, " " PFX " ? ??:0\n", addr);
+    slot_t ip_slot = 0;
+    cct_bb_node_t *bb_node = pt->cur_bb_node;
+    app_pc direct_call_ip = X86_DIRECT_CALL_SITE_ADDR_FROM_RETURN_ADDR(rtn_ip);
+    app_pc in_direct_call_ip = X86_INDIRECT_CALL_SITE_ADDR_FROM_RETURN_ADDR(rtn_ip);
+
+    while (bb_node != pt->root_bb_node) {
+        bb_shadow_t *bb_shadow = (bb_shadow_t *)hashtable_lookup(
+            &global_bb_shadow_table, (void *)(ptr_int_t)(bb_node->key));
+        for (slot_t i = 0; i < bb_node->max_slots; i++) {
+            app_pc addr = bb_shadow->ip_shadow[i];
+            char flag = bb_shadow->state_shadow[i];
+            if (addr == direct_call_ip &&
+                instr_state_contain(flag, 1, DRCCTLIB_INSTR_STATE_CALL_DIRECT)) {
+                ip_slot = i;
+                pt->exception_hndl_bb_node = bb_node;
+                pt->exception_hndl_ctxt_hndle =
+                    pt->exception_hndl_bb_node->child_ctxt_start_idx + ip_slot;
+                pt->exception_hndl_pc = addr;
+                pt->in_exception = true;
+                return;
+            }
+            if (addr == in_direct_call_ip &&
+                instr_state_contain(flag, 1, DRCCTLIB_INSTR_STATE_CALL_IN_DIRECT)) {
+                ip_slot = i;
+                pt->exception_hndl_bb_node = bb_node;
+                pt->exception_hndl_ctxt_hndle =
+                    pt->exception_hndl_bb_node->child_ctxt_start_idx + ip_slot;
+                pt->exception_hndl_pc = addr;
+                pt->in_exception = true;
+
+                return;
+            }
+        }
+        bb_node = drcctlib_ctxt_to_ip(bb_node->caller_ctxt_hndl)->parent_bb_node;
+    }
+    dr_printf("pt_update_excetion_info error: bb_node == pt->root_bb_node\n");
+}
+
+
+
+
+
+
+DR_EXPORT
+drcctlib_instr_instrument_t *
+instr_instrument_create(instr_t *instr, void *callee,
+                        drcctlib_instr_instrument_pri_t priority, int num_args, ...)
+{
+    drcctlib_instr_instrument_t *instrument =
+        (drcctlib_instr_instrument_t *)dr_global_alloc(
+            sizeof(drcctlib_instr_instrument_t));
+    instrument->instr = instr;
+    instrument->priority = priority;
+    instrument->callee = callee;
+    instrument->num_args = num_args;
+    instrument->args_array = (opnd_t *)dr_global_alloc(sizeof(opnd_t) * num_args);
+    va_list args_list;
+    va_start(args_list, num_args);
+    for (int i = 0; i < num_args; i++) {
+        instrument->args_array[i] = va_arg(args_list, opnd_t);
+    }
+    va_end(args_list);
+    return instrument;
+}
+
+static inline void
+instr_instrument_delete(drcctlib_instr_instrument_t *instrument)
+{
+    if (instrument == NULL) {
         return;
     }
-    sym.struct_size = sizeof(sym);
-    sym.name = name;
-    sym.name_size = CCTLIB_MAXIMUM_SYMNAME;
-    sym.file = file;
-    sym.file_size = MAXIMUM_PATH;
-    symres = drsym_lookup_address(data->full_path, addr - data->start, &sym,
-                                  DRSYM_DEFAULT_FLAGS);
-    if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-        const char *modname = dr_module_preferred_name(data);
-        if (modname == NULL)
-            modname = "<noname>";
-        dr_fprintf(g_GlobalState.logFile, " " PFX ":%s, %s!%s+" PIFX, addr, code.c_str(),
-                   modname, sym.name, addr - data->start - sym.start_offs);
-        if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
-            dr_fprintf(g_GlobalState.logFile, " ??:0\n");
-        } else {
-            dr_fprintf(g_GlobalState.logFile, " %s:%" UINT64_FORMAT_CODE "+" PIFX "\n",
-                       sym.file, sym.line, sym.line_offs);
+    dr_global_free(instrument->args_array, sizeof(opnd_t) * instrument->num_args);
+    dr_global_free(instrument, sizeof(drcctlib_instr_instrument_t));
+}
+
+static inline drcctlib_instr_instrument_list_t *
+instr_instrument_list_create(bb_key_t bb_key)
+{
+    drcctlib_instr_instrument_list_t *list = (drcctlib_instr_instrument_list_t *)dr_global_alloc(sizeof(drcctlib_instr_instrument_list_t));
+    list->bb_key = bb_key;
+    list->instrument_num = 0;
+    list->first = list->last = list->next_insert = NULL;
+    return list;
+}
+
+static inline void
+instr_instrument_list_add(drcctlib_instr_instrument_list_t *list,
+                          drcctlib_instr_instrument_t *ninstrument)
+{
+    
+    drcctlib_instr_instrument_t *riter = list->last;
+    while (riter != NULL)
+    {
+        if(riter->instr != ninstrument->instr ||
+            (riter->instr == ninstrument->instr && riter->priority < ninstrument->priority))
+        {
+            break;
         }
-    } else
-        dr_fprintf(g_GlobalState.logFile, " " PFX " ? ??:0\n", addr);
-    dr_free_module_data(data);
+        riter = riter->pre;
+    }
+    if(riter == NULL){
+        if(list->instrument_num == 0) {
+            list->first = ninstrument;
+            list->last = ninstrument;
+            ninstrument->pre = NULL;
+            ninstrument->next = NULL;
+        }
+        else{
+            ninstrument->next = list->first;
+            ninstrument->pre = NULL;
+            list->first->pre = ninstrument;
+            list->first = ninstrument;
+        }
+    } else {
+        ninstrument->next = riter->next;
+        if (riter->next != NULL) {
+            riter->next->pre = ninstrument;
+        }
+        ninstrument->pre = riter;
+        riter->next = ninstrument;
+        if (riter == list->last) {
+            list->last = ninstrument;
+        }
+    }
+    list->instrument_num++;
+}
+
+static inline void
+instr_instrument_list_delete(drcctlib_instr_instrument_list_t *list)
+{
+    if (list == NULL) {
+        return;
+    }
+    for (drcctlib_instr_instrument_t *iter = list->first; iter != NULL; ) {
+        drcctlib_instr_instrument_t * next = iter->next;
+        instr_instrument_delete(iter);
+        iter = next;
+    }
+    list->first = NULL;
+    list->last = NULL;
+    list->next_insert = NULL;
+    dr_global_free(list, sizeof(drcctlib_instr_instrument_list_t));
+}
+
+static void
+instrument_before_every_i(slot_t slot)
+{
+    // dr_printf("instrument_before_every_i \n");
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    pt->cur_slot_idx = slot;
+}
+
+static void
+instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
+{
+    // dr_printf("new_key %d\n", new_key);
+    // dr_fprintf(global_logfile, "instrument_before_bb_first_i %d\n", new_key);
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (!pt->inited_call) {
+        pt->cur_ctxt_hndl = pt->cur_bb_node->caller_ctxt_hndl;
+    } else {
+        pt->inited_call = false;
+    }
+    splay_node_t* new_root = splay_tree_add_and_update(drcctlib_ctxt_to_ip(pt->cur_ctxt_hndl)->callee_splay_tree,
+                              (splay_node_key_t)new_key);
+    if(new_root->payload == NULL){
+        new_root->payload = (void*)cct_bb_node_create(pt, new_key, num);
+    }
+    cct_bb_node_t *cur_bb_node = (cct_bb_node_t *)new_root->payload;
+    pt_update_cur_bb_and_ip(pt, cur_bb_node, cur_bb_node->child_ctxt_start_idx);
+}
+
+static void
+instrument_before_call_i(slot_t slot)
+{
+    // dr_printf("instrument_before_call_i \n");
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    pt->inited_call = true;
+    pt->cur_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx + slot;
+}
+
+static void
+instrument_before_return_i()
+{
+    // dr_printf("instrument_before_return_i \n");
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    // If we reach the root trace, then fake the call
+    if (pt->cur_bb_node->caller_ctxt_hndl == pt->root_ctxt_hndl) {
+        pt->inited_call = true;
+    }
+    pt->cur_ctxt_hndl = pt->cur_bb_node->caller_ctxt_hndl;
+    pt_update_cur_bb(pt, drcctlib_ctxt_to_ip(pt->cur_ctxt_hndl)->parent_bb_node);
+}
+
+static void
+instrument_end_before_every_i(app_pc pc)
+{
+    // dr_printf("instrument_end_before_every_i \n");
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if(pt->in_exception){
+        if(has_same_func(pc, pt->exception_hndl_pc)) {
+            dr_fprintf(global_logfile, "instrument_end_before_every_i\n");
+            pt_update_cur_bb_and_ip(pt, pt->exception_hndl_bb_node, pt->exception_hndl_ctxt_hndle);
+            pt->in_exception=false; 
+        }
+    }
+}
+
+static inline void
+instr_instrument_pre_cb(drcctlib_instr_instrument_list_t *instrument_list, instr_t *instr,
+                        char instr_state_flag, slot_t slot)
+{
+    instr_instrument_list_add(
+        instrument_list,
+        instr_instrument_create(instr, (void *)instrument_before_every_i,
+                                DRCCTLIB_INSTR_INSTRUMENT_CCT_PRE, 1,
+                                OPND_CREATE_SLOT(slot)));
+    if (instr_state_contain(instr_state_flag, 1, DRCCTLIB_INSTR_STATE_USER_INTEREST) &&
+        global_instr_instrument_pre_cb_str.callback != NULL) {
+        (*global_instr_instrument_pre_cb_str.callback)(
+            instrument_list, instr, slot, DRCCTLIB_INSTR_INSTRUMENT_USER_PRE,
+            global_instr_instrument_pre_cb_str.data);
+    }
+}
+
+static inline void
+instr_instrument_post_cb(drcctlib_instr_instrument_list_t *instrument_list,
+                         instr_t *instr, char instr_state_flag, slot_t slot)
+{
+    if (instr_state_contain(instr_state_flag, 1, DRCCTLIB_INSTR_STATE_RETURN)) {
+        slot = 0;
+    }
+    if (instr_state_contain(instr_state_flag, 1, DRCCTLIB_INSTR_STATE_USER_INTEREST) &&
+        global_instr_instrument_post_cb_str.callback != NULL) {
+        (*global_instr_instrument_post_cb_str.callback)(
+            instrument_list, instr, slot, DRCCTLIB_INSTR_INSTRUMENT_USER_POST,
+            global_instr_instrument_post_cb_str.data);
+    }
+}
+
+static inline void
+instr_instrument(drcctlib_instr_instrument_list_t *instrument_list, instr_t *instr,
+                 char instr_state_flag, slot_t slot)
+{
+    if (instr_state_contain(instr_state_flag, 1, DRCCTLIB_INSTR_STATE_CALL_DIRECT)) {
+        instr_instrument_list_add(
+            instrument_list,
+            instr_instrument_create(instr, (void *)instrument_before_call_i,
+                                     DRCCTLIB_INSTR_INSTRUMENT_CCT_CALL, 1,
+                                     OPND_CREATE_SLOT(slot)));
+    } else if (instr_state_contain(instr_state_flag, 1,
+                                   DRCCTLIB_INSTR_STATE_CALL_IN_DIRECT)) {
+        instr_instrument_list_add(
+            instrument_list,
+            instr_instrument_create(instr, (void *)instrument_before_call_i,
+                                     DRCCTLIB_INSTR_INSTRUMENT_CCT_CALL, 1,
+                                     OPND_CREATE_SLOT(slot)));
+    } else if (instr_state_contain(instr_state_flag, 1, DRCCTLIB_INSTR_STATE_RETURN)) {
+        instr_instrument_list_add(
+            instrument_list,
+            instr_instrument_create(instr, (void *)instrument_before_return_i,
+                                     DRCCTLIB_INSTR_INSTRUMENT_CCT_CALL, 0));
+    }
 }
 
 
 static inline void
-SetInsState(char* insStateFlagPtr, CCTLibInsState state){
-    *insStateFlagPtr = *insStateFlagPtr | state;
-}
-
-static inline bool
-IsInsContainState(char insStateFlag, CCTLibInsState state){
-    return (insStateFlag & state) > 0;
-}
-
-static void
-PopulateIPReverseMapAndAccountBbInstructions(void *drcontext, instrlist_t *bb,
-                                             instr_t *start, uint64_t bbKey,
-                                             uint32_t numInterestingInstInBb)
+drcctlib_insert_clean_call_before_instr(void *drcontext, instrlist_t *ilist,
+                                        instr_t *where, void *callee, bool save_fpstate,
+                                        int num_args, opnd_t *args_array)
 {
-    // +1 to hold the number of slots as a metadata and ++1 to hold module id
-    uint64_t *ipShadow =
-        (uint64_t *)malloc((2 + numInterestingInstInBb) * sizeof(uint64_t));
-    char *insStateShadow = 
-        (char *)malloc((numInterestingInstInBb) * sizeof(char *));
-
-    // Record the number of instructions in the bb as the first entry
-    ipShadow[0] = numInterestingInstInBb;
-    // Record the module id as 2nd entry
-    ;
-    ipShadow[1] = (uint64_t)(dr_lookup_module(instr_get_app_pc(start)));
-    uint32_t slot = 0;
-    g_GlobalState.bbShadowMap[bbKey] = &ipShadow[2]; // 0th entry is 2 behind
-    g_GlobalState.bbShadowMapInsState[bbKey] = insStateShadow;
-
-    for (instr_t *instr = start; instr != NULL;
-         instr = instr_get_next_app(instr)) {
-        if (IsCallOrRetIns(instr) || g_GlobalState.isInterestingIns(instr)) {
-            app_pc curPc = instr_get_app_pc(instr);
-            char disassem[80];
-            instr_disassemble_to_buffer(dr_get_current_drcontext(), instr, disassem, 80);
-            string code(disassem);
-            // cerr<<code<<endl;
-            g_GlobalState.blockInterestInstrs[bbKey].push_back({ curPc, code });
-            ipShadow[slot + 2] = (uint64_t)curPc;
-            dr_insert_clean_call(drcontext, bb, instr, (void *)RememberSlotNoInTLS, false,
-                                 1, OPND_CREATE_INT32(slot));
-            dr_insert_clean_call(drcontext, bb, instr, (void *)RememberSlotNoInTLS, false,
-                                 1, OPND_CREATE_INT32(slot));
-        }
-
-        if (g_GlobalState.isInterestingIns(instr)) {
-            SetInsState(&insStateShadow[slot], UserInterestingIns);
-        }
-        if (instr_is_call_direct(instr)) {
-            SetInsState(&insStateShadow[slot], InstrIsCallDirect);
-        }
-        if (instr_is_call_indirect(instr)) {
-            SetInsState(&insStateShadow[slot], InstrIsCallInDirect);
-        }
-        if (instr_is_return(instr)) {
-            SetInsState(&insStateShadow[slot], InstrIsReturn);
-        }
-
-        if (instr_is_call_direct(instr)) {
-            dr_insert_clean_call(drcontext, bb, instr, (void *)AtCall, false, 1,
-                                 OPND_CREATE_INT32(slot));
-            if (g_GlobalState.userInstrumentationCallback) {
-                if (g_GlobalState.isInterestingIns(instr)) {
-                    g_GlobalState.userInstrumentationCallback(
-                        drcontext, bb, instr,
-                        g_GlobalState.userInstrumentationCallbackArg, slot);
-                }
-            }
-            slot++;
-        } else if (instr_is_call_indirect(instr)) {
-            dr_insert_clean_call(drcontext, bb, instr, (void *)AtCall, false, 1,
-                                 OPND_CREATE_INT32(slot));
-            if (g_GlobalState.userInstrumentationCallback) {
-                if (g_GlobalState.isInterestingIns(instr)) {
-                    g_GlobalState.userInstrumentationCallback(
-                        drcontext, bb, instr,
-                        g_GlobalState.userInstrumentationCallbackArg, slot);
-                }
-            }
-            slot++;
-        } else if (instr_is_return(instr)) {
-            if (g_GlobalState.userInstrumentationCallback) {
-                if (g_GlobalState.isInterestingIns(instr)) {
-                    g_GlobalState.userInstrumentationCallback(
-                        drcontext, bb, instr,
-                        g_GlobalState.userInstrumentationCallbackArg, slot);
-                }
-            }
-            dr_insert_clean_call(drcontext, bb, instr, (void *)AtReturn, false, 0);
-            slot++;
-        } else if (g_GlobalState.isInterestingIns(instr)) {
-            if (g_GlobalState.userInstrumentationCallback) {
-                g_GlobalState.userInstrumentationCallback(
-                    drcontext, bb, instr, g_GlobalState.userInstrumentationCallbackArg,
-                    slot);
-            }
-            slot++;
-        }
-
-        
-
-#ifdef CCTLIB_USE_STACK_STATUS
-        if (TrashesStackPtr(instr)) {
-            dr_insert_clean_call(drcontext, bb, instr, (void *)SetCallStackPtrStashFlag,
-                                 false, 0);
-        }
-#endif
+    switch (num_args) {
+    case 0: dr_insert_clean_call(drcontext, ilist, where, callee, save_fpstate, 0); break;
+    case 1:
+        dr_insert_clean_call(drcontext, ilist, where, callee, save_fpstate, 1,
+                             args_array[0]);
+        break;
+    case 2:
+        dr_insert_clean_call(drcontext, ilist, where, callee, save_fpstate, 2,
+                             args_array[0], args_array[1]);
+        break;
+    case 3:
+        dr_insert_clean_call(drcontext, ilist, where, callee, save_fpstate, 3,
+                             args_array[0], args_array[1], args_array[2]);
+        break;
+    default:
+        dr_printf("drcctlib_insert_clean_call_before_instr max support callee has 3 args \n");
+        dr_exit_process(-1);
+        break;
     }
 }
 
 static dr_emit_flags_t
-CCTLibBBAnalysis(void *drcontext, void *tag, instrlist_t *bb, bool for_bb,
-                 bool translating, OUT void **user_data)
+drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                           bool for_trace, bool translating, void *user_data)
 {
-    uint32_t numInstrs = GetNumInterestingInsInBB(bb);
-    // if(numInstrs <= 0){
+    // if(for_trace || translating) 
+    // {
     //     return DR_EMIT_DEFAULT;
     // }
-    uint64_t bbKey = GetNextBBKey();
-    instr_t *start = instrlist_first_app(bb);
-    dr_insert_clean_call(drcontext, bb, start, (void *)AtBBEntry, false, 2,
-                         OPND_CREATE_INT64(bbKey), OPND_CREATE_INT32(numInstrs));
-    PopulateIPReverseMapAndAccountBbInstructions(drcontext, bb, start, bbKey, numInstrs);
+    // per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    // dr_printf("drcctlib_event_bb_insert(thread %d)\n", pt->id);
+    drcctlib_instr_instrument_list_t * list = (drcctlib_instr_instrument_list_t *)user_data;
+    if(list == NULL){
+        return DR_EMIT_DEFAULT;
+    }
+    while (list->next_insert != NULL && list->next_insert->instr == instr)
+    {
+        drcctlib_insert_clean_call_before_instr(drcontext, bb, instr, list->next_insert->callee,
+                                 false, list->next_insert->num_args, list->next_insert->args_array);
+        list->next_insert = list->next_insert->next;
+        if(list->next_insert == NULL){
+            instr_instrument_list_delete(list);
+            break;
+        }
+    }
+    // dr_printf("f drcctlib_event_bb_insert(thread %d)\n", pt->id);
     return DR_EMIT_DEFAULT;
 }
 
-// static bool
-// CCTLibEnumerateSymbolsCallBack(const char *name, size_t modoffs, void *data)
-// {
-//     module_data_t *info = (module_data_t *)data;
-//     if(strcmp(dr_module_preferred_name(info), "sample1") == 0){
-//         cerr << dr_module_preferred_name(info) << ":" << name << ":" << (char *)info->start
-//          << modoffs << endl;
-//     }
+static dr_emit_flags_t
+drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                           bool translating, OUT void **user_data)
+{
+    // if (for_trace || translating) {
+    //     return DR_EMIT_DEFAULT;
+    // }
+    // per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    // dr_printf("drcctlib_event_bb_analysis (thread %d)\n", pt->id);
+    // bool checkReturnIns = bb_is_fragment_in_funcs(
+    //     start, "libgcc_s.so", 4, FUNC_NAME_UNWIND_RESUME, FUNC_NAME_UNWIND_RAISEEXCEPTION, FUNC_NAME_UNWIND_FORCEUNWIND,
+    //     FUNC_NAME_UNWIND_RESUME_OR_RETHROW);
+    instr_t *first_instr = instrlist_first_app(bb);
+    instr_t *last_instr_next = instr_get_next_app(instrlist_last_app(bb));
+
+    // dr_printf("drcctlib_event_bb_analysis 0(thread %d)\n", pt->id);
+    slot_t slot_max = bb_get_num_interest_instr(first_instr, last_instr_next);
+    // dr_printf("drcctlib_event_bb_analysis 1(thread %d)\n", pt->id);
+    bb_key_t bb_key = bb_get_new_key();
+    // dr_printf("drcctlib_event_bb_analysis 2(thread %d)\n", pt->id);
+    slot_t slot = 0;
+    // bool is_in_exception_module = bb_is_fragment_in_module(first_instr, MODULE_NAME_INSTRUMENT_EXCEPTION);
     
-//     return true;
-// }
+    bb_shadow_t* bb_shadow = bb_shadow_create(slot_max == 0? 1 : slot_max, false);
+    hashtable_add(&global_bb_shadow_table, (void*)(ptr_int_t)bb_key, bb_shadow);
 
-static void
-CaptureSigSetJmpCtxt(void *wrapcxt, void **user_data)
-{
-    uint64_t bufAddr = (uint64_t)drwrap_get_arg(wrapcxt, 0);
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    (*(tData->tlsLongJmpMap))[bufAddr] = tData->tlsCurrentBBNode->callerCtxtHndl;
-}
+    // dr_printf("drcctlib_event_bb_analysis 3(thread %d)\n", pt->id);
+    drcctlib_instr_instrument_list_t *instrument_list = instr_instrument_list_create(bb_key);
+    instr_instrument_list_add(
+        instrument_list,
+        instr_instrument_create(first_instr, (void *)instrument_before_bb_first_i,
+                                DRCCTLIB_INSTR_INSTRUMENT_CCT_BB_ENTRY, 2,
+                                OPND_CREATE_BB_KEY(bb_key),
+                                OPND_CREATE_SLOT(slot_max)));
+    if(slot_max == 0){
+        instr_disassemble_to_buffer(
+                drcontext, first_instr, bb_shadow->disasm_shadow,
+                DISASM_CACHE_SIZE);
+        app_pc pc = instr_get_app_pc(first_instr);
+        bb_shadow->ip_shadow[0] = pc;
+        bb_shadow->state_shadow[0] = 0;
+    }
+    // dr_printf("drcctlib_event_bb_analysis 4(thread %d)\n", pt->id);
+    for (instr_t *instr = first_instr; instr != last_instr_next;
+         instr = instr_get_next_app(instr)) {
+        char instr_state_flag = 0;
+        instr_state_init(instr, &instr_state_flag);
+        if (instr_need_instrument_check_f(instr_state_flag)) {
+            instr_disassemble_to_buffer(
+                drcontext, instr, bb_shadow->disasm_shadow + slot * DISASM_CACHE_SIZE,
+                DISASM_CACHE_SIZE);
+            app_pc pc = instr_get_app_pc(instr);
+            bb_shadow->ip_shadow[slot] = pc;
+            bb_shadow->state_shadow[slot] = instr_state_flag;
+            // dr_printf("drcctlib_event_bb_analysis 5(thread %d)\n", pt->id);
+            instr_instrument_pre_cb(instrument_list, instr, instr_state_flag, slot);
+            instr_instrument(instrument_list, instr, instr_state_flag, slot);
+            instr_instrument_post_cb(instrument_list, instr, instr_state_flag, slot);
+            instr_instrument_list_add(
+                instrument_list,
+                instr_instrument_create(instr, (void *)instrument_end_before_every_i,
+                                        DRCCTLIB_INSTR_INSTRUMENT_CCT_BB_ENTRY-1, 1,
+                                        OPND_CREATE_DRCCTLIB_KEY(pc)));
 
-static void
-HoldLongJmpBuf(void *wrapcxt, void **user_data)
-{
-    uint64_t bufAddr = (uint64_t)drwrap_get_arg(wrapcxt, 0);
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    tData->tlsLongJmpHoldBuf = bufAddr;
-}
-
-static void
-RestoreSigLongJmpCtxt(void *wrapcxt, void *user_data)
-{
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    DR_ASSERT(tData->tlsLongJmpHoldBuf);
-    tData->tlsCurrentCtxtHndl = (*(tData->tlsLongJmpMap)) [tData->tlsLongJmpHoldBuf];
-    UpdateCurBBOnly(
-        tData,
-        GetIPNodeFromContextHandle(tData->tlsCurrentCtxtHndl)->parentBBNode);
-    tData->tlsLongJmpHoldBuf =
-        0; // reset so that next time we can check if it was set correctly.
-}
-
-static bool
-IsIpPresentInBB(_Unwind_Ptr exceptionCallerReturnAddrIP, BBNode *bbNode, uint32_t *ipSlot)
-{
-    uint64_t *ipShadow = (uint64_t *)g_GlobalState.bbShadowMap[bbNode->bbKey];
-    char *insStateFlagShadow = (char *)g_GlobalState.bbShadowMapInsState[bbNode->bbKey];
-    _Unwind_Ptr ipDirectCall =
-        X86_DIRECT_CALL_SITE_ADDR_FROM_RETURN_ADDR(exceptionCallerReturnAddrIP);
-    _Unwind_Ptr ipIndirectCall = X86_INDIRECT_CALL_SITE_ADDR_FROM_RETURN_ADDR(
-        exceptionCallerReturnAddrIP);
-
-    for (uint32_t i = 0; i < bbNode->nSlots; i++) {
-        // printf("\n serching = %p", tracesIPs[i]);
-        // instr_t *instr = (instr_t *)ipShadow[i];
-        // uint64_t addr = (uint64_t)instr_get_app_pc(instr);
-        uint64_t addr  = ipShadow[i];
-        char stateFlag = insStateFlagShadow[i];
-
-        if (addr == ipDirectCall && IsInsContainState(stateFlag, InstrIsCallDirect)){
-#ifdef DRCCTLIB_TEST
-            // cerr << "ipDirectCall" << g_GlobalState.blockInterestInstrs[bbNode->bbKey][i].second << endl;
-            // cerr << "addr:" << addr << " ipDirectCall:" << ipDirectCall
-            //      << " ipIndirectCall:" << ipIndirectCall << endl;
-#endif
-            *ipSlot = i;
-            return true;
-        }
-        if (addr == ipIndirectCall && IsInsContainState(stateFlag, InstrIsCallInDirect)){
-#ifdef DRCCTLIB_TEST
-            // cerr << "ipIndirectCall" << g_GlobalState.blockInterestInstrs[bbNode->bbKey][i].second << endl;
-            // cerr << "addr:" << addr << " ipDirectCall:" << ipDirectCall
-            //      << " ipIndirectCall:" << ipIndirectCall << endl;
-#endif
-            *ipSlot = i;
-            return true;
+            slot++;
         }
     }
-    return false;
+    // dr_printf("drcctlib_event_bb_analysis 5(thread %d)\n", pt->id);
+    instrument_list->next_insert = instrument_list->first;
+    *user_data = (void*)instrument_list;
+    // dr_printf("finish drcctlib_event_bb_analysis(thread %d)\n", pt->id);
+    return DR_EMIT_DEFAULT;
 }
 
-static BBNode *
-FindNearestCallerCoveringIP(_Unwind_Ptr exceptionCallerReturnAddrIP, uint32_t *ipSlot,
-                            ThreadData *tData)
+static dr_signal_action_t
+drcctlib_event_signal(void *drcontext, dr_siginfo_t *siginfo)
 {
-    BBNode *curBBNode = tData->tlsCurrentBBNode;
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    dr_printf("drcctlib_event_signal %d(thread %d)\n", siginfo->sig, pt->id);
+    pt->inited_call = true;
+    return DR_SIGNAL_DELIVER;
+}
+
+static void
+drcctlib_event_thread_start(void *drcontext)
+{
     
-    while (true) {
-        // cerr << "bbKey" << curBBNode->bbKey << endl;
-        // break if we have finished looking at the root
-        if (curBBNode == tData->tlsRootBBNode) {
-            cerr << "CallerCoveringIP == tData->tlsRootBBNode" << endl;
-            // dr_exit_process(-1);
-            break;
-        }
-        if (IsIpPresentInBB(exceptionCallerReturnAddrIP, curBBNode, ipSlot)) {
-            break;
-        }
-        curBBNode = GetIPNodeFromContextHandle(curBBNode->callerCtxtHndl)
-                        ->parentBBNode;
+    pt_id_t id = ATOM_ADD_THREAD_ID_MAX(global_thread_id_max);
+    id--;
+    dr_printf("++++++++ drcctlib_event_thread_start (threadId %d)\n", id);
+
+    per_thread_t * pt = (per_thread_t*)dr_thread_alloc(drcontext, sizeof(per_thread_t));
+    DR_ASSERT(pt != NULL);
+    drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
+
+    pt_init(drcontext, pt, id);
+    pt_cache_t *pt_cache = (pt_cache_t *)dr_global_alloc(sizeof(pt_cache_t));
+    pt_cache->active_data = pt;
+    pt_cache->cache_data = NULL;
+    pt_cache->dead = false;
+    hashtable_add(&global_pt_cache_map, (void*)(ptr_int_t)id, pt_cache);
+
+    dr_mutex_lock(thread_manager_lock);
+    if (global_thread_create_count != global_thread_capture_count) {
+        // Base thread, no parent
+    } else {
+        // This will be always 0 for flat profiles
+        pt->parent_thread_ctxt_hndl = cur_thread_create_ctxt_hndl;
+        pt->parent_thread_bb_node = (cct_bb_node_t *)cur_thread_create_bb_node;
+        pt->root_bb_node->caller_ctxt_hndl = cur_thread_create_ctxt_hndl;
+        global_thread_capture_count++;
     }
-    return curBBNode;
-}
+    dr_mutex_unlock(thread_manager_lock);
 
-#ifdef DRCCTLIB_TEST
-class TestClass{
-    public:
-        int classIntValue;
-};
-
-struct TestWarpcontentArgs {
-    int intValue;
-    char *charPtrValue;
-    vector<int> verctorValue;
-    TestClass* userDefineClassPtrValue;
-};
-
-static void
-DRCCTLibTestWarp(void *wrapcxt, void **user_data)
-{
-    cerr << "DRCCTLibTestWarp" << endl;
-    TestWarpcontentArgs* firstArgs = (TestWarpcontentArgs*)drwrap_get_arg(wrapcxt, 0);
-
-    TestWarpcontentArgs* secondArgs = ((TestWarpcontentArgs*)drwrap_get_arg(wrapcxt, 1));
-    cerr <<"DRCCTLibTestWarp:"<< firstArgs->userDefineClassPtrValue->classIntValue << endl;
-    cerr <<"DRCCTLibTestWarp:"<< secondArgs->userDefineClassPtrValue->classIntValue << endl;
-    
-    cerr << "Finish DRCCTLibTestWarp" << endl;
+    dr_printf("++++++++ finish drcctlib_event_thread_start (threadId %d)\n", id);
 }
 
 static void
-DRCCTLibTestWarpResult(void *wrapcxt, void *user_data)
+drcctlib_event_thread_end(void *drcontext)
 {
-    cerr << "DRCCTLibTestWarpResult" << endl;
-    int result = (int)(ptr_int_t)drwrap_get_retval(wrapcxt);
-    cerr <<"DRCCTLibTestWarpResult:"<< result << endl;
-    
-    cerr << "Finish DRCCTLibTestWarpResult" << endl;
+    dr_printf("++++++++ drcctlib_event_thread_end\n");
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+
+    hashtable_delete(pt->long_jmp_buff_tb);
+    pt_cache_t *pt_cache = (pt_cache_t *)hashtable_lookup(&global_pt_cache_map, (void*)(ptr_int_t)(pt->id));
+    pt_cache->cache_data = (per_thread_t *)dr_global_alloc(sizeof(per_thread_t));
+    memcpy(pt_cache->cache_data, pt_cache->active_data, sizeof(per_thread_t));
+    pt_cache->dead = true;
+    dr_thread_free(drcontext, pt, sizeof(per_thread_t));
+    dr_printf("++++++++ f drcctlib_event_thread_end\n");
 }
 
-#endif
+static inline bool
+drcctlib_insert_func_instrument_by_drwap(const module_data_t *info, const char *func_name,
+                                void (*pre_func_cb)(void *wrapcxt,
+                                                    INOUT void **user_data),
+                                void (*post_func_cb)(void *wrapcxt, void *user_data))
+{
+    app_pc func_entry = moudle_get_function_entry(info, func_name, false);
+    if (func_entry != NULL) {
+        // dr_printf("drwrap_wrap %s\n", func_name);
+        return drwrap_wrap(func_entry, pre_func_cb, post_func_cb);
+    } else {
+        return false;
+    }
+}
 
 static void
-CaptureCallerThatCanHandleException(void *wrapcxt, void **user_data)
+instrument_after_thread_create_f(void *wrapcxt, void *user_data)
 {
-    cerr << "CaptureCallerThatCanHandleException" << endl;
-    _Unwind_Context* exceptionCallerContext = (_Unwind_Context*)drwrap_get_arg(wrapcxt, 0);
-        // _Unwind_Context * firstArgs;
-    _Unwind_Ptr exceptionCallerReturnAddrIP = _Unwind_GetIP(exceptionCallerContext);
+    // dr_mutex_lock(thread_manager_lock);
+    // per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field((void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    // cur_thread_create_bb_node = pt->cur_bb_node;
+    // cur_thread_create_ctxt_hndl = pt->cur_ctxt_hndl;
+    // global_thread_create_count++;
+    // dr_mutex_unlock(thread_manager_lock);
+}
 
-    cerr << exceptionCallerReturnAddrIP << endl;
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    // Walk the CCT chain staring from tData->tlsCurrentBBNode looking for the
+static void
+instrument_before_setjmp_f(void *wrapcxt, void **user_data)
+{
+    dr_printf("instrument_before_setjmp_f\n");
+    void* bufAddr = drwrap_get_arg(wrapcxt, 0);
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field((void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    hashtable_add(pt->long_jmp_buff_tb, bufAddr, (void*)drcctlib_ctxt_to_ip(pt->cur_bb_node->caller_ctxt_hndl));
+    dr_printf("f instrument_before_setjmp_f\n");
+}
+
+static void
+instrument_before_longjmp_f(void *wrapcxt, void **user_data)
+{
+    dr_printf("instrument_before_longjmp_f\n");
+    void*  bufAddr = drwrap_get_arg(wrapcxt, 0);
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field((void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    pt->long_jmp_hold_buff = bufAddr;
+}
+
+static void
+instrument_after_long_jmp(void *wrapcxt, void *user_data)
+{
+    dr_printf("instrument_after_long_jmp\n");
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field((void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    if(pt->long_jmp_hold_buff == NULL) {
+        dr_printf("instrument_after_finish_jmp error\n");
+        dr_exit_process(-1);
+    }
+    cct_ip_node_t *node = (cct_ip_node_t *)hashtable_lookup(pt->long_jmp_buff_tb, pt->long_jmp_hold_buff);
+    pt->cur_ctxt_hndl = drcctlib_ip_to_ctxt(node);
+    pt_update_cur_bb(pt, node->parent_bb_node);
+    pt->long_jmp_hold_buff = NULL; 
+}
+
+
+
+static void
+instrument_before_unwind_set_ip_f(void *wrapcxt, void **user_data)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    struct _Unwind_Context *exception_caller_ctxt =
+        (struct _Unwind_Context *)drwrap_get_arg(wrapcxt, 0);
+    _Unwind_Ptr exception_caller_rtn_ip = c_use__Unwind_GetIP(exception_caller_ctxt);
+    dr_printf("exception_caller_rtn_ip (%" PRIu64 ")",(app_pc)exception_caller_rtn_ip);
+    // Walk the CCT chain staring from pt->cur_bb_node looking for the
     // nearest one that has targeIp in the range.
     // Record the caller that can handle the exception.
-    uint32_t ipSlot = 0;
-    tData->tlsExceptionHandlerBBNode =
-        FindNearestCallerCoveringIP(exceptionCallerReturnAddrIP, &ipSlot, tData);
-    tData->tlsExceptionHandlerCtxtHndle =
-        tData->tlsExceptionHandlerBBNode->childCtxtStartIdx + ipSlot;
-    cerr << "Finish CaptureCallerThatCanHandleException" << endl;
+    pt_update_excetion_info(pt, (app_pc)exception_caller_rtn_ip);
 }
 
-
-static void
-SetCurBBNodeAfterException(void *wrapcxt, void *user_data)
+static inline int
+drcctlib_get_next_string_pool_idx(char *name)
 {
-    cerr << "SetCurBBNodeAfterException" << endl;
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    cerr << "Reach Here" << endl;
-    // Record the caller that can handle the exception.
-    UpdateCurBBAndIp(tData, tData->tlsExceptionHandlerBBNode,
-                     tData->tlsExceptionHandlerCtxtHndle);
-}
-
-static void
-SetCurBBNodeAfterExceptionIfContextIsInstalled(void *wrapcxt, void *user_data)
-{
-    cerr << "SetCurBBNodeAfterExceptionIfContextIsInstalled" << endl;
-    void * retval = drwrap_get_retval(wrapcxt);
-    if(retval == NULL) {
-        cerr << "?????" << endl;
+    int len = strlen(name) + 1;
+    int next_idx = ATOM_ADD_STRING_POOL_INDEX(global_string_pool_idle_idx, len);
+    if(next_idx >= CONTEXT_HANDLE_MAX) {
+        dr_printf("\nPreallocated String Pool exhausted. CCTLib couldn't fit your "
+                   "application in its memory. Try a smaller program.\n");
+        dr_exit_process(-1);
     }
-    int returncode = (int)(ptr_int_t)retval;
-    cerr << "returncode : " << returncode << endl;
-    // if the return value is _URC_INSTALL_CONTEXT then we will reset the shadow
-    // stack, else NOP Commented ... caller ensures it is inserted only at the
-    // end. if(retVal != _URC_INSTALL_CONTEXT)
-    //    return;
-    if (returncode == _Unwind_Reason_Code::_URC_INSTALL_CONTEXT) {
-        ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-        // Record the caller that can handle the exception.
-        UpdateCurBBAndIp(tData, tData->tlsExceptionHandlerBBNode,
-                         tData->tlsExceptionHandlerCtxtHndle);
-    }
+    strncpy(global_string_pool+ next_idx - len, name, len);
+    return next_idx - len;
 }
 
 // DO_DATA_CENTRIC
@@ -1236,53 +1113,198 @@ InitShadowSpaceForDataCentric(void *addr, uint32_t accessLen, DataHandle_t *init
     }
 }
 
+
+
 static void
 CaptureMallocSize(void *wrapcxt, void **user_data)
 {
+    // dr_printf("CaptureMallocSize");
     // Remember the CCT node and the allocation size
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    tData->tlsDynamicMemoryAllocationSize = (size_t)drwrap_get_arg(wrapcxt, 0);
-    tData->tlsDynamicMemoryAllocationPathHandle =
-        tData->tlsCurrentBBNode->childCtxtStartIdx;
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 0);
+    pt->dmem_alloc_ctxt_hndl =
+        pt->cur_bb_node->child_ctxt_start_idx;
 }
 
 static void
 CaptureMallocPointer(void *wrapcxt, void *user_data)
 {
+    // dr_printf("CaptureMallocPointer");
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
     void *ptr = drwrap_get_retval(wrapcxt);
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    DataHandle_t dataHandle;
-    dataHandle.objectType = DYNAMIC_OBJECT;
-    dataHandle.pathHandle = tData->tlsDynamicMemoryAllocationPathHandle;
-    InitShadowSpaceForDataCentric(ptr, tData->tlsDynamicMemoryAllocationSize,
-                                  &dataHandle);
+    DataHandle_t data_hndl;
+    data_hndl.objectType = DYNAMIC_OBJECT;
+    data_hndl.pathHandle = pt->dmem_alloc_ctxt_hndl;
+    InitShadowSpaceForDataCentric(ptr, pt->dmem_alloc_size,
+                                  &data_hndl);
 }
 
 static void
 CaptureCallocSize(void *wrapcxt, void **user_data)
 {
     // Remember the CCT node and the allocation size
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    tData->tlsDynamicMemoryAllocationSize =
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    pt->dmem_alloc_size =
         (size_t)drwrap_get_arg(wrapcxt, 0) * (size_t)drwrap_get_arg(wrapcxt, 1);
-    tData->tlsDynamicMemoryAllocationPathHandle =
-        tData->tlsCurrentBBNode->childCtxtStartIdx;
+    pt->dmem_alloc_ctxt_hndl =
+        pt->cur_bb_node->child_ctxt_start_idx;
 }
 
 static void
 CaptureReallocSize(void *wrapcxt, void **user_data)
 {
     // Remember the CCT node and the allocation size
-    ThreadData *tData = CCTLibGetTLS((void *)drwrap_get_drcontext(wrapcxt));
-    tData->tlsDynamicMemoryAllocationSize = (size_t)drwrap_get_arg(wrapcxt, 1);
-    tData->tlsDynamicMemoryAllocationPathHandle =
-        tData->tlsCurrentBBNode->childCtxtStartIdx;
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
+    pt->dmem_alloc_ctxt_hndl =
+        pt->cur_bb_node->child_ctxt_start_idx;
 }
 
 static void
 CaptureFree(void *wrapcxt, void **user_data)
 {
 }
+
+// static void
+// instrument_after_unwind_resume_f(void *wrapcxt, void *user_data)
+// {
+//     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+//         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+//     pt_update_cur_bb_and_ip(pt, pt->exception_hndl_bb_node,
+//                      pt->exception_hndl_ctxt_hndle);
+// }
+
+// static void
+// instrument_after_exception_unwind_f(void *wrapcxt, void *user_data)
+// {
+//     dr_printf("instrument_after_exception_unwind_f\n");
+//     if (wrapcxt == NULL)
+//     {
+//         dr_printf("instrument_after_exception_unwind_f wrapcxt == NULL\n");
+//     }
+//     // void * retval = drwrap_get_retval(wrapcxt);
+//     // int returncode = (int)(ptr_int_t)retval;
+//     // if the return value is _URC_INSTALL_CONTEXT then we will reset the shadow
+//     // stack, else NOP Commented ... caller ensures it is inserted only at the
+//     // end. if(retVal != _URC_INSTALL_CONTEXT)
+//     //    return;
+//     // if (returncode == _Unwind_Reason_Code::_URC_INSTALL_CONTEXT) {
+//     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+//         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+//     pt_update_cur_bb_and_ip(pt, pt->exception_hndl_bb_node,
+//                             pt->exception_hndl_ctxt_hndle);
+//     // }
+//     dr_printf("Finish SetCurBBNodeAfterExceptionIfContextIsInstalled\n");
+// }
+// static char global_excetption_module[MAXIMUM_PATH] = "";
+static void
+drcctlib_event_module_analysis(void *drcontext, const module_data_t *info, bool loaded)
+{
+    // dr_printf("drcctlib_event_module_analysis %s\n", info->full_path);
+
+    drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_PTHREAD_CREATE, NULL, instrument_after_thread_create_f);
+
+    if (strstr(dr_module_preferred_name(info), MODULE_NAME_INSTRUMENT_JMP)) {
+        drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_SETJMP, instrument_before_setjmp_f, NULL);
+        drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_LONGJMP, instrument_before_longjmp_f, instrument_after_long_jmp);
+        drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_SIGSETJMP, instrument_before_setjmp_f, NULL);
+        drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_SIGLONGJMP, instrument_before_longjmp_f, instrument_after_long_jmp);
+    }
+    if (strstr(dr_module_preferred_name(info), MODULE_NAME_INSTRUMENT_EXCEPTION)) {
+
+        drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_UNWIND_SETIP, instrument_before_unwind_set_ip_f, NULL);
+        // drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_UNWIND_RAISEEXCEPTION, NULL, instrument_after_exception_unwind_f);
+        // drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_UNWIND_RESUME, NULL, instrument_after_exception_unwind_f);
+        // drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_UNWIND_FORCEUNWIND, NULL, instrument_after_exception_unwind_f);
+        // drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_UNWIND_RESUME_OR_RETHROW, NULL, instrument_after_exception_unwind_f);
+    }
+
+    drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_MALLOC, CaptureMallocSize, CaptureMallocPointer);
+    drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_CALLOC, CaptureCallocSize, CaptureMallocPointer);
+    drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_REALLOC, CaptureReallocSize, CaptureMallocPointer);
+    drcctlib_insert_func_instrument_by_drwap(info, FUNC_NAME_FREE, CaptureFree, NULL);
+
+    // dr_printf("finish drcctlib_event_module_analysis\n");
+}
+
+static inline void
+drcctlib_init_global_buff()
+{
+    global_ip_node_buff =
+        (cct_ip_node_t *)mmap(0, CONTEXT_HANDLE_MAX * sizeof(cct_ip_node_t),
+                              PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    if(global_ip_node_buff == MAP_FAILED) {
+        dr_printf("drcctlib_init_global_buff error: MAP_FAILED global_ip_node_buff\n");
+        dr_exit_process(-1);
+    }
+    else {
+        global_ip_node_buff_idle_idx = 1;
+        // dr_printf("drcctlib_init_global_buff success\n");
+    }
+    global_string_pool = (char *)mmap(0, CONTEXT_HANDLE_MAX * sizeof(char), PROT_WRITE | PROT_READ,
+        MAP_NORESERVE | MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    if(global_string_pool == MAP_FAILED) {
+        dr_printf("drcctlib_init_global_buff error: MAP_FAILED global_string_pool\n");
+        dr_exit_process(-1);
+    }
+    else {
+        global_ip_node_buff_idle_idx = 1;
+        // dr_printf("drcctlib_init_global_buff success\n");
+    }
+
+}
+
+static inline void
+drcctlib_free_global_buff()
+{
+    for (int i = 1; i < global_ip_node_buff_idle_idx; i++) {
+        splay_tree_free(global_ip_node_buff[i].callee_splay_tree);
+    }
+    if (munmap(global_ip_node_buff, CONTEXT_HANDLE_MAX * sizeof(cct_ip_node_t)) != 0
+    || munmap(global_string_pool, CONTEXT_HANDLE_MAX * sizeof(char)) != 0) {
+        dr_printf("drcctlib_free_global_buff munmap error\n");
+        dr_exit_process(-1);
+    }
+}
+
+static inline void
+drcctlib_lock_create()
+{
+    flags_lock = dr_recurlock_create();
+    thread_manager_lock = dr_mutex_create();
+}
+
+static inline void
+drcctlib_lock_destroy()
+{
+    dr_recurlock_destroy(flags_lock);
+    dr_mutex_destroy(thread_manager_lock);
+}
+
+static size_t
+drcctlib_get_peak_rss()
+{
+    struct rusage rusage;
+    getrusage(RUSAGE_SELF, &rusage);
+    return (size_t)(rusage.ru_maxrss);
+}
+
+static void
+drcctlib_print_stats()
+{
+    dr_fprintf(global_logfile, "\nTotalCallPaths = %" PRIu64,
+               global_ip_node_buff_idle_idx);
+    // Peak resource usage
+    dr_fprintf(global_logfile, "\nPeakRSS = %zu", drcctlib_get_peak_rss());
+}
+
+
+
+
 
 // compute static variables
 // each image has a splay tree to include all static variables
@@ -1302,7 +1324,7 @@ ComputeStaticVar(char *filename, const module_data_t *info)
     int fd = open(filename, O_RDONLY);
 
     if (elf_version(EV_CURRENT) == EV_NONE) {
-        printf("WARNING Elf Library is out of date!\n");
+        dr_printf("WARNING Elf Library is out of date!\n");
     }
 
     // in memory
@@ -1319,8 +1341,8 @@ ComputeStaticVar(char *filename, const module_data_t *info)
 
             for (i = 0; i < symbol_count; i++) {
                 if (gelf_getsym(edata, i, &sym) == NULL) {
-                    printf("gelf_getsym return NULL\n");
-                    printf("%s\n", elf_errmsg(elf_errno()));
+                    dr_printf("gelf_getsym return NULL\n");
+                    dr_printf("%s\n", elf_errmsg(elf_errno()));
                     dr_exit_process(-1);
                 }
 
@@ -1332,8 +1354,8 @@ ComputeStaticVar(char *filename, const module_data_t *info)
                 DataHandle_t dataHandle;
                 dataHandle.objectType = STATIC_OBJECT;
                 char *symname = elf_strptr(elf, shdr.sh_link, sym.st_name);
-                dataHandle.symName = symname ? GetNextStringPoolIndex(symname) : 0;
-                cerr<<dataHandle.symName<<endl;
+                dataHandle.symName = symname ? drcctlib_get_next_string_pool_idx(symname) : 0;
+                dr_printf("%s\n", dataHandle.symName);
                 InitShadowSpaceForDataCentric(
                     (void *)((uint64_t)(info->start) + sym.st_value),
                     (uint32_t)sym.st_size, &dataHandle);
@@ -1350,7 +1372,7 @@ ComputeVarBounds(void *drcontext, const module_data_t *info, bool loaded)
     char *result = realpath(info->full_path, filename);
 
     if (result == NULL) {
-        cerr<<info->full_path<<"----" << "failed to resolve path" << endl;
+        dr_printf("%s ---- failed to resolve path \n", info->full_path);
     }
     ComputeStaticVar(filename, info);
 }
@@ -1360,946 +1382,430 @@ DeleteStaticVar(void *drcontext, const module_data_t *info)
 {
 }
 
-static void
-InitDataCentric(bool doDataCentric)
+
+DR_EXPORT
+bool
+drcctlib_init(void)
 {
-    // cerr << "InitDataCentric" << endl;
-    // For shadow memory based approach initialize the L1 page table
-    // LEVEL_1_PAGE_TABLE_SIZE
-    g_GlobalState.doDataCentric = doDataCentric;
-    if (!doDataCentric) {
-        return;
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&drcctlib_init_count, 1);
+    if (count > 1)
+        return true;
+    
+    if (!drmgr_init()) {
+        dr_printf("WARNING: drcctlib unable to initialize drmgr\n");
+        return false;
     }
+    if (!drutil_init()) {
+        dr_printf("WARNING: drcctlib unable to initialize drutil\n");
+        return false;
+    }
+    if (!drwrap_init() || !drwrap_set_global_flags(DRWRAP_SAFE_READ_ARGS)) {
+        dr_printf("WARNING: drcctlib unable to initialize drwrap\n");
+        return false;
+    }
+    if (drsym_init(0) != DRSYM_SUCCESS) {
+        dr_printf("WARNING: drcctlib unable to initialize drsym\n");
+        return false;
+    }
+    disassemble_set_syntax(DR_DISASM_DRCCTLIB);
+
+    drcctlib_init_global_buff();
+
+    drmgr_register_signal_event(drcctlib_event_signal);
+
+    if (!drmgr_register_bb_instrumentation_event(drcctlib_event_bb_analysis,
+                                                 drcctlib_event_bb_insert, NULL)) {
+        dr_printf("WARNING: drcctlib fail to register bb instrumentation event\n");                                             
+        return false;
+    }
+
+    hashtable_init_ex(&global_bb_shadow_table, BB_TABLE_HASH_BITS, HASH_INTPTR,
+                      false /*!strdup*/, false /*!synch*/, bb_shadow_free, NULL,
+                      NULL);
+    hashtable_init_ex(&global_pt_cache_map, PT_CACHE_TABLE_HASH_BITS, HASH_INTPTR,
+                      false /*!strdup*/, false /*!synch*/, pt_cache_free, NULL,
+                      NULL);
+    drcctlib_lock_create();
+
+    drmgr_register_module_load_event(drcctlib_event_module_analysis);
+
     // This will perform hpc_var_bounds functionality on each image load
     drmgr_register_module_load_event(ComputeVarBounds);
     // delete image from the list at the unloading callback
     drmgr_register_module_unload_event(DeleteStaticVar);
-}
-// end DO_DATA_CENTRIC #endif
-static inline app_pc
-GetInternalFunctionEntry(const module_data_t *info, string functionName){
-    app_pc functionEntry;
-    size_t offs;
-    if (drsym_lookup_symbol(info->full_path, functionName.c_str(), &offs, DRSYM_DEMANGLE) == DRSYM_SUCCESS) {
-        functionEntry = offs + info->start;
-    }
-    else {
-        functionEntry = NULL;
-    }
-    return functionEntry;
+
+    tls_idx = drmgr_register_tls_field();
+    if (tls_idx == -1)
+        return false;
+    if (!drmgr_register_thread_init_event(drcctlib_event_thread_start))
+        return false;
+    if (!drmgr_register_thread_exit_event(drcctlib_event_thread_end))
+        return false;
+    
+    return true;
 }
 
-static inline app_pc
-GetExternalFunctionEntry(const module_data_t *info, string functionName){
-    return (app_pc)dr_get_proc_address(info->handle, functionName.c_str());
-}
-
-static void
-CCTLibModuleAnalysis(void *drcontext, const module_data_t *info, bool loaded)
+DR_EXPORT
+void
+drcctlib_exit(void)
 {
-    // cerr<<"===========CCTLibModuleAnalysis"<<endl;
-    // cerr << dr_module_preferred_name(info) << endl;
-    // drsym_enumerate_symbols(info->full_path, CCTLibEnumerateSymbolsCallBack, (void *)info,
-    //                         0);
-    g_GlobalState.moduleDataMap[info->handle] = info;
-
-    app_pc pthreadCreateEntry =
-        (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_PTHREAD_CREATE);
-    if (pthreadCreateEntry != NULL) {
-        cerr<<"+++CCTLIB_STR_PTHREAD_CREATE/ThreadCreatePoint"<<endl;
-        drwrap_wrap(pthreadCreateEntry, NULL, ThreadCreatePoint);
-    }
-
-    // Look for setjmp and longjmp routines present in libc.so.x file only
-    if (strstr(dr_module_preferred_name(info), "libc.so")) {
-        app_pc setjmpEntry = (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_SETJMP);
-        if (setjmpEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_SETJMP/CaptureSigSetJmpCtxt"<<endl;
-            drwrap_wrap(setjmpEntry, CaptureSigSetJmpCtxt, NULL);
+    dr_printf("drcctlib_exit =========\n");
+    /* handle multiple sets of init/exit calls */
+    int count = dr_atomic_add32_return_sum(&drcctlib_init_count, -1);
+    if (count != 0)
+        return;
+    drcctlib_print_stats();
+    if (!drmgr_unregister_bb_instrumentation_event(drcctlib_event_bb_analysis) ||
+        // !drmgr_unregister_bb_insertion_event(drcctlib_event_bb_insert) ||
+        !drmgr_unregister_module_load_event(drcctlib_event_module_analysis) ||
+        !drmgr_unregister_signal_event(drcctlib_event_signal) ||
+        !drmgr_unregister_thread_init_event(drcctlib_event_thread_start) ||
+        !drmgr_unregister_thread_exit_event(drcctlib_event_thread_end) ||
+        !drmgr_unregister_tls_field(tls_idx))
+        {
+            dr_printf("failed to unregister in drcctlib_exit\n");
+            dr_exit_process(-1);
         }
-        app_pc longjmpEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_LONGJMP);
-        if (longjmpEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_LONGJMP/HoldLongJmpBuf&RestoreSigLongJmpCtxt"<<endl;
-            drwrap_wrap(longjmpEntry, HoldLongJmpBuf, RestoreSigLongJmpCtxt);
-        }
-        app_pc sigsetjmpEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_SIGSETJMP);
-        if (sigsetjmpEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_SIGSETJMP/CaptureSigSetJmpCtxt"<<endl;
-            drwrap_wrap(sigsetjmpEntry, CaptureSigSetJmpCtxt, NULL);
-        }
-        app_pc siglongjmpEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_SIGLONGJMP);
-        if (siglongjmpEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_SIGLONGJMP/HoldLongJmpBuf&RestoreSigLongJmpCtxt"<<endl;
-            drwrap_wrap(siglongjmpEntry, HoldLongJmpBuf, RestoreSigLongJmpCtxt);
-        }
-    }
-
-    // Look for unwinding related routines present in libc.so.x file only
-    // For new DW2 exception handling, we need to reset the shadow stack to the
-    // current handler in the following functions:
-    // 1. _Unwind_Reason_Code _Unwind_RaiseException ( struct _Unwind_Exception
-    // *exception_object );
-    // 2. _Unwind_Reason_Code _Unwind_ForcedUnwind ( struct _Unwind_Exception
-    // *exception_object, _Unwind_Stop_Fn stop, void *stop_parameter );
-    // 3. void _Unwind_Resume (struct _Unwind_Exception *exception_object); ***
-    // INSTALL UNCONDITIONALLY, SINCE THIS NEVER RETURNS ***
-    // 4. _Unwind_Reason_Code LIBGCC2_UNWIND_ATTRIBUTE _Unwind_Resume_or_Rethrow
-    // (struct _Unwind_Exception *exc) *** I AM NOT IMPLEMENTING THIS UNTILL I HIT
-    // A CODE THAT NEEDS IT ***
-
-    // These functions call "uw_install_context" at the end of the routine just
-    // before returning, which overwrite the return address. uw_install_context
-    // itself is a static function inlined or macroed. So we would rely on the
-    // more externally visible functions. There are multiple returns in these
-    // (_Unwind_RaiseException, _Unwind_ForcedUnwind, _Unwind_Resume_or_Rethrow)
-    // functions. Only if the return value is "_URC_INSTALL_CONTEXT" shall we
-    // reset the shadow stack.
-    if (strstr(dr_module_preferred_name(info), "libgcc_s.so")) {
-        app_pc unwindSetIpEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_UNWIND_SETIP);
-        if (unwindSetIpEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_UNWIND_SETIP/CaptureCallerThatCanHandleException"<<endl;
-            drwrap_wrap(unwindSetIpEntry, CaptureCallerThatCanHandleException,
-                        NULL);
-        }
-
-        app_pc unwindResumeEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_UNWIND_RESUME);
-        if (unwindResumeEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_UNWIND_RESUME/SetCurBBNodeAfterException"<<endl;
-            drwrap_wrap(unwindResumeEntry, NULL, SetCurBBNodeAfterException);
-        }
-
-        app_pc unwindRaiseExceptionEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_UNWIND_RAISEEXCEPTION);
-        if (unwindRaiseExceptionEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_UNWIND_RAISEEXCEPTION/SetCurBBNodeAfterExceptionIfContextIsInstalled"<<endl;
-            drwrap_wrap(unwindRaiseExceptionEntry, NULL,
-                        SetCurBBNodeAfterExceptionIfContextIsInstalled);
-        }
-
-        app_pc unwindForceUnwindEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_UNWIND_FORCEUNWIND);
-        if (unwindForceUnwindEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_UNWIND_FORCEUNWIND/SetCurBBNodeAfterExceptionIfContextIsInstalled"<<endl;
-            drwrap_wrap(unwindForceUnwindEntry, NULL,
-                        SetCurBBNodeAfterExceptionIfContextIsInstalled);
-        }
-    }
-#ifdef DRCCTLIB_TEST
-    if (strstr(dr_module_preferred_name(info), "sample1")){
-        app_pc testWarpEntry = GetInternalFunctionEntry(info, "TestWarp");
-        if (testWarpEntry != NULL) {
-            cerr<<"+++TestWarp/DRCCTLibTestWarp"<<endl;
-            drwrap_wrap(testWarpEntry, DRCCTLibTestWarp,
-                        DRCCTLibTestWarpResult);
-        }
-        else {
-            cerr<<"+++can not find TestWarp"<<endl;
-        }
-    }
-#endif
-
-    // if data centric is enabled, capture allocation routines
-    if (g_GlobalState.doDataCentric) {
-        app_pc mallocEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_MALLOC_FN_NAME);
-        if (mallocEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_MALLOC_FN_NAME/CaptureMallocSize&CaptureMallocPointer"<<endl;
-            drwrap_wrap(mallocEntry, CaptureMallocSize, CaptureMallocPointer);
-        }
-
-        app_pc callocEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_CALLOC_FN_NAME);
-        if (callocEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_CALLOC_FN_NAME/CaptureMallocSize&CaptureMallocPointer"<<endl;
-            drwrap_wrap(callocEntry, CaptureCallocSize, CaptureMallocPointer);
-        }
-
-        app_pc reallocEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_REALLOC_FN_NAME);
-        if (reallocEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_REALLOC_FN_NAME/CaptureMallocSize&CaptureMallocPointer"<<endl;
-            drwrap_wrap(reallocEntry, CaptureReallocSize, CaptureMallocPointer);
-        }
-
-        app_pc freeEntry =
-            (app_pc)dr_get_proc_address(info->handle, CCTLIB_STR_FREE_FN_NAME);
-        if (freeEntry != NULL) {
-            cerr<<"+++CCTLIB_STR_FREE_FN_NAME/CaptureFree"<<endl;
-            drwrap_wrap(freeEntry, CaptureFree, NULL);
-        }
-    }
-}
+    
+    drmgr_unregister_module_load_event(ComputeVarBounds);
+    drmgr_unregister_module_unload_event(DeleteStaticVar);
 
 
+    hashtable_delete(&global_bb_shadow_table);
+    hashtable_delete(&global_pt_cache_map);
+    drcctlib_lock_destroy();
 
-
-// static inline instr_t *
-// GetInstrptrFromContext(ContextHandle_t ctxtHndle)
-// {
-//     BBNode *bbNode = GetIPNodeFromContextHandle(ctxtHndle)->parentBBNode;
-//     DR_ASSERT(ctxtHndle >= bbNode->childCtxtStartIdx);
-//     DR_ASSERT(ctxtHndle < bbNode->childCtxtStartIdx + bbNode->nSlots);
-//     // what is my slot id ?
-//     uint32_t slotNo = ctxtHndle - bbNode->childCtxtStartIdx;
-
-//     uint64_t *ipShadow = (uint64_t *)g_GlobalState.bbShadowMap[bbNode->bbKey];
-//     return (instr_t *)ipShadow[slotNo];
-// }
-
-// static inline module_data_t *
-// GetModuleptrFromContext(ContextHandle_t ctxtHndle)
-// {
-//     BBNode *bbNode = GetIPNodeFromContextHandle(ctxtHndle)->parentBBNode;
-//     DR_ASSERT(ctxtHndle >= bbNode->childCtxtStartIdx);
-//     DR_ASSERT(ctxtHndle < bbNode->childCtxtStartIdx + bbNode->nSlots);
-//     uint64_t *ipShadow = (uint64_t *)g_GlobalState.bbShadowMap[bbNode->bbKey];
-
-//     return (module_data_t *)ipShadow[-1];
-// }
-
-static size_t
-GetPeakRSS()
-{
-    struct rusage rusage;
-    getrusage(RUSAGE_SELF, &rusage);
-    return (size_t)(rusage.ru_maxrss);
-}
-
-static void
-PrintStats()
-{
-    dr_fprintf(g_GlobalState.logFile, "\nTotalCallPaths = %" PRIu64,
-               g_GlobalState.curPreAllocatedContextBufferIndex);
-    // Peak resource usage
-    dr_fprintf(g_GlobalState.logFile, "\nPeakRSS = %zu", GetPeakRSS());
-}
-
-static dr_signal_action_t
-OnSig(void *drcontext, dr_siginfo_t *siginfo)
-{
-    ThreadData *tData = CCTLibGetTLS(drcontext);
-
-#ifdef CCTLIB_USE_STACK_STATUS
-    SET_STACK_STATUS(tData->tlsStackStatus, CALL_INITIATED);
-#else
-    tData->tlsInitiatedCall = true;
-#endif
-    return DR_SIGNAL_DELIVER;
-}
-
-// This function is called when the application exits
-static void
-Fini()
-{
-
-    CCTLibCallbackFunc(g_GlobalState.callbackFuncs, CCTLibFiniCallback);
-
-    if (g_GlobalState.doDataCentric) {
-        drmgr_unregister_module_load_event(ComputeVarBounds);
-        drmgr_unregister_module_unload_event(DeleteStaticVar);
-    }
-
-    drmgr_unregister_bb_instrumentation_event(CCTLibBBAnalysis);
-    drmgr_unregister_module_load_event(CCTLibModuleAnalysis);
-
-    drmgr_unregister_signal_event(OnSig);
-
-    drmgr_unregister_thread_init_event(CCTLibThreadStart);
-    drmgr_unregister_thread_exit_event(CCTLibThreadEnd);
-
-    drmgr_unregister_tls_field(g_GlobalState.CCTLibTlsKey);
-    dr_mutex_destroy(g_GlobalState.lock);
     drmgr_exit();
     drutil_exit();
     drwrap_exit();
     if (drsym_exit() != DRSYM_SUCCESS) {
-        dr_log(NULL, DR_LOG_ALL, 1,
-               "WARNING: unable to clean up symbol library\n");
+        dr_printf("failed to clean up symbol library\n");
+        dr_exit_process(-1);
     }
+    // free cct_ip_node and cct_bb_node
+    drcctlib_free_global_buff();
 
-    PrintStats();
-
-    dr_close_file(g_GlobalState.logFile);
+    dr_close_file(global_logfile);
+    dr_printf("finish drcctlib_exit =========\n");
 }
-
-// init logfile
-static void
-InitLogFile(file_t logFile)
-{
-    g_GlobalState.logFile = logFile;
-}
-
-// init IPNode store space; (Q) why mmap？share memory across threads
-static void
-InitBuffers()
-{
-    // prealloc IPNodeVec so that they all come from a continuous memory region.
-    // IMPROVEME ... actually this can be as high as 24 GB since lower 3 bits are
-    // always zero for pointers
-    g_GlobalState.preAllocatedContextBuffer =
-        (IPNode *)mmap(0, kMaxIPNodesNum * sizeof(IPNode), PROT_WRITE | PROT_READ,
-                       MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    // start from index 1 so that we can use 0 as empty key for the google hash
-    // table
-    g_GlobalState.curPreAllocatedContextBufferIndex = 1;
-    // Init the string pool
-    g_GlobalState.preAllocatedStringPool = (char *)mmap(
-        0, kMaxStringPoolNodesNum * sizeof(char), PROT_WRITE | PROT_READ,
-        MAP_NORESERVE | MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    // start from index 1 so that we can use 0 as a special value
-    g_GlobalState.curPreAllocatedStringPoolIndex = 1;
-}
-
-static void
-InitUserCallback(CCTLibCallbackFuncStruct *callbackFuncs)
-{
-    g_GlobalState.callbackFuncs = callbackFuncs;
-}
-
-static void
-InitTLSKey()
-{
-    // Obtain  a key for TLS storage.
-    g_GlobalState.CCTLibTlsKey = drmgr_register_tls_field();
-    DR_ASSERT(g_GlobalState.CCTLibTlsKey != -1);
-}
-
-static void
-InitUserInstrumentInsCallback(IsInterestingInsFptr isInterestingIns,
-                              CCTLibInstrumentInsCallback userCallback,
-                              void *userCallbackArg)
-{
-    g_GlobalState.isInterestingIns = isInterestingIns;
-    // remember user instrumentation callback
-    g_GlobalState.userInstrumentationCallback = userCallback;
-    g_GlobalState.userInstrumentationCallbackArg = userCallbackArg;
-}
-
-static void
-PrintFullCallingContextInSitu(ContextHandle_t curCtxtHndle)
-{
-    int depth = 0;
-
-    // Dont print if the depth is more than kMaxCCTPrintDepth since files
-    // become too large
-    while (IsValidContextHandle(curCtxtHndle) &&
-           (depth++ < kMaxCCTPrintDepth)) {
-        uint32_t threadId = -1;
-
-        if (IsRootIPNode(curCtxtHndle, &threadId)) {
-            // if the thread has a parent, recur over it.
-            ContextHandle_t parentThreadCtxtHndl =
-                CCTLibGetTLS(threadId)->tlsParentThreadCtxtHndl;
-            dr_fprintf(g_GlobalState.logFile, "THREAD[" PFX "]_ROOT_CTXT", threadId);
-            if (parentThreadCtxtHndl) {
-                PrintFullCallingContextInSitu(parentThreadCtxtHndl);
-            }
-            break;
-        } else {
-            BBNode *bb =
-                GetIPNodeFromContextHandle(curCtxtHndle)->parentBBNode;
-            PrintContext(
-                g_GlobalState
-                    .blockInterestInstrs[bb->bbKey][curCtxtHndle - bb->childCtxtStartIdx]
-                    .first,
-                g_GlobalState
-                    .blockInterestInstrs[bb->bbKey][curCtxtHndle - bb->childCtxtStartIdx]
-                    .second);
-            curCtxtHndle = bb->callerCtxtHndl;
-            if (depth >= kMaxCCTPrintDepth) {
-                dr_fprintf(g_GlobalState.logFile,
-                           "Truncated call path (due to deep call chain)");
-            }
-        }
-    }
-}
-
-static void
-GetFullCallingContextInSitu(ContextHandle_t curCtxtHndle, vector<Context_t> &contextVec)
-{
-    int depth = 0;
-
-
-    while (IsValidContextHandle(curCtxtHndle) &&
-           (depth++ < kMaxCCTPathDepth)) {
-        uint32_t threadId = -1;
-
-        if (IsRootIPNode(curCtxtHndle, &threadId)) {
-            // if the thread has a parent, recur over it.
-            ContextHandle_t parentThreadCtxtHndl =
-                CCTLibGetTLS(threadId)->tlsParentThreadCtxtHndl;
-            /* could have use to_string() in c++11 */
-            stringstream tCtxStr;
-            tCtxStr << threadId;
-
-            Context_t ctxt = { "THREAD[" + tCtxStr.str() + "]_ROOT_CTXT" /*functionName*/,
-                               "" /*filePath */,
-                               "" /*disassembly*/,
-                               curCtxtHndle /*ctxtHandle*/,
-                               0 /*lineNo*/,
-                               0 /*ip*/ };
-            contextVec.push_back(ctxt);
-
-            if (parentThreadCtxtHndl) {
-                GetFullCallingContextInSitu(parentThreadCtxtHndl, contextVec);
-            }
-            break;
-        } else {
-            BBNode *bb =
-            GetIPNodeFromContextHandle(curCtxtHndle)->parentBBNode;
-            Context_t ctxt = GetContext(
-                curCtxtHndle,
-                g_GlobalState
-                    .blockInterestInstrs[bb->bbKey][curCtxtHndle - bb->childCtxtStartIdx]
-                    .first,
-                g_GlobalState
-                    .blockInterestInstrs[bb->bbKey][curCtxtHndle - bb->childCtxtStartIdx]
-                    .second);
-            contextVec.push_back(ctxt);
-            curCtxtHndle = bb->callerCtxtHndl;
-            if (depth >= kMaxCCTPathDepth) {
-                Context_t ctxt =
-                    { "Truncated call path (due to deep call chain)" /*functionName*/,
-                      "" /*filePath */,
-                      "" /*disassembly*/,
-                      curCtxtHndle /*ctxtHandle*/,
-                      0 /*lineNo*/,
-                      0 /*ip*/ };
-                contextVec.push_back(ctxt);
-            }
-        }
-    }
-}
-
-#ifndef __GNUC__
-#    pragma endregion PrivateFunctionRegion
-#endif
-
-#ifndef __GNUC__
-#    pragma region UnfinishFunctionRegion
-#endif
-
-#if 0
-    // Visit all nodes of the splay tree of child traces.
-    static void VisitAllNodesOfSplayTree(TraceSplay *node, FILE *const fp)
-    {
-        // process self
-        SerializeCCTNode(node->value, fp);
-
-        // visit left
-        if (node->left)
-            VisitAllNodesOfSplayTree(node->left, fp);
-
-        // visit right
-        if (node->right)
-            VisitAllNodesOfSplayTree(node->right, fp);
-    }
-
-    static uint32_t NO_MORE_TRACE_NODES_IN_SPLAY_TREE = UINT_MAX;
-
-    static void SerializeCCTNode(TraceNode *traceNode, FILE *const fp)
-    {
-        SerializedTraceNode serializedTraceNode = {traceNode->traceKey, traceNode->nSlots, traceNode->childCtxtStartIdx};
-        fwrite(&serializedTraceNode, sizeof(SerializedTraceNode), 1, fp);
-
-        // Iterate over all IPNodes
-        IPNode *ipNode = GET_IPNODE_FROM_CONTEXT_HANDLE(traceNode->childCtxtStartIdx);
-        for (uint32_t i = 0; i < traceNode->nSlots; i++)
-        {
-            if ((ipNode[i]).calleeTraceNodes == NULL)
-            {
-                fwrite(&NO_MORE_TRACE_NODES_IN_SPLAY_TREE, sizeof(NO_MORE_TRACE_NODES_IN_SPLAY_TREE), 1, fp);
-            }
-            else
-            {
-                // Iterate over all decendent TraceNode of traceNode->childCtxtStartIdx[i]
-                VisitAllNodesOfSplayTree((ipNode[i]).calleeTraceNodes, fp);
-                fwrite(&NO_MORE_TRACE_NODES_IN_SPLAY_TREE, sizeof(NO_MORE_TRACE_NODES_IN_SPLAY_TREE), 1, fp);
-            }
-        }
-    }
-
-    static TraceNode *DeserializeCCTNode(ContextHandle_t parentCtxtHndl, FILE *const fp)
-    {
-        uint32_t noMoreTrace;
-
-        if (fread(&noMoreTrace, sizeof(noMoreTrace), 1, fp) != 1)
-        {
-            fprintf(stderr, "\n Failed to read at line %d\n", __LINE__);
-            PIN_ExitProcess(-1);
-        }
-
-        if (noMoreTrace == NO_MORE_TRACE_NODES_IN_SPLAY_TREE)
-        {
-            return NULL;
-        }
-
-        // go back 4 bytes;
-        fseek(fp, -sizeof(noMoreTrace), SEEK_CUR);
-        SerializedTraceNode serializedTraceNode;
-
-        if (fread(&serializedTraceNode, sizeof(SerializedTraceNode), 1, fp) != 1)
-        {
-            fprintf(stderr, "\n Failed to read at line %d\n", __LINE__);
-            PIN_ExitProcess(-1);
-        }
-
-        TraceNode *traceNode = new TraceNode();
-        traceNode->traceKey = serializedTraceNode.traceKey;
-        traceNode->nSlots = serializedTraceNode.nSlots;
-        traceNode->childCtxtStartIdx = serializedTraceNode.childCtxtStartIdx;
-        traceNode->callerCtxtHndl = parentCtxtHndl;
-
-        // Iterate over all IPNodes
-        IPNode *ipNode = GET_IPNODE_FROM_CONTEXT_HANDLE(traceNode->childCtxtStartIdx);
-        for (uint32_t i = 0; i < traceNode->nSlots; i++)
-        {
-            ipNode[i].parentTraceNode = traceNode;
-
-            while (1)
-            {
-                TraceNode *childTrace = DeserializeCCTNode(traceNode->childCtxtStartIdx + i, fp);
-
-                if (childTrace == NULL)
-                    break;
-
-                // add childTrace to the splay tree at traceNode->childCtxtStartIdx[i]
-                TraceSplay *newNode = new TraceSplay();
-                newNode->key = childTrace->traceKey;
-                newNode->value = childTrace;
-
-                // if no children
-                IPNode *childIPNode = GET_IPNODE_FROM_CONTEXT_HANDLE(traceNode->childCtxtStartIdx + i);
-                if (childIPNode->calleeTraceNodes == NULL)
-                {
-                    childIPNode->calleeTraceNodes = newNode;
-                    newNode->left = NULL;
-                    newNode->right = NULL;
-                }
-                else
-                {
-                    TraceSplay *found = splay(childIPNode->calleeTraceNodes, childTrace->traceKey);
-
-                    if (childTrace->traceKey < found->key)
-                    {
-                        newNode->left = found->left;
-                        newNode->right = found;
-                        found->left = NULL;
-                    }
-                    else
-                    { // addr > addr of found
-                        newNode->left = found;
-                        newNode->right = found->right;
-                        found->right = NULL;
-                    }
-                }
-            }
-        }
-
-        return traceNode;
-    }
-
-    static void SerializeAllCCTs()
-    {
-        for (uint32_t id = 0; id < GLOBAL_STATE.numThreads; id++)
-        {
-            ThreadData *tData = CCTLibGetTLS(id);
-            std::stringstream cctMapFilePath;
-            cctMapFilePath << GLOBAL_STATE.serializationDirectory << SERIALIZED_CCT_FILE_PREFIX << id << SERIALIZED_CCT_FILE_SUFFIX;
-            FILE *fp = fopen(cctMapFilePath.str().c_str(), "wb");
-
-            if (fp == NULL)
-            {
-                fprintf(stderr, "\n Failed to open %s in line %d. Exiting\n", cctMapFilePath.str().c_str(), __LINE__);
-                PIN_ExitProcess(-1);
-            }
-
-            //record thread id
-            uint32_t threadId = tData->tlsThreadId;
-            fwrite(&threadId, sizeof(tData->tlsThreadId), 1, fp);
-            // record path of the parent
-            ContextHandle_t parentCtxtHndl = tData->tlsParentThreadCtxtHndl;
-            fwrite(&parentCtxtHndl, sizeof(ContextHandle_t), 1, fp);
-            SerializeCCTNode(tData->tlsRootTraceNode, fp);
-            fclose(fp);
-        }
-    }
-
-    // return the filenames of all files that have the specified extension
-    // in the specified directory and all subdirectories
-    static void GetAllFilesInDirWithExtn(const boostFS::path &root, const string &ext, vector<boostFS::path> &ret)
-    {
-        if (!boostFS::exists(root))
-            return;
-
-        if (boostFS::is_directory(root))
-        {
-            boostFS::directory_iterator it(root);
-            boostFS::directory_iterator endit;
-
-            while (it != endit)
-            {
-                if (boostFS::is_regular_file(*it) && it->path().extension() == ext)
-                {
-                    ret.push_back(boostFS::system_complete(it->path()));
-                }
-
-                ++it;
-            }
-        }
-    }
-
-    static void DeserializeAllCCTs()
-    {
-        // Get all files with
-        vector<boostFS::path> serializedCCTFiles;
-        GetAllFilesInDirWithExtn(g_GlobalState.serializationDirectory, SERIALIZED_CCT_FILE_EXTN, serializedCCTFiles);
-
-        for (uint32_t id = 0; id < serializedCCTFiles.size(); id++)
-        {
-            std::stringstream cctMapFilePath;
-            cctMapFilePath << serializedCCTFiles[id].native();
-            //fprintf(stderr, "\nexists = %d\n",boostFS::exists(serializedCCTFiles[id]));
-            FILE *fp = fopen(cctMapFilePath.str().c_str(), "rb");
-
-            if (fp == NULL)
-            {
-                perror("fopen:");
-                fprintf(stderr, "\n Failed to open %s in line %d. Exiting\n", cctMapFilePath.str().c_str(), __LINE__);
-                PIN_ExitProcess(-1);
-            }
-
-            // Get thread id
-            uint32_t threadId;
-
-            if (fread(&threadId, sizeof(threadId), 1, fp) != 1)
-            {
-                fprintf(stderr, "\n Failed to read at line %d\n", __LINE__);
-                PIN_ExitProcess(-1);
-            }
-
-            // record path of the parent
-            ContextHandle_t parentCtxtHndl;
-
-            if (fread(&parentCtxtHndl, sizeof(ContextHandle_t), 1, fp) != 1)
-            {
-                fprintf(stderr, "\n Failed to read at line %d\n", __LINE__);
-                PIN_ExitProcess(-1);
-            }
-
-            TraceNode *rootTrace = DeserializeCCTNode(parentCtxtHndl, fp);
-    #    ifndef NDEBUG
-            // we should be at the end of file now
-            uint8_t dummy;
-            assert(fread(&dummy, sizeof(uint8_t), 1, fp) == 0);
-    #    endif
-            fclose(fp);
-            // Add a ThreadData record to GLOBAL_STATE.deserializedCCTs
-            ThreadData tData;
-            //bzero(&tData, sizeof(tData));
-            tData.tlsThreadId = threadId;
-            tData.tlsParentThreadCtxtHndl = parentCtxtHndl;
-            tData.tlsRootTraceNode = rootTrace;
-            tData.tlsRootCtxtHndl = rootTrace->childCtxtStartIdx;
-            GLOBAL_STATE.deserializedCCTs.push_back(tData);
-            // Update the number of threads
-            GLOBAL_STATE.numThreads++;
-        }
-    }
-
-    static void DeserializeBBIps()
-    {
-        string traceMapFilePath = GLOBAL_STATE.serializationDirectory + SERIALIZED_SHADOW_TRACE_IP_FILE_SUFFIX;
-        FILE *fp = fopen(traceMapFilePath.c_str(), "rb");
-
-        if (fp == NULL)
-        {
-            fprintf(stderr, "\n Failed to open %s in line %d. Exiting\n", traceMapFilePath.c_str(), __LINE__);
-            PIN_ExitProcess(-1);
-        }
-
-        unordered_map<uint32_t, void *>::iterator it;
-        //fprintf(fp, "TraceKey:NumSlots:ModuleId:[ip1][ip2]..[ipNumSlots]");
-        uint32_t traceKey;
-
-        while (fread(&traceKey, sizeof(traceKey), 1, fp) == 1)
-        {
-            // read num entries
-            ADDRINT numSlots;
-
-            if (fread(&numSlots, sizeof(ADDRINT), 1, fp) != 1)
-            {
-                fprintf(stderr, "\n Failed to read in line %d. Exiting\n", __LINE__);
-                PIN_ExitProcess(-1);
-            }
-
-            // allocate the shadow ips
-            ADDRINT *array = (ADDRINT *)malloc((numSlots + 2) * sizeof(ADDRINT));
-            array[0] = numSlots;
-
-            // read remaining entires
-            if (fread(&array[1], sizeof(ADDRINT), numSlots + 1, fp) != (numSlots + 1))
-            {
-                fprintf(stderr, "\n Failed to read in line %d. Exiting\n", __LINE__);
-                PIN_ExitProcess(-1);
-            }
-
-            // Insert into the shadow map
-            GLOBAL_STATE.traceShadowMap[traceKey] = (void *)(&array[2]); // 2 because first 2 entries are behind as in runtime.
-        }
-
-        fclose(fp);
-    }
-
-    static void DeserializeMouleInfo()
-    {
-        string moduleFilePath = GLOBAL_STATE.serializationDirectory + SERIALIZED_MODULE_MAP_SUFFIX;
-        FILE *fp = fopen(moduleFilePath.c_str(), "r");
-
-        if (fp == NULL)
-        {
-            perror("Error");
-            fprintf(stderr, "\n Failed to open %s in line %d. Exiting\n", moduleFilePath.c_str(), __LINE__);
-            PIN_ExitProcess(-1);
-        }
-
-        // read header and thow it away
-        uint32_t moduleId;
-        ADDRINT offset;
-        char path[MAX_FILE_PATH];
-        //fprintf(fp, "ModuleId\tModuleFile\tLoadOffset");
-        fscanf(fp, "%s%s%s", path, path, path);
-
-        while (EOF != fscanf(fp, "%u%s%p", &moduleId, path, (void **)&offset))
-        {
-            ModuleInfo minfo;
-            minfo.moduleName = path;
-            minfo.imgLoadOffset = offset;
-            GLOBAL_STATE.ModuleInfoMap[moduleId] = minfo;
-        }
-
-        fclose(fp);
-    }
-
-    static void DeserializeMetadata(string directoryForSerializationFiles)
-    {
-        g_GlobalState.serializationDirectory = directoryForSerializationFiles;
-        DeserializeAllCCTs();
-        DeserializeBBIps();
-        DeserializeMouleInfo();
-    }
-
-    static void SerializeMouleInfo()
-    {
-        string moduleFilePath = GLOBAL_STATE.serializationDirectory + SERIALIZED_MODULE_MAP_SUFFIX;
-        FILE *fp = fopen(moduleFilePath.c_str(), "w");
-
-        if (fp == NULL)
-        {
-            perror("Error:");
-            fprintf(stderr, "\n Failed to open %s in line %d. Exiting\n", moduleFilePath.c_str(), __LINE__);
-            PIN_ExitProcess(-1);
-        }
-
-        unordered_map<UINT32, ModuleInfo>::iterator it;
-        fprintf(fp, "ModuleId\tModuleFile\tLoadOffset");
-
-        for (it = GLOBAL_STATE.ModuleInfoMap.begin(); it != GLOBAL_STATE.ModuleInfoMap.end(); ++it)
-        {
-            fprintf(fp, "\n%u\t%s\t%p", it->first, (it->second).moduleName.c_str(), (void *)((it->second).imgLoadOffset));
-        }
-
-        fclose(fp);
-    }
-
-    DR_EXPORT
-    int drcctlib_init_for_postmortem_analysis(file_t logFile, string serializedFilesDirectory)
-    {
-
-        g_GlobalState.usageMode = CCTLibUsageMode::PostmorteMode;
-        // Initialize Symbols, we need them to report functions and lines
-        if (drsym_init(0) != DRSYM_SUCCESS)
-        {
-            dr_log(NULL, DR_LOG_ALL, 1,
-                "WARNING: unable to initialize symbol translation\n");
-        }
-        disassemble_set_syntax(DR_DISASM_INTEL);
-        // Intialize
-        InitBuffers();
-        InitLogFile(logFile);
-        InitTLSKey();
-
-        DeserializeMetadata(serializedFilesDirectory);
-        return 0;
-    }
-
-    DR_EXPORT
-    void SerializeMetadata(string directoryForSerializationFiles)
-    {
-        if (directoryForSerializationFiles != "")
-        {
-            GLOBAL_STATE.serializationDirectory = directoryForSerializationFiles;
-        }
-        else
-        {
-            // construct one
-            std::stringstream ss;
-            char hostname[MAX_FILE_PATH];
-            gethostname(hostname, MAX_FILE_PATH);
-            pid_t pid = getpid();
-            ss << CCTLIB_SERIALIZATION_DEFAULT_DIR_NAME << hostname << "-" << pid;
-            GLOBAL_STATE.serializationDirectory = ss.str();
-        }
-
-        // create directory
-        string cmd = "mkdir -p " + GLOBAL_STATE.serializationDirectory;
-        int result = system(cmd.c_str());
-
-        if (result != 0)
-        {
-            fprintf(stderr, "\n failed to call system()");
-        }
-
-        SerializeAllCCTs();
-        SerializeMouleInfo();
-        SerializeTraceIps();
-    }
-
-    DR_EXPORT
-    bool IsSameSourceLine(ContextHandle_t ctxt1, ContextHandle_t ctxt2) // unfinish
-    {
-        if (ctxt1 == ctxt2)
-            return true;
-
-        ADDRINT ip1 = GetIPFromInfo(ctxt1);
-        ADDRINT ip2 = GetIPFromInfo(ctxt2);
-
-        if (ip1 == ip2)
-            return true;
-
-        uint32_t lineNo1, lineNo2;
-        string filePath1, filePath2;
-
-        PIN_GetSourceLocation(ip1, NULL, (INT32 *)&lineNo1, &filePath1);
-        PIN_GetSourceLocation(ip2, NULL, (INT32 *)&lineNo2, &filePath2);
-
-        if (filePath1 == filePath2 && lineNo1 == lineNo2)
-            return true;
-        return false;
-    }
-
-    static int // unfinish
-    GetInstructionLength(uint32_t ip)
-    {
-        // Get the instruction in a string
-        _decoded_inst_t xedd;
-        /// XED state
-        xed_decoded_inst_zero_set_mode(&xedd, &g_GlobalState.cct_xed_state);
-
-        if (XED_ERROR_NONE == xed_decode(&xedd, (const xed_uint8_t *)(ip), 15))
-        {
-            return xed_decoded_inst_get_length(&xedd);
-        }
-        else
-        {
-            assert(0 && "failed to disassemble instruction");
-            return 0;
-        }
-    }
-
-    static void // unfinish
-    GetNormalizedIpVectorClippedToMainOneAheadIp(vector<NormalizedIP> &ctxt,
-                                                ContextHandle_t curCtxtHndle)
-    {
-        int depth = 0;
-        // Dont print if the depth is more than kMaxCCTPrintDepth since
-        // files become too large
-        while (IsValidContextHandle(curCtxtHndle) &&
-            (depth++ < kMaxCCTPrintDepth))
-        {
-            int threadId = 0;
-            if ((threadId = IsRootIPNode(curCtxtHndle)) != NOT_ROOT_CTX)
-            {
-                // if the thread has a parent, recur over it.
-                ContextHandle_t parentThreadCtxtHndl =
-                    CCTLibGetTLS(threadId)->tlsParentThreadCtxtHndl;
-                if (parentThreadCtxtHndl)
-                {
-                    fprintf(stderr,
-                            "\n Multi threading not supported for this prototype feature. "
-                            "Exiting\n");
-                    dr_exit_process(-1);
-                }
-                break;
-            }
-            else
-            {
-                BBNode *bbNode =
-                    GetIPNodeFromContextHandle(curCtxtHndle)->parentBBNode;
-                // what is my slot id ?
-                uint32_t slotNo = curCtxtHndle - bbNode->childCtxtStartIdx;
-
-                uint32_t *ptr = (uint32_t *)g_GlobalState.bbShadowMap[bbNode->bbKey];
-                UINT32 moduleId = ptr[-1]; // module id is stored one behind.
-                uint32_t ip = ptr[slotNo];
-                ip += GetInstructionLength(ip);
-                NormalizedIP nip;
-                nip.lm_id = moduleId;
-                nip.offset = ip - g_GlobalState.ModuleInfoMap[moduleId].imgLoadOffset;
-                ctxt.push_back(nip);
-
-                // if we are already in main, we are done
-                RTN r = RTN_FindByAddress(ip);
-                if (RTN_Invalid() != r && RTN_Name(r) == "main")
-                    return;
-            }
-            curCtxtHndle = GetIPNodeFromContextHandle(curCtxtHndle)
-                            ->parentBBNode->callerCtxtHndl;
-        }
-    }
-
-    DR_EXPORT
-    void LogContexts(iostream &ios, ContextHandle_t ctxt1,
-                    ContextHandle_t ctxt2) // unfinish
-    {
-        vector<NormalizedIP> c1;
-        vector<NormalizedIP> c2;
-        GetNormalizedIpVectorClippedToMainOneAheadIp(c1, ctxt1);
-        GetNormalizedIpVectorClippedToMainOneAheadIp(c2, ctxt2);
-        for (uint32_t i = 0; i < c1.size(); i++)
-            ios << c1[i].lm_id << "-" << (void *)c1[i].offset << ",";
-        ios << "SEP";
-        for (uint32_t i = 0; i < c2.size(); i++)
-            ios << "," << c2[i].lm_id << "-" << (void *)c2[i].offset;
-    }
-
-#endif
-
-#ifndef __GNUC__
-#    pragma endregion UnfinishFunctionRegion
-#endif
-
-#ifndef __GNUC__
-#    pragma region CCTLibAPIFunctionRegion
-#endif
-/********** CCTLib APIs **********/
-// API to get the handle for the current calling context
 
 DR_EXPORT
-ContextHandle_t
-GetContextHandle(void *drcontext, const uint32_t slot)
+void
+drcctlib_set_instr_instrument_filter(drcctlib_interest_filter_t interest_filter)
 {
-    ThreadData *tData = CCTLibGetTLS(drcontext);
-    // cerr<<"bbKey: "<<tData->tlsCurrentBBNode->bbKey<<" slot: "<<slot<<" nslots:
-    // "<<tData->tlsCurrentBBNode->nSlots<<endl;
-    DR_ASSERT(slot < tData->tlsCurrentBBNode->nSlots);
-    return tData->tlsCurrentBBNode->childCtxtStartIdx + slot;
+    global_interest_filter = interest_filter;
 }
+
+DR_EXPORT
+void
+drcctlib_set_instr_instrument_cb(drcctlib_instr_instrument_cb_t pre_cb, void *pre_data,
+                                 drcctlib_instr_instrument_cb_t post_cb, void *post_data)
+{
+    global_instr_instrument_pre_cb_str.callback = pre_cb;
+    global_instr_instrument_pre_cb_str.data = pre_data;
+    global_instr_instrument_post_cb_str.callback = post_cb;
+    global_instr_instrument_post_cb_str.data = post_data;
+}
+
+DR_EXPORT
+bool
+drcctlib_set_global_flags(drcctlib_global_flags_t flags)
+{
+    drcctlib_global_flags_t old_flags;
+    bool res;
+    dr_recurlock_lock(flags_lock);
+    old_flags = global_flags;
+    global_flags |= flags;
+    res = (global_flags != old_flags);
+    dr_recurlock_unlock(flags_lock);
+    return res;
+}
+
+DR_EXPORT
+void
+drcctlib_config_logfile(file_t file)
+{
+    global_logfile = file;
+}
+
+DR_EXPORT
+file_t
+drcctlib_get_log_file()
+{
+    return global_logfile;
+}
+
+
+DR_EXPORT bool
+drcctlib_init_ex(drcctlib_interest_filter_t filter, file_t file,
+                drcctlib_instr_instrument_cb_t post_cb, void *post_cb_data)
+{
+    if (!drcctlib_init()) {
+        return false;
+    }
+    drcctlib_set_instr_instrument_filter(filter);
+    drcctlib_config_logfile(file);
+    drcctlib_set_instr_instrument_cb(NULL, NULL, post_cb, post_cb_data);
+    return true;
+}
+
+
+
+
+static per_thread_t *
+pt_get_from_gcache_by_id(pt_id_t id)
+{
+    pt_cache_t *cache = (pt_cache_t *)hashtable_lookup(&global_pt_cache_map, (void*)(ptr_int_t)(id));
+    if (cache->dead) {
+        return cache->cache_data;
+    } else {
+        return cache->active_data;
+    }
+}
+
+static pt_id_t
+bb_is_thread_root(cct_bb_node_t *bb)
+{
+    for (pt_id_t id = 0; id < global_thread_id_max; id++) {
+        per_thread_t *pt = pt_get_from_gcache_by_id(id);
+        if (pt->root_bb_node == bb){
+            return id;
+        }
+    }
+    return -1;
+}
+
+static inline context_t *
+ctxt_create(context_handle_t ctxt_hndl, int line_no, app_pc ip)
+{
+    context_t* ctxt = (context_t*)dr_global_alloc(sizeof(context_t));
+    ctxt->ctxt_hndl = ctxt_hndl;
+    ctxt->line_no = line_no;
+    ctxt->ip = ip;
+    ctxt->pre_ctxt = NULL;
+    return ctxt;
+}
+
+static inline context_t*
+ctxt_get_from_ctxt_hndl(context_handle_t handle)
+{
+    cct_ip_node_t * ip = drcctlib_ctxt_to_ip(handle);
+    cct_bb_node_t *bb = ip->parent_bb_node;
+    pt_id_t id = -1;
+    if ((id = bb_is_thread_root(bb)) != -1){
+        context_t *ctxt = ctxt_create(handle, 0, 0);
+        sprintf(ctxt->func_name, "THREAD[%d]_ROOT_CTXT", id);
+        sprintf(ctxt->file_path, " ");
+        sprintf(ctxt->code_asm, " ");
+        return ctxt;
+    }
+    bb_shadow_t *shadow = (bb_shadow_t *)hashtable_lookup(&global_bb_shadow_table, (void*)(ptr_int_t)(bb->key));
+    app_pc addr = shadow->ip_shadow[handle - bb->child_ctxt_start_idx];
+    char* code = shadow->disasm_shadow + (handle - bb->child_ctxt_start_idx)*DISASM_CACHE_SIZE;
+    
+
+    drsym_error_t symres;
+    drsym_info_t sym;
+    char name[MAXIMUM_SYMNAME];
+    char file[MAXIMUM_PATH];
+    module_data_t *data;
+    data = dr_lookup_module(addr);
+    if (data == NULL) {
+        context_t *ctxt = ctxt_create(handle, 0, addr);
+        sprintf(ctxt->func_name, "badIp");
+        sprintf(ctxt->file_path, " ");
+        sprintf(ctxt->code_asm, "%s", code);
+        return ctxt;
+    }
+    sym.struct_size = sizeof(sym);
+    sym.name = name;
+    sym.name_size = MAXIMUM_SYMNAME;
+    sym.file = file;
+    sym.file_size = MAXIMUM_PATH;
+    symres = drsym_lookup_address(data->full_path, addr - data->start, &sym,
+                                  DRSYM_DEFAULT_FLAGS);
+    
+    if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+        context_t *ctxt;
+        if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
+            ctxt = ctxt_create(handle, 0, addr);
+        } else {
+            ctxt = ctxt_create(handle, sym.line, addr);
+        }
+        sprintf(ctxt->func_name, "%s", sym.name);
+        sprintf(ctxt->file_path, "%s", data->full_path);
+        sprintf(ctxt->code_asm, "%s", code);
+        dr_free_module_data(data);
+        return ctxt;
+    } else {
+        context_t *ctxt = ctxt_create(handle, 0, addr);
+        sprintf(ctxt->func_name, "<noname>");
+        sprintf(ctxt->file_path, "%s", data->full_path);
+        sprintf(ctxt->code_asm, "%s", code);
+        dr_free_module_data(data);
+        return ctxt;
+    }
+}
+
+DR_EXPORT
+void
+drcctlib_print_ctxt_hndle_msg(context_handle_t handle, bool print_asm, bool print_file_path)
+{
+    context_t* ctxt = ctxt_get_from_ctxt_hndl(handle);
+    if(print_asm && print_file_path){
+        dr_fprintf(global_logfile, "(%s)%d:\"(%p)%s\"[%s]\n",
+               ctxt->func_name, ctxt->line_no, (uint64_t)ctxt->ip, ctxt->code_asm, ctxt->file_path);
+    } else if(print_asm){
+        dr_fprintf(global_logfile, "(%s)%d:\"(%p)%s\"\n",
+               ctxt->func_name, ctxt->line_no, (uint64_t)ctxt->ip, ctxt->code_asm);
+    } else if(print_file_path) {
+        dr_fprintf(global_logfile, "(%s)%d:\"(%p)\"[%s]\n",
+               ctxt->func_name, ctxt->line_no, (uint64_t)ctxt->ip, ctxt->file_path);
+    } else {
+        dr_fprintf(global_logfile, "(%s)%d:\"(%p)\"\n",
+               ctxt->func_name, ctxt->line_no, (uint64_t)ctxt->ip);
+    }
+    
+}
+
+DR_EXPORT
+void
+drcctlib_print_full_cct(context_handle_t handle, bool print_asm, bool print_file_path)
+{
+    if (!drcctlib_ctxt_is_valid(handle)) {
+        dr_printf("drcctlib_print_full_cct: !drcctlib_ctxt_is_valid \n");
+        return;
+    }
+    dr_fprintf(global_logfile, "\n\n");
+    // drcctlib_print_ctxt_hndle_msg(handle,true,true);
+    dr_fprintf(global_logfile, "\n++++++calling context++++++\n");
+    int depth = 0;
+    while (drcctlib_ctxt_is_valid(handle) && (depth < MAX_CCT_PRINT_DEPTH)) {
+        drcctlib_print_ctxt_hndle_msg(handle, print_asm, print_file_path);
+        cct_bb_node_t *bb = drcctlib_ctxt_to_ip(handle)->parent_bb_node;
+        handle = bb->caller_ctxt_hndl;
+        depth++;
+        if (depth >= MAX_CCT_PRINT_DEPTH) {
+            dr_fprintf(global_logfile, "Truncated call path (due to deep call chain)\n");
+        }
+    }
+}
+
+DR_EXPORT
+context_t *
+drcctlib_get_full_cct(context_handle_t handle)
+{
+    if (!drcctlib_ctxt_is_valid(handle)) {
+        dr_printf("drcctlib_get_full_cct res: !drcctlib_ctxt_is_valid\n");
+        return NULL;
+    }
+
+    context_t *start = ctxt_get_from_ctxt_hndl(handle);
+    context_t *next = start;
+    int depth = 1;
+
+    handle = drcctlib_ctxt_to_ip(handle)->parent_bb_node->caller_ctxt_hndl;
+    while (drcctlib_ctxt_is_valid(handle) && (depth < MAX_CCT_PRINT_DEPTH)) {
+        context_t* ctxt = ctxt_get_from_ctxt_hndl(handle);
+        next->pre_ctxt = ctxt;
+        next = ctxt;
+        depth++;
+        handle = drcctlib_ctxt_to_ip(handle)->parent_bb_node->caller_ctxt_hndl;
+        if (depth >= MAX_CCT_PRINT_DEPTH) {
+            context_t *ctxt = ctxt_create(handle, 0, 0);
+            sprintf(ctxt->func_name, "Truncated call path (due to deep call chain)");
+            sprintf(ctxt->file_path, " ");
+            sprintf(ctxt->code_asm, " ");
+            next->pre_ctxt = ctxt;
+            next = ctxt;
+        }
+    }
+    return start;
+}
+
+DR_EXPORT
+context_handle_t
+drcctlib_get_context_handle(void *drcontext, const slot_t slot)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if(slot >= pt->cur_bb_node->max_slots){
+        dr_printf("drcctlib_get_context_handle error\n");
+        dr_exit_process(-1);
+    }
+    return pt->cur_bb_node->child_ctxt_start_idx + slot;
+}
+
+DR_EXPORT
+bool
+have_same_caller_prefix(context_handle_t ctxt1, context_handle_t ctxt2)
+{
+    if (ctxt1 == ctxt2)
+        return true;
+    context_handle_t t1 =
+        drcctlib_ctxt_to_ip(ctxt1)->parent_bb_node->caller_ctxt_hndl;
+    context_handle_t t2 =
+        drcctlib_ctxt_to_ip(ctxt2)->parent_bb_node->caller_ctxt_hndl;
+    return t1 == t2;
+}
+
+DR_EXPORT
+void
+drcctlib_instr_instrument_list_add(drcctlib_instr_instrument_list_t *list,
+                                   drcctlib_instr_instrument_t *ninstrument)
+{
+    instr_instrument_list_add(list, ninstrument);
+}
+
+DR_EXPORT
+context_handle_t
+drcctlib_get_caller_handle(context_handle_t hndl)
+{
+    cct_bb_node_t* bb_node = drcctlib_ctxt_to_ip(hndl)->parent_bb_node;
+    return bb_node->caller_ctxt_hndl;
+}
+
+
+static inline bool
+test_is_app_ctxt_hndl(context_handle_t handle)
+{
+    if(!drcctlib_ctxt_is_valid(handle)) {
+        dr_printf("!!!!!!!!!!");
+        return false;
+    }
+    cct_bb_node_t * bb = drcctlib_ctxt_to_ip(handle)->parent_bb_node;
+    if(bb->key == -1) {
+        return false;
+    }
+    bb_shadow_t *shadow = (bb_shadow_t *)hashtable_lookup(
+        &global_bb_shadow_table, (void*)(ptr_int_t)(bb->key));
+    app_pc addr = shadow->ip_shadow[handle - bb->child_ctxt_start_idx];
+    module_data_t *data = dr_lookup_module(addr);
+    const char *app_path = "/home/dolanwm/Github/drcctlib/appsamples/build/sample";
+    return strcmp(data->full_path, app_path) == 0;
+}
+
+DR_EXPORT
+void
+test_print_app_ctxt_hndl_msg(context_handle_t handle)
+{
+    if(test_is_app_ctxt_hndl(handle)){
+        drcctlib_print_ctxt_hndle_msg(handle, false, false);
+    }
+}
+
+DR_EXPORT
+void
+test_print_app_ctxt_hndl_cct(context_handle_t handle)
+{
+    // dr_printf("test_print_app_ctxt_hndl_cct ");
+    if(test_is_app_ctxt_hndl(handle)){
+        // dr_printf("-- test_is_app_ctxt_hndl\n");
+        drcctlib_print_full_cct(handle, false, false);
+    }
+}
+
+
 
 // API to get the handle for a data object
 DR_EXPORT
@@ -2307,9 +1813,9 @@ DataHandle_t
 GetDataObjectHandle(void *drcontext, void *address)
 {
     DataHandle_t dataHandle;
-    ThreadData *tData = CCTLibGetTLS(drcontext);
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     // if it is a stack location, set so and return
-    if (address > tData->tlsStackEnd && address < tData->tlsStackBase) {
+    if (address > pt->stack_end && address < pt->stack_base) {
         dataHandle.objectType = STACK_OBJECT;
         return dataHandle;
     }
@@ -2325,137 +1831,7 @@ GetDataObjectHandle(void *drcontext, void *address)
 
 DR_EXPORT
 char *
-GetStringFromStringPool(const uint32_t index)
+GetStringFromStringPool(int index)
 {
-    return g_GlobalState.preAllocatedStringPool + index;
+    return global_string_pool+ index;
 }
-
-// API to print the calling context for input handle
-DR_EXPORT
-void
-PrintFullCallingContext(ContextHandle_t handle)
-{
-    if (g_GlobalState.usageMode == PostmorteMode) {
-        cerr << "unfinish PostmorteMode" << endl;
-        dr_exit_process(-1);
-    } else if (g_GlobalState.usageMode == CollectionMode) {
-        PrintFullCallingContextInSitu(handle);
-    }
-}
-
-DR_EXPORT
-void
-PrintContextMessage(ContextHandle_t curCtxtHndle)
-{
-    BBNode *bb = GetIPNodeFromContextHandle(curCtxtHndle)->parentBBNode;
-    Context_t curContext = GetContext(
-                curCtxtHndle,
-                g_GlobalState
-                    .blockInterestInstrs[bb->bbKey][curCtxtHndle - bb->childCtxtStartIdx]
-                    .first,
-                g_GlobalState
-                    .blockInterestInstrs[bb->bbKey][curCtxtHndle - bb->childCtxtStartIdx]
-                    .second);
-    dr_fprintf(g_GlobalState.logFile, "[%s](%s)%" PRIu64 ":\"(%" PRIu64 ")%s\"\n",
-               curContext.filePath.c_str(), curContext.functionName.c_str(),
-               curContext.lineNo, (uint64_t)curContext.ip,
-               curContext.disassembly.c_str());
-}
-
-DR_EXPORT
-void
-PrintFullCallingContextIfIsAppIns(ContextHandle_t curCtxtHndle)
-{
-    if(IsAppInsContextHandle(curCtxtHndle)){
-        dr_fprintf(g_GlobalState.logFile, "new context\n");
-        PrintContextMessage(curCtxtHndle);
-        vector<Context_t> contextVec;
-        GetFullCallingContext(curCtxtHndle, contextVec);
-        string line = "";
-        for (uint32_t i = 0; i < contextVec.size(); i++) {
-            line += "---";
-            dr_fprintf(g_GlobalState.logFile, "[%u]%s[%s:%" PRIu64 "][%" PRIu64 "](%s)\"%s\"\n", i + 1,
-                       line.c_str(), contextVec[i].functionName.c_str(),
-                       contextVec[i].lineNo, (uint64_t)(contextVec[i].ip), contextVec[i].disassembly.c_str(),
-                       contextVec[i].filePath.c_str());
-        }
-    }
-}
-
-DR_EXPORT
-void
-GetFullCallingContext(ContextHandle_t curCtxtHndle, vector<Context_t> &contextVec)
-{
-    if (g_GlobalState.usageMode == PostmorteMode) {
-        cerr << "unfinish PostmorteMode" << endl;
-        dr_exit_process(-1);
-    } else if (g_GlobalState.usageMode == CollectionMode) {
-        GetFullCallingContextInSitu(curCtxtHndle, contextVec);
-    }
-}
-
-DR_EXPORT
-bool
-HaveSameCallerPrefix(ContextHandle_t ctxt1, ContextHandle_t ctxt2)
-{
-    if (ctxt1 == ctxt2)
-        return true;
-    ContextHandle_t t1 =
-        GetIPNodeFromContextHandle(ctxt1)->parentBBNode->callerCtxtHndl;
-    ContextHandle_t t2 =
-        GetIPNodeFromContextHandle(ctxt2)->parentBBNode->callerCtxtHndl;
-    return t1 == t2;
-}
-
-// initialize the tool, register instrumentation functions and call the target
-// program.
-DR_EXPORT
-int
-drcctlib_init(IsInterestingInsFptr isInterestingIns, file_t logFile,
-              CCTLibInstrumentInsCallback userCallback, void *userCallbackArg,
-              CCTLibCallbackFuncStruct *callbackFuncs, bool doDataCentric)
-{
-    dr_log(NULL, DR_LOG_ALL, 1, "start drcctlib_init\n");
-    g_GlobalState.usageMode = CollectionMode;
-    // Initialize DynamoRIO
-    if (!drmgr_init() || !drutil_init() || !drwrap_init()) {
-        DR_ASSERT(false);
-    }
-    if (drsym_init(0) != DRSYM_SUCCESS) {
-        dr_log(NULL, DR_LOG_ALL, 1,
-               "WARNING: unable to initialize symbol translation\n");
-    }
-    disassemble_set_syntax(DR_DISASM_INTEL);
-    if(!drwrap_set_global_flags(DRWRAP_SAFE_READ_RETADDR) || !drwrap_set_global_flags(DRWRAP_SAFE_READ_ARGS)){
-        DR_ASSERT(false);
-    }
-
-    // Intialize CCTLib
-    InitBuffers();
-    InitLogFile(logFile);
-    InitUserCallback(callbackFuncs);
-    InitTLSKey();
-    InitUserInstrumentInsCallback(isInterestingIns, userCallback, userCallbackArg);
-    InitDataCentric(doDataCentric);
-
-    g_GlobalState.lock = dr_mutex_create();
-
-    drmgr_register_signal_event(OnSig);
-
-    drmgr_register_bb_instrumentation_event(CCTLibBBAnalysis, NULL,
-                                            NULL);
-    drmgr_register_module_load_event(CCTLibModuleAnalysis);
-
-    drmgr_register_thread_init_event(CCTLibThreadStart);
-    drmgr_register_thread_exit_event(CCTLibThreadEnd);
-
-    dr_register_exit_event(Fini);
-
-    CCTLibCallbackFunc(g_GlobalState.callbackFuncs, CCTLibInitCallback);
-
-    return 0;
-}
-
-#ifndef __GNUC__
-#    pragma endregion CCTLibAPIFunctionRegion
-#endif

@@ -1,9 +1,9 @@
 #ifndef _DRCCTLIB_DEBUG_H_
 #define _DRCCTLIB_DEBUG_H_
 
-#include <string>
-
-const std::string drsym_error_t_strlist[] =  {
+// #define DRCCTLIB_DEBUG
+#ifdef DRCCTLIB_DEBUG
+const char * drsym_error_t_strlist[] = {
     "DRSYM_SUCCESS",                     /**< Operation succeeded. */
     "DRSYM_ERROR",                       /**< Operation failed. */
     "DRSYM_ERROR_INVALID_PARAMETER",     /**< Operation failed: invalid parameter */
@@ -17,7 +17,8 @@ const std::string drsym_error_t_strlist[] =  {
     "DRSYM_ERROR_RECURSIVE" /**< Operation failed: unavailable when recursive */
 };
 
-#define GET_drsym_error_t_MESSAGE(x) drsym_error_t_strlist[x]
+#    define GET_DRSYM_ERROR_TYPE_MESSAGE(x) drsym_error_t_strlist[x]
 
+#endif
 
 #endif // _DRCCTLIB_DEBUG_H_

@@ -3,3 +3,4 @@ logs/
 .vscode/
 .clang-format
 appsamples/build
+dump.log

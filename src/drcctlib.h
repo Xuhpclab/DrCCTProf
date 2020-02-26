@@ -1,209 +1,222 @@
 #ifndef _DRCCTLIB_H_
 #define _DRCCTLIB_H_
 
-#include <string>
-#include <vector>
+#include "drcctlib_global_share.h"
 
-#include "dr_api.h"
+#define bb_key_t drcctlib_key_t
+#define BB_KEY_MAX DRCCTLIB_KEY_MAX
+#define ATOM_GET_NEXT_BB_KEY(origin) ATOM_DRCCTLIB_KEY_ADD(origin, 1)
+#define OPND_CREATE_BB_KEY OPND_CREATE_DRCCTLIB_KEY
+
+#define context_handle_t int
+#define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1
+#define ATOM_ADD_CTXT_HNDL(origin, val) dr_atomic_add32_return_sum(&origin, val)
+
+#define slot_t int
+#define OPND_CREATE_SLOT OPND_CREATE_INT32
+#define pt_id_t int
+#define ATOM_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
+#define ATOM_ADD_STRING_POOL_INDEX(origin, val) dr_atomic_add32_return_sum(&origin, val)
+
+enum {
+    DRCCTLIB_INSTR_INSTRUMENT_CCT_BB_ENTRY = -500, /**< Priority of  */
+    DRCCTLIB_INSTR_INSTRUMENT_CCT_PRE = 100,
+    DRCCTLIB_INSTR_INSTRUMENT_USER_PRE = 250, /**< Priority of  */
+    DRCCTLIB_INSTR_INSTRUMENT_CCT_CALL = 500, /**< Priority of  */
+    DRCCTLIB_INSTR_INSTRUMENT_CCT_RETRUN = 500, /**< Priority of  */
+    DRCCTLIB_INSTR_INSTRUMENT_CCT_NORMAL = 500,
+    DRCCTLIB_INSTR_INSTRUMENT_USER_POST = 750, /**< Priority of  */
+    DRCCTLIB_INSTR_INSTRUMENT_CCT_POST = 900,
+    DRCCTLIB_INSTR_INSTRUMENT_EXCEPTION_CHECK = 1000 /**< Priority of  */
+};
+#define drcctlib_instr_instrument_pri_t int
 
 
-using namespace std;
-#define CCTLIB_N_MAX_FILE_PATH (200)
+enum { 
+    DRCCTLIB_INSTR_STATE_USER_INTEREST = 0x01,
+    DRCCTLIB_INSTR_STATE_CALL_DIRECT = 0x02,
+    DRCCTLIB_INSTR_STATE_CALL_IN_DIRECT = 0x04,
+    DRCCTLIB_INSTR_STATE_RETURN = 0x08
+};
+#define drcctlib_instr_state_flag_t int
 
-typedef uint32_t ContextHandle_t;
-// Data type returned when a client tool queries  GetFullCallingContext
-typedef struct Context_t {
-    string functionName;
-    string filePath;
-    string disassembly;
-    ContextHandle_t ctxtHandle;
-    uint64_t lineNo;
-    app_pc ip;
-} Context_t;
+
 // The handle representing a data object
 typedef struct DataHandle_t {
     uint8_t objectType;
     union {
-        ContextHandle_t pathHandle;
-        uint32_t symName;
+        context_handle_t pathHandle;
+        int symName;
     };
 } DataHandle_t;
-// Client callback function to determine if it wants to track a given INS
-typedef bool (*IsInterestingInsFptr)(instr_t *ins);
-// Client callback made from CCTLib for each instruction indicated to be tracked
-// by the client.
-typedef void (*CCTLibInstrumentInsCallback)(void *drcontext, instrlist_t *ilist,
-                                            instr_t *ins, void *v, uint slot);
-typedef void (*CallbackFunc)();
-typedef struct {
-    CallbackFunc initFunc;
-    CallbackFunc finiFunc;
-    CallbackFunc threadStartFunc;
-    CallbackFunc threadEndFunc;
-} CCTLibCallbackFuncStruct;
-typedef int TLS_KEY;
 
-// Enum representing different data object types
-enum ObjectTypeEnum { STACK_OBJECT, DYNAMIC_OBJECT, STATIC_OBJECT, UNKNOWN_OBJECT };
-enum CCTLibUsageMode { CCT_LIB_MODE_COLLECTION = 1, CCT_LIB_MODE_POSTMORTEM = 2 };
+enum{ 
+    STACK_OBJECT, 
+    DYNAMIC_OBJECT, 
+    STATIC_OBJECT, 
+    UNKNOWN_OBJECT
+};
 
-// Predefined callback for tracking no INS
+typedef struct _context_t {
+    char func_name[MAXIMUM_SYMNAME];
+    char file_path[MAXIMUM_PATH];
+    char code_asm[MAXIMUM_SYMNAME];
+    context_handle_t ctxt_hndl;
+    int line_no;
+    app_pc ip;
+    struct _context_t *pre_ctxt;
+} context_t;
+
+enum {
+    DRCCTLIB_DEFAULT = 0x00,
+    DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE = 0x0001,
+    DRCCTLIB_SAVE_CCTLIB_FILE = 0x02,
+    DRCCTLIB_SAVE_HPCTOOLKIT_FILE = 0x04
+};
+#define drcctlib_global_flags_t int
+
+
+typedef struct _drcctlib_instr_instrument_t {
+    instr_t *instr;
+    drcctlib_instr_instrument_pri_t priority;
+    void *callee;
+    int num_args;
+    opnd_t *args_array;
+    struct _drcctlib_instr_instrument_t *next;
+    struct _drcctlib_instr_instrument_t *pre;
+} drcctlib_instr_instrument_t;
+
+typedef struct _drcctlib_instr_instrument_list_t {
+    drcctlib_instr_instrument_t *first;
+    drcctlib_instr_instrument_t *last;
+    drcctlib_instr_instrument_t *next_insert;
+    uint64_t instrument_num;
+    uint64_t bb_key;
+} drcctlib_instr_instrument_list_t;
+
+
+
+typedef void (*drcctlib_instr_instrument_cb_t)(drcctlib_instr_instrument_list_t *, instr_t *, slot_t,
+                   drcctlib_instr_instrument_pri_t, void *);
+
+typedef bool(*drcctlib_interest_filter_t)(instr_t * instr);
+
+
 DR_EXPORT
-inline bool
-InterestingInsNone(instr_t *ins)
+bool
+drcctlib_filter_0_instr(instr_t *instr)
 {
     return false;
 }
 
-// Predefined callback for tracking all INS
 DR_EXPORT
-inline bool
-InterestingInsAll(instr_t *ins)
+bool
+drcctlib_filter_all_instr(instr_t *instr)
 {
     return true;
 }
 
-// Predefined callback for tracking all memory INS
 DR_EXPORT
-inline bool
-InterestingInsMemoryAccess(instr_t *instr)
+bool
+drcctlib_filter_mem_access_instr(instr_t *instr)
 {
     return (instr_reads_memory(instr) || instr_writes_memory(instr));
 }
 
-#define INTERESTING_INS_ALL (InterestingInsAll)
-#define INTERESTING_INS_NONE (InterestingInsNone)
-#define INTERESTING_INS_MEMORY_ACCESS (InterestingInsMemoryAccess)
+#define DRCCTLIB_FILTER_ZERO_INSTR drcctlib_filter_0_instr
+#define DRCCTLIB_FILTER_ALL_INSTR drcctlib_filter_all_instr
+#define DRCCTLIB_FILTER_MEM_ACCESS_INSTR drcctlib_filter_mem_access_instr
 
-/*
-    Description:
-            CCTLib clients must call this before using CCTLib.
-    Arguments:
-            isInterestingIns: a client tool callback that should return boolean
-   true/false if a given INS needs to collect context. Following predefined
-   values are available for client tools: INTERESTING_INS_ALL,
-   INTERESTING_INS_NONE, and INTERESTING_INS_MEMORY_ACCESS. logFile: file
-   pointer where CCTLib will put its outputdata. userCallback: a client callback
-   that CCTLib calls on each INS for which isInterestingIns is true passing it
-   userCallbackArg value. See one of the examples in tests directory for example
-   usage. callbackFuncs: a struct contains four callback funcs doDataCentric:
-   should be set to true if the client wants CCTLib to do data-centric
-   attribution.
-*/
+
 DR_EXPORT
-int
-drcctlib_init(IsInterestingInsFptr isInterestingIns, file_t logFile,
-              CCTLibInstrumentInsCallback userCallback, void *userCallbackArg,
-              CCTLibCallbackFuncStruct *callbackFuncs = nullptr,
-              bool doDataCentric = false);
+bool
+drcctlib_init(void);
 
-/*
-    Description:
-            Client tools call this API when they need the calling context handle
-   (ContextHandle_t). Arguments: drcontext: slot:
-*/
 DR_EXPORT
-ContextHandle_t
-GetContextHandle(void *drcontext, const uint32_t slot);
+bool
+drcctlib_init_ex(drcctlib_interest_filter_t filter, file_t file, drcctlib_instr_instrument_cb_t post_cb,
+                 void *post_cb_data);
 
-/*
-    Description:
-            Client tools call this API when they need the handle to a data
-   object (DataHandle_t). Arguments: drcontext: address: effectve address for
-   which the data object is needed.
-*/
+DR_EXPORT
+void
+drcctlib_exit(void);
+
+DR_EXPORT
+void
+drcctlib_set_instr_instrument_filter(bool (*interesting_filter)(instr_t *));
+
+DR_EXPORT
+void
+drcctlib_set_instr_instrument_cb(drcctlib_instr_instrument_cb_t pre_cb, void *pre_cb_data,
+                                 drcctlib_instr_instrument_cb_t post_cb,
+                                 void *post_cb_data);
+
+DR_EXPORT bool
+drcctlib_set_global_flags(drcctlib_global_flags_t flags);
+
+DR_EXPORT
+void
+drcctlib_config_logfile(file_t file);
+
+DR_EXPORT
+file_t
+drcctlib_get_log_file();
+
+DR_EXPORT
+drcctlib_instr_instrument_t *
+instr_instrument_create(instr_t *instr, void *callee,
+                        drcctlib_instr_instrument_pri_t priority, int num_args, ...);
+
+DR_EXPORT
+void
+drcctlib_instr_instrument_list_add(drcctlib_instr_instrument_list_t *list,
+                          drcctlib_instr_instrument_t *ninstrument);
+
+DR_EXPORT
+void
+drcctlib_print_ctxt_hndle_msg(context_handle_t handle, bool print_asm, bool print_file_path);
+
+DR_EXPORT
+void
+drcctlib_print_full_cct(context_handle_t handle, bool print_asm, bool print_file_path);
+
+DR_EXPORT
+context_t *
+drcctlib_get_full_cct(context_handle_t handle);
+
+DR_EXPORT
+context_handle_t
+drcctlib_get_context_handle(void *drcontext, const slot_t slot);
+
+DR_EXPORT
+context_handle_t
+drcctlib_get_caller_handle(context_handle_t handle);
+
+DR_EXPORT
+bool
+drcctlib_ctxt_is_valid(context_handle_t ctxt);
+
+DR_EXPORT
+bool
+have_same_caller_prefix(context_handle_t ctxt1, context_handle_t ctxt2);
+
+DR_EXPORT
+void
+test_print_app_ctxt_hndl_msg(context_handle_t handle);
+
+DR_EXPORT
+void
+test_print_app_ctxt_hndl_cct(context_handle_t cur_ctxt_hndl);
+
+
 DR_EXPORT
 DataHandle_t
 GetDataObjectHandle(void *drcontext, void *address);
-/*
-    Description:
-            Client tools call this API when they need the char string for a
-   symbol from string pool index. Arguments: index: a string pool index
-*/
+
 DR_EXPORT
 char *
-GetStringFromStringPool(const uint32_t index);
+GetStringFromStringPool(int index);
 
-/*
-    Description:
-            Prints the full calling context whose handle is ctxtHandle.
-*/
-DR_EXPORT
-void
-PrintFullCallingContext(const ContextHandle_t ctxtHandle);
 
-DR_EXPORT
-void
-PrintContextMessage(ContextHandle_t curCtxtHndle);
-
-DR_EXPORT
-void
-PrintFullCallingContextIfIsAppIns(ContextHandle_t curCtxtHndle);
-
-/*
-    Description:
-            Returns the full calling context whose handle is ctxtHandle.
-
-    Arguments:
-            ctxtHandle: is the context handle for which the full call path is
-   requested. contextVec: is a vector that will be populated with the full call
-   path.
-*/
-DR_EXPORT
-void
-GetFullCallingContext(const ContextHandle_t ctxtHandle, vector<Context_t> &contextVec);
-
-DR_EXPORT
-bool
-HaveSameCallerPrefix(ContextHandle_t ctxt1, ContextHandle_t ctxt2);
-
-/**
- * TODO: next week finish
- */
-#ifdef UNFINISHFUNCTION
-/*
-    Description:
-            Reads serialized CCT metadata and rebuilds CCTs for postmortem
-analysis. Caution: This should never be called with PinCCTLibInit().
-    Arguments:
-            logFile: file pointer where CCTLib will put its output data.
-            serializedFilesDirectory: Path to directory where previously files
-were serialized.
-*/
-// undefined++++++++++++++++++++++
-DR_EXPORT
-int
-drcctlib_init_for_postmortem_analysis(FILE *logFile, string serializedFilesDirectory);
-
-// undefined++++++++++++++++++++++
-DR_EXPORT
-void
-SerializeMetadata(string directoryForSerializationFiles = "");
-// undefined++++++++++++++++++++++
-DR_EXPORT
-void
-DottifyAllCCTs();
-
-// undefined++++++++++++++++++++++
-DR_EXPORT
-bool
-IsSameSourceLine(ContextHandle_t ctxt1, ContextHandle_t ctxt2);
-
-// undefined++++++++++++++++++++++
-DR_EXPORT
-void
-AppendLoadModulesToStream(iostream &ios);
-
-// undefined++++++++++++++++++++++
-DR_EXPORT
-void
-LogContexts(iostream &ios, ContextHandle_t ctxt1, ContextHandle_t ctxt2);
-
-// undefined++++++++++++++++++++++
-DR_EXPORT
-void
-GetParentIPs(ContextHandle_t ctxtHandle, vector<ADDRINT> &parentIPs);
-#endif
-// }
 
 #endif // _DRCCTLIB_H_

@@ -38,8 +38,10 @@ BUILD_LOG_PATH=${CUR_DIR}/logs
 if [ ! -d ${BUILD_LOG_PATH} ]; then
     mkdir ${BUILD_LOG_PATH}
 fi
-MAKE_LOG_FILE=${BUILD_LOG_PATH}/make.log.${TIMESTAMP}
-CMAKE_LOG_FILE=${BUILD_LOG_PATH}/cmake.log.${TIMESTAMP}
+# MAKE_LOG_FILE=${BUILD_LOG_PATH}/make.log.${TIMESTAMP}
+MAKE_LOG_FILE=${BUILD_LOG_PATH}/make.log
+# CMAKE_LOG_FILE=${BUILD_LOG_PATH}/cmake.log.${TIMESTAMP}
+CMAKE_LOG_FILE=${BUILD_LOG_PATH}/cmake.log
 
 # init build path and go to build path
 BUILD_PATH=${CUR_DIR}/build
