@@ -15,38 +15,21 @@ if [ ! -d ${BUILD_LOG_PATH} ]; then
 fi
 MAKE_LOG_FILE=${BUILD_LOG_PATH}/make.log
 DR_LOG_FILE=${BUILD_LOG_PATH}/dr.log
-
 echo -e "Enter \033[34m${BUILD_PATH}\033[0m.."
-# enter BUILD_PATH
+
 cd ${BUILD_PATH}
-
-
 echo -e "Running make..(See \033[34m${MAKE_LOG_FILE}\033[0m for detail)"
-# start make
-make -j >${MAKE_LOG_FILE} 2>&1
-# cmake --build . --config Debug -- -j 74 >${MAKE_LOG_FILE} 2>&1
-
-echo -e "\033[32m Rebuild successfully! \033[0m"
-
+make -j >${MAKE_LOG_FILE} 2>&1 && echo -e "\033[32m Rebuild successfully! \033[0m" && echo -e "\033[31m Rebuild fail! \033[0m"
 RUN_DIRECTORY=${BUILD_PATH}/bin64
 
-# set +euo pipefail
+SAMPLE_ROOT_DIRECTORY=${CUR_DIR}/appsamples
+echo -e "-----Build sample -----" && g++ -g ${SAMPLE_ROOT_DIRECTORY}/src/sample/sample.cxx -o ${SAMPLE_ROOT_DIRECTORY}/build/sample && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+
+
 cd ${BUILD_LOG_PATH}
-echo "-----Build sample -----" && g++ -g ../appsamples/src/sample/sample.cxx -o ../appsamples/build/sample && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# g++ -g ../appsamples/src/sample1/sample1.cxx -o ../appsamples/build/sample1 -lpthread
-
+for i in 1
+do
+time ${SAMPLE_ROOT_DIRECTORY}/build/sample
 echo -e "-----Test tool-----(See\033[34m${DR_LOG_FILE}\033[0m for detail)"
-${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${CUR_DIR}/appsamples/build/sample > ${DR_LOG_FILE} 2>&1
-
-# gdb ${RUN_DIRECTORY}/drrun
-# echo "-----Testing Dynamorio---------" && ${RUN_DIRECTORY}/drrun echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ls > ${DR_LOG_FILE} 2>&1
-# echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${CUR_DIR}/appsamples/build/sample1 
-# echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${CUR_DIR}/appsamples/build/sample1 > ${DR_LOG_FILE} 2>&1
-# echo "-----Test 2---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client_mem_only -- ${CUR_DIR}/appsamples/build/sample1.o > ${DR_LOG_FILE} 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 3---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric -- ${CUR_DIR}/appsamples/build/sample1.o > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 4---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric_tree_based -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 5---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_deadspy -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 6---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_deadspy -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 7---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_reader -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 8---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${CUR_DIR}/appsamples/build/sample > ${DR_LOG_FILE} 2>&1
+done

@@ -1,6 +1,7 @@
 #ifndef _DRCCTLIB_DEBUG_H_
 #define _DRCCTLIB_DEBUG_H_
 
+#define SPEEDUP_TEST
 // #define DRCCTLIB_DEBUG
 #ifdef DRCCTLIB_DEBUG
 const char * drsym_error_t_strlist[] = {

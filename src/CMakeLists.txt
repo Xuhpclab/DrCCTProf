@@ -41,6 +41,7 @@ use_DynamoRIO_extension(drcctlib_static drutil_static)
 use_DynamoRIO_extension(drcctlib_static drsyms_static)
 use_DynamoRIO_extension(drcctlib_static drwrap_static)
 
+install_ext_header(drcctlib_filter_func_list.h)
 install_ext_header(drcctlib_global_share.h)
 install_ext_header(drcctlib.h)
 install_ext_header(drcctlib_debug.h)
