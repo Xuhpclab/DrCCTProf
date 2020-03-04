@@ -7,10 +7,12 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <string.h>
+#include <unistd.h>
 #include <unwind.h>
 
 #include <sys/resource.h>
 #include <sys/mman.h>
+// #include <sys/time.h> 
 
 #include "dr_api.h"
 #include "drmgr.h"
@@ -24,6 +26,8 @@
 #include "drcctlib.h"
 #include "splay_tree.h"
 #include "shadow_memory.h"
+
+
 
 #define MAX_CCT_PRINT_DEPTH 15
 
@@ -58,7 +62,7 @@
         char name[MAXIMUM_PATH] = "";                                         \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));        \
         pid_t pid = getpid();                                                 \
-        dr_printf("[(%s%d)drcctlib msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[drcctlib(%s%d) msg]====" format "\n", name, pid, ##args); \
     } while (0)
 
 #define DRCCTLIB_EXIT_PROCESS(format, args...)                                      \
@@ -66,7 +70,7 @@
         char name[MAXIMUM_PATH] = "";                                               \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
         pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib(%s%d) msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[drcctlib(%s%d) msg]====" format "\n", name, pid, ##args); \
     } while (0);                                                                    \
     dr_exit_process(-1)
 
@@ -75,9 +79,10 @@ enum {
     INSTR_STATE_CALL_DIRECT = 0x02,
     INSTR_STATE_CALL_IN_DIRECT = 0x04,
     INSTR_STATE_RETURN = 0x08,
-    INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x10,
-    INSTR_STATE_EVENT_SIGNAL = 0x20,
-    INSTR_STATE_EVENT_EXCEPTION = 0x40
+    INSTR_STATE_UNINTEREST_FIRST = 0X10,
+    INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x20,
+    INSTR_STATE_EVENT_SIGNAL = 0x40,
+    INSTR_STATE_EVENT_EXCEPTION = 0x80
 };
 
 typedef struct _client_cb_t {
@@ -115,7 +120,7 @@ typedef struct _cct_ip_node_t {
 // TLS(thread local storage)
 typedef struct _per_thread_t {
 #ifdef DRCCTLIB_DEBUG
-    int run_number;
+    long long duration;
 #endif
     int id;
     // for root
@@ -155,7 +160,7 @@ static hashtable_t global_pt_cache_table;
 static int init_count = 0;
 static int tls_idx;
 static file_t log_file;
-static client_cb_t client_cb;
+static client_cb_t client_cb; 
 
 static void *flags_lock;
 static void *bb_shadow_lock;
@@ -459,7 +464,7 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->cur_slot = 0;
     pt->pre_bb_end_state = INSTR_STATE_THREAD_ROOT_VIRTUAL;
 #ifdef DRCCTLIB_DEBUG
-    pt->run_number = 0;
+    pt->duration = 0L;
 #endif
 
     // pt->exception_hndl_ctxt_hndl = 0;
@@ -561,8 +566,11 @@ pt_cache_free(void *cache)
 // }
 
 static void
-instrument_before_bb_first_i(per_thread_t *pt, bb_key_t new_key, slot_t num)
+instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
 {
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    
     context_handle_t new_caller_ctxt = 0;
     if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_THREAD_ROOT_VIRTUAL)) {
         new_caller_ctxt =
@@ -583,15 +591,12 @@ instrument_before_bb_first_i(per_thread_t *pt, bb_key_t new_key, slot_t num)
         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))--;
     }
 
+    // DRCCTLIB_PRINTF("per_thread_t %d new_caller_ctxt %d", pt->id, new_caller_ctxt);
     splay_node_t *new_root =
         splay_tree_add_and_update(ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree,
                                   (splay_node_key_t)new_key);
     if (new_root->payload == NULL) {
         new_root->payload = (void *)bb_node_create(new_key, new_caller_ctxt, num);
-    } else {
-#ifdef DRCCTLIB_DEBUG
-        pt->run_number =  pt->run_number + 1;
-#endif  
     }
     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
     pt->pre_bb_end_state = 0;
@@ -606,7 +611,7 @@ instrument_before_bb_first_i(per_thread_t *pt, bb_key_t new_key, slot_t num)
 }
 
 #ifdef X86
-#    define FLAGS_SAVE_REG DR_REG_XAX
+// #    define FLAGS_SAVE_REG DR_REG_XAX
 #    define PT_ADDR_SAVE_REG DR_REG_XDI
 #    ifdef X64
 #        define OPND_CREATE_PT_CUR_SLOT OPND_CREATE_MEM64
@@ -614,7 +619,7 @@ instrument_before_bb_first_i(per_thread_t *pt, bb_key_t new_key, slot_t num)
 #        define OPND_CREATE_PT_CUR_SLOT OPND_CREATE_MEM32
 #    endif
 #else
-#    define FLAGS_SAVE_REG DR_REG_R0
+// #    define FLAGS_SAVE_REG DR_REG_R0
 #    define PT_ADDR_SAVE_REG DR_REG_R1
 #    ifdef X64
 #        define OPND_CREATE_PT_CUR_SLOT OPND_CREATE_MEM64
@@ -623,23 +628,17 @@ instrument_before_bb_first_i(per_thread_t *pt, bb_key_t new_key, slot_t num)
 #    endif
 #endif
 
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
+// #define TESTALL(mask, var) (((mask) & (var)) == (mask))
+// #define TESTANY(mask, var) (((mask) & (var)) != 0)
 static inline void
 instrument_before_start_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, int state_flag)
 {
-    bool eflags_saved = true;
-    uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-    if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
-        eflags_saved = false;
-    }
-    if (eflags_saved) {
-        dr_save_reg(drcontext, bb, instr, FLAGS_SAVE_REG, SPILL_SLOT_1);
-        dr_save_arith_flags_to_reg(drcontext, bb, instr, FLAGS_SAVE_REG);
-    }
     /* Spill a register to get a pointer to per_thread_t structure. */
     dr_save_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_2);
-    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, PT_ADDR_SAVE_REG);
+    if(!drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, PT_ADDR_SAVE_REG))
+    {
+        DRCCTLIB_PRINTF("!drmgr_insert_read_tls_field");
+    }
     instrlist_meta_preinsert(
         bb, instr,
         XINST_CREATE_store(
@@ -653,55 +652,35 @@ instrument_before_start_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, i
             OPND_CREATE_INSTR_STATE_FLAG(state_flag)));
     /* Restore spilled register. */
     dr_restore_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_2);
-    if (eflags_saved) {
-        dr_restore_arith_flags_from_reg(drcontext, bb, instr, FLAGS_SAVE_REG);
-        dr_restore_reg(drcontext, bb, instr, FLAGS_SAVE_REG, SPILL_SLOT_1);
-    }
 }
 
 static inline void
 instrument_before_middle_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, slot_t slot)
 {
-    bool eflags_saved = true;
-    uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-    if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
-        eflags_saved = false;
-    }
-    if (eflags_saved) {
-        dr_save_reg(drcontext, bb, instr, FLAGS_SAVE_REG, SPILL_SLOT_1);
-        dr_save_arith_flags_to_reg(drcontext, bb, instr, FLAGS_SAVE_REG);
-    }
     /* Spill a register to get a pointer to per_thread_t structure. */
-    dr_save_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_2);
-    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, PT_ADDR_SAVE_REG);
+    dr_save_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_1);
+    if(!drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, PT_ADDR_SAVE_REG))
+    {
+        DRCCTLIB_PRINTF("!drmgr_insert_read_tls_field");
+    }
     instrlist_meta_preinsert(
         bb, instr,
         XINST_CREATE_store(
             drcontext, OPND_CREATE_PT_CUR_SLOT(PT_ADDR_SAVE_REG, offsetof(per_thread_t, cur_slot)),
             OPND_CREATE_SLOT(slot)));
     /* Restore spilled register. */
-    dr_restore_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_2);
-    if (eflags_saved) {
-        dr_restore_arith_flags_from_reg(drcontext, bb, instr, FLAGS_SAVE_REG);
-        dr_restore_reg(drcontext, bb, instr, FLAGS_SAVE_REG, SPILL_SLOT_1);
-    }
+    dr_restore_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_1);
 }
 
 static inline void
 instrument_before_end_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, slot_t slot, int state_flag)
 {
-    bool eflags_saved = true;
-    uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-    if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
-        eflags_saved = false;
-    }
-    if (eflags_saved) {
-        dr_save_reg(drcontext, bb, instr, FLAGS_SAVE_REG, SPILL_SLOT_1);
-        dr_save_arith_flags_to_reg(drcontext, bb, instr, FLAGS_SAVE_REG);
-    }
     /* Spill a register to get a pointer to per_thread_t structure. */
-    dr_save_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_2);
-    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, PT_ADDR_SAVE_REG);
+    dr_save_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_1);
+    if(!drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, PT_ADDR_SAVE_REG))
+    {
+        DRCCTLIB_PRINTF("!drmgr_insert_read_tls_field");
+    }
     instrlist_meta_preinsert(
         bb, instr,
         XINST_CREATE_store(
@@ -715,11 +694,7 @@ instrument_before_end_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, slo
             OPND_CREATE_PT_CUR_SLOT(PT_ADDR_SAVE_REG, offsetof(per_thread_t, pre_bb_end_state)),
             OPND_CREATE_INSTR_STATE_FLAG(state_flag)));
     /* Restore spilled register. */
-    dr_restore_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_2);
-    if (eflags_saved) {
-        dr_restore_arith_flags_from_reg(drcontext, bb, instr, FLAGS_SAVE_REG);
-        dr_restore_reg(drcontext, bb, instr, FLAGS_SAVE_REG, SPILL_SLOT_1);
-    }
+    dr_restore_reg(drcontext, bb, instr, PT_ADDR_SAVE_REG, SPILL_SLOT_1);
 }
 
 static inline void
@@ -743,15 +718,12 @@ static dr_emit_flags_t
 drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                            bool translating, OUT void **user_data)
 {
-    per_thread_t *pt =
-        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     instr_t *first_instr = instrlist_first_app(bb);
     instr_t *last_instr = instrlist_last_app(bb);
     instr_t *last_instr_next = instr_get_next_app(last_instr);
 
     slot_t interest_instr_num = bb_get_num_interest_instr(first_instr, last_instr_next);
     bool uninterested_bb = (interest_instr_num == 0) ? true : false;
-    slot_t slot_max = uninterested_bb ? 1 : interest_instr_num;
 
     bb_shadow_t *bb_shadow = NULL;
     bb_key_t bb_key = 0;
@@ -771,7 +743,7 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
             bb_key = bb_get_new_key();
             hashtable_add(&global_bb_key_table, (void *)first_pc,
                           (void *)(ptr_int_t)bb_key);
-            bb_shadow = bb_shadow_create(slot_max);
+            bb_shadow = bb_shadow_create(interest_instr_num);
             hashtable_add(&global_bb_shadow_table, (void *)(ptr_int_t)bb_key,
                           (void *)bb_shadow);
             slot_t slot = 0;
@@ -793,10 +765,10 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     }
 
     dr_insert_clean_call(drcontext, bb, first_instr, (void *)instrument_before_bb_first_i,
-                         false, 3, OPND_CREATE_PT_ADDR(pt), OPND_CREATE_BB_KEY(bb_key),
-                         OPND_CREATE_SLOT(slot_max));
+                         false, 2, OPND_CREATE_BB_KEY(bb_key),
+                         OPND_CREATE_SLOT(uninterested_bb ? 1 : interest_instr_num));
     if (uninterested_bb) {
-        instrument_before_start_bb_i(drcontext, bb, first_instr, 0);
+        instrument_before_start_bb_i(drcontext, bb, first_instr, INSTR_STATE_UNINTEREST_FIRST);
     } else {
         slot_t slot = 0;
         for (instr_t *instr = first_instr; instr != last_instr_next;
@@ -808,7 +780,7 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
                 if (slot == 0) {
                     instrument_before_start_bb_i(drcontext, bb, instr,
                                                  instr_state_flag);
-                } else if (slot == (slot_max - 1)) {
+                } else if (slot == (interest_instr_num - 1)) {
                     instrument_before_end_bb_i(drcontext, bb, instr, slot,
                                                instr_state_flag);
                 } else {
@@ -853,7 +825,7 @@ drcctlib_event_thread_start(void *drcontext)
     pt_cache->cache_data = NULL;
     pt_cache->dead = false;
     hashtable_add(&global_pt_cache_table, (void *)(ptr_int_t)id, pt_cache);
-    // DRCCTLIB_PRINTF("thread %d init", id);
+    DRCCTLIB_PRINTF("thread %d init", id);
 }
 
 static void
@@ -1141,7 +1113,7 @@ static inline void init_global_bb_shadow_table()
     bb_shadow_t *thread_root_bb_shared_shadow = bb_shadow_create(1);
     strcpy(thread_root_bb_shared_shadow->disasm_shadow, "thread root bb");
     thread_root_bb_shared_shadow->ip_shadow[0] = 0;
-    thread_root_bb_shared_shadow->state_shadow[0] = 0;
+    thread_root_bb_shared_shadow->state_shadow[0] = INSTR_STATE_THREAD_ROOT_VIRTUAL;
     hashtable_add(&global_bb_shadow_table,
                   (void *)(ptr_int_t)THREAD_ROOT_BB_SHARED_BB_KEY,
                   (void *)thread_root_bb_shared_shadow);
@@ -1149,7 +1121,7 @@ static inline void init_global_bb_shadow_table()
     bb_shadow_t *uninterest_bb_share_shadow = bb_shadow_create(1);
     strcpy(uninterest_bb_share_shadow->disasm_shadow, "uninterested bb");
     uninterest_bb_share_shadow->ip_shadow[0] = 0;
-    uninterest_bb_share_shadow->state_shadow[0] = 0;
+    uninterest_bb_share_shadow->state_shadow[0] = INSTR_STATE_UNINTEREST_FIRST;
     hashtable_add(&global_bb_shadow_table,
                   (void *)(ptr_int_t)UNINTERESTED_BB_SHARED_BB_KEY,
                   (void *)uninterest_bb_share_shadow);
@@ -1581,7 +1553,9 @@ drcctlib_get_global_gloabl_hndl_call_num_buff()
 {
 #ifdef SPEEDUP_TEST
     for(context_handle_t i = 1; i < global_ip_node_buff_idle_idx; i++){
-        (*(gloabl_hndl_call_num + i)) += ctxt_hndl_to_ip_node(i)->parent_bb_node->run_num;
+        if(ctxt_hndl_to_ip_node(i)->parent_bb_node->key != UNINTERESTED_BB_SHARED_BB_KEY){
+            (*(gloabl_hndl_call_num + i)) += ctxt_hndl_to_ip_node(i)->parent_bb_node->run_num;
+        }
     }
 #endif
     return gloabl_hndl_call_num;
@@ -1760,11 +1734,11 @@ have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2
 
 #ifdef DRCCTLIB_DEBUG
 DR_EXPORT
-int
+long long
 drcctlib_get_pt_run_number(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    return pt->run_number;
+    return pt->duration;
 }
 
 DR_EXPORT

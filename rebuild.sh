@@ -23,7 +23,7 @@ make -j >${MAKE_LOG_FILE} 2>&1 && echo -e "\033[32m Rebuild successfully! \033[0
 RUN_DIRECTORY=${BUILD_PATH}/bin64
 
 SAMPLE_ROOT_DIRECTORY=${CUR_DIR}/appsamples
-echo -e "-----Build sample -----" && g++ -g ${SAMPLE_ROOT_DIRECTORY}/src/sample/sample.cxx -o ${SAMPLE_ROOT_DIRECTORY}/build/sample && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "-----Build sample -----" && g++ -g ${SAMPLE_ROOT_DIRECTORY}/src/sample/sample.cxx -pthread -o ${SAMPLE_ROOT_DIRECTORY}/build/sample && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 
 cd ${BUILD_LOG_PATH}

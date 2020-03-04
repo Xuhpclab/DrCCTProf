@@ -137,8 +137,8 @@ ClientEventThreadEnd(void *drcontext)
     // dr_mutex_unlock(client_thread_lock);
     // delete client_pt->local_map;
     // dr_thread_free(drcontext, client_pt, sizeof(per_thread_t));
-    int printNumber = drcctlib_get_pt_run_number(drcontext);
-    DRCCTLIB_PRINTF("reuse_bb_num %d", printNumber);
+    long long printNumber = drcctlib_get_pt_run_number(drcontext);
+    DRCCTLIB_PRINTF("%lld seconds", printNumber);
 
 }
 #endif

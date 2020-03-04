@@ -148,7 +148,7 @@ have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2
 
 #ifdef DRCCTLIB_DEBUG
 DR_EXPORT
-int
+long long
 drcctlib_get_pt_run_number(void *drcontext);
 
 DR_EXPORT
