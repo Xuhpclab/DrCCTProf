@@ -24,7 +24,6 @@ typedef int64_t drcctlib_key_t;
 #    define DR_DISASM_DRCCTLIB DR_DISASM_INTEL
 #endif
 
-#define context_handle_t int
 #define DISASM_CACHE_SIZE 80
 #define MAXIMUM_SYMNAME 256
 

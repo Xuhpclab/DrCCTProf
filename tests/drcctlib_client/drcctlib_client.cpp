@@ -1,18 +1,18 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <stdint.h>
 #include <iostream>
-#include <unistd.h>
-#include <assert.h>
+// #include <unistd.h>
+// #include <assert.h>
 #include <string.h>
 #include <sstream>
-#include <unordered_map>
-#include <map>
+// #include <unordered_map>
+// #include <map>
 #include <algorithm>
 #include <iterator>
 #include <vector>
 
-#include <sys/mman.h>
+// #include <sys/mman.h>
 
 #include "dr_api.h"
 #include "drmgr.h"
@@ -176,16 +176,12 @@ ClientInit(int argc, const char *argv[])
 void
 ClientExit(void)
 {
-    // DRCCTLIB_PRINTF("----drcctlib_client_exit start");
     global_handle_call_number_buffer = drcctlib_get_global_gloabl_hndl_call_num_buff();
     vector<pair<context_handle_t, int>> tmp;
     context_handle_t max_ctxt_hndl = drcctlib_get_global_context_handle_num();
     for(context_handle_t i = 0; i < max_ctxt_hndl; i++){
         tmp.push_back(make_pair(i, global_handle_call_number_buffer[i]));
     }
-    // for (auto& i : global_handle_call_number_map){
-    //     tmp.push_back(i);
-    // }
     sort(tmp.begin(), tmp.end(),
          [=](pair<context_handle_t, int> &a, pair<context_handle_t, int> &b) {
              return a.second > b.second;
@@ -198,7 +194,6 @@ ClientExit(void)
         drcctlib_print_full_cct(tmp[i].first, true, false, MAX_CLIENT_CCT_PRINT_DEPTH);
         dr_fprintf(gTraceFile, "================================================================================\n\n\n");
     }
-    // DRCCTLIB_PRINTF("=====drcctlib_client_exit end");
     // if (!drmgr_unregister_thread_init_event(ClientEventThreadStart) ||
     //     !drmgr_unregister_thread_exit_event(ClientEventThreadEnd)||
     //     !drmgr_unregister_tls_field(client_tls_idx)) {
@@ -209,16 +204,16 @@ ClientExit(void)
 }
 
 
-static inline void
-InitBuffer()
-{
+// static inline void
+// InitBuffer()
+// {
     // global_handle_call_number_buffer =
     //     (int *)mmap(0, CONTEXT_HANDLE_MAX * sizeof(int),
     //                           PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
     // if (global_handle_call_number_buffer == MAP_FAILED) {
     //     DRCCTLIB_EXIT_PROCESS("InitBuffer error: MAP_FAILED global_handle_call_number_buffer");
     // }
-}
+// }
 
 
 #ifdef __cplusplus

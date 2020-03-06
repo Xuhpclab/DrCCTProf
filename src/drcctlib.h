@@ -7,7 +7,7 @@
 #include "drcctlib_if.h"
 #include "drcctlib_debug.h"
 
-#define context_handle_t int
+#define context_handle_t int32_t
 
 enum {
     DRCCTLIB_INSTR_INSTRUMENT_CCT_BB_ENTRY = 0, /**< Priority of  */

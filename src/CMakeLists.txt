@@ -32,6 +32,8 @@ use_DynamoRIO_extension(drcctlib drmgr)
 use_DynamoRIO_extension(drcctlib drutil)
 use_DynamoRIO_extension(drcctlib drsyms)
 use_DynamoRIO_extension(drcctlib drwrap)
+use_DynamoRIO_extension(drcctlib drreg)
+
 
 add_library(drcctlib_static STATIC ${srcs_static})
 configure_extension(drcctlib_static ON)
@@ -40,6 +42,7 @@ use_DynamoRIO_extension(drcctlib_static drmgr_static)
 use_DynamoRIO_extension(drcctlib_static drutil_static)
 use_DynamoRIO_extension(drcctlib_static drsyms_static)
 use_DynamoRIO_extension(drcctlib_static drwrap_static)
+use_DynamoRIO_extension(drcctlib_static drreg_static)
 
 install_ext_header(drcctlib_filter_func_list.h)
 install_ext_header(drcctlib_global_share.h)
