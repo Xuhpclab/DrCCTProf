@@ -615,7 +615,7 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
     
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-    // DRCCTLIB_PRINTF("new_key %d num %d cur_slot %d pre_bb_end_state %d", new_key, num, pt->cur_slot, pt->pre_bb_end_state);
+    DRCCTLIB_PRINTF("new_key %d num %d cur_slot %d pre_bb_end_state %d", new_key, num, pt->cur_slot, pt->pre_bb_end_state);
     context_handle_t new_caller_ctxt = 0;
     if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_THREAD_ROOT_VIRTUAL)) {
         new_caller_ctxt =
@@ -974,7 +974,7 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
     }
     if(instr == next_instrument_instr(bb_msg)){
         instr_instrument_msg_t* cur = bb_instrument_msg_pop(bb_msg);
-        // DRCCTLIB_PRINTF("cur->slot %d cur->state %d bb_msg->slot_max %d", cur->slot, cur->state, bb_msg->slot_max);
+        DRCCTLIB_PRINTF("cur->slot %d cur->state %d bb_msg->slot_max %d", cur->slot, cur->state, bb_msg->slot_max);
         if(cur->slot == 0){
             dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_before_bb_first_i,
                          false, 2, OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max));
@@ -1044,9 +1044,9 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     if(translating) {
         translate = 1;
     }
-    // per_thread_t *pt =
-    //     (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-    // DRCCTLIB_PRINTF("cur_slot %d  pre_bb_end_state % d bb_key %d interest_instr_num %d trace %d translate %d", pt->cur_slot, pt->pre_bb_end_state, bb_key, interest_instr_num, trace, translate);
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    DRCCTLIB_PRINTF("cur_slot %d  pre_bb_end_state % d bb_key %d interest_instr_num %d trace %d translate %d", pt->cur_slot, pt->pre_bb_end_state, bb_key, interest_instr_num, trace, translate);
     bb_instrument_msg_t* bb_msg = bb_instrument_msg_create(bb_key, uninterested_bb ? 1 : interest_instr_num);
 
     if(uninterested_bb){
