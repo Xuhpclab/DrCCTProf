@@ -616,8 +616,8 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     cct_bb_node_t *pre_bb = pt->cur_bb_node;
-    DRCCTLIB_PRINTF("pre bb key %d, pre bb max %d, pre bb call %d", pre_bb->key, pre_bb->max_slots, pre_bb->caller_ctxt_hndl);
-    DRCCTLIB_PRINTF("new bb key %d, new bb max %d, cur slot %d, pre bb end state %d", new_key, num, pt->cur_slot, pt->pre_bb_end_state);
+    // DRCCTLIB_PRINTF("pre bb key %d, pre bb max %d, pre bb call %d", pre_bb->key, pre_bb->max_slots, pre_bb->caller_ctxt_hndl);
+    // DRCCTLIB_PRINTF("new bb key %d, new bb max %d, cur slot %d, pre bb end state %d", new_key, num, pt->cur_slot, pt->pre_bb_end_state);
     context_handle_t new_caller_ctxt = 0;
     if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_THREAD_ROOT_VIRTUAL)) {
         new_caller_ctxt =
@@ -632,13 +632,13 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
         // call happen not in bb end
     //     DRCCTLIB_PRINTF("new_key %d ??????????????????", new_key);
     //     new_caller_ctxt = pt->cur_bb_node->child_ctxt_start_idx + pt->cur_slot;
-    // } else {
+    } else {
         new_caller_ctxt = pt->cur_bb_node->caller_ctxt_hndl;
     }
     for (slot_t i = pt->cur_slot + 1; i < pt->cur_bb_node->max_slots; i++) {
         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))--;
     }
-
+    // DRCCTLIB_PRINTF("new key %d new_caller_ctxt %d", new_key, new_caller_ctxt);
     splay_node_t *new_root =
         splay_tree_add_and_update(ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree,
                                   (splay_node_key_t)new_key);
@@ -655,7 +655,7 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))++;
     }
 #endif
-    DRCCTLIB_PRINTF("finish new key %d", new_key);
+    // DRCCTLIB_PRINTF("finish new key %d", new_key);
 }
 
 static void
