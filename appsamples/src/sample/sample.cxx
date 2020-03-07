@@ -19,13 +19,13 @@ void t2_sub_fun() {
 }
 
 void t1_fun() {
-    for(int i = 0; i < 22222222; i++){
+    for(int i = 0; i < 2222; i++){
         t1_sub_fun();
     }
 }
 
 void t2_fun() {
-    for(int i = 0; i < 11111111; i++){
+    for(int i = 0; i < 1111; i++){
         t2_sub_fun();
     }
 }
