@@ -1044,8 +1044,8 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     if(translating) {
         translate = 1;
     }
-    per_thread_t *pt =
-        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    // per_thread_t *pt =
+    //     (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     // DRCCTLIB_PRINTF("cur_slot %d  pre_bb_end_state % d bb_key %d interest_instr_num %d trace %d translate %d", pt->cur_slot, pt->pre_bb_end_state, bb_key, interest_instr_num, trace, translate);
     bb_instrument_msg_t* bb_msg = bb_instrument_msg_create(bb_key, uninterested_bb ? 1 : interest_instr_num);
 
