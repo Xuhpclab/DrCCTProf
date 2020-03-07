@@ -28,6 +28,11 @@
 #include "splay_tree.h"
 #include "shadow_memory.h"
 
+#ifdef ARM	
+#    define DR_DISASM_DRCCTLIB DR_DISASM_ARM	
+#else	
+#    define DR_DISASM_DRCCTLIB DR_DISASM_INTEL	
+#endif
 
 
 #define MAX_CCT_PRINT_DEPTH 15
