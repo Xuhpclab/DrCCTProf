@@ -653,6 +653,7 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))++;
     }
 #endif
+    DRCCTLIB_PRINTF("finish new_key %d num %d cur_slot %d pre_bb_end_state %d", new_key, num, pt->cur_slot, pt->pre_bb_end_state);
 }
 
 static void
