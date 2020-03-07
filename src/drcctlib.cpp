@@ -629,7 +629,11 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
         DRCCTLIB_PRINTF("new_key %d max_slots %d, cur_slot %d", new_key, pt->cur_bb_node->max_slots, pt->cur_slot);
         if(pt->cur_slot + 1 > pt->cur_bb_node->max_slots){
             cct_bb_node_t *pre_bb =  pt->cur_bb_node;
-            DRCCTLIB_EXIT_PROCESS("pre bb key %d caller_ctxt_hndl %d", pre_bb->key, pre_bb->caller_ctxt_hndl);
+            DRCCTLIB_PRINTF(" > pre bb key %d caller_ctxt_hndl %d", pre_bb->key, pre_bb->caller_ctxt_hndl);
+        }
+        if(pt->cur_slot + 1 == pt->cur_bb_node->max_slots - 1){
+            cct_bb_node_t *pre_bb =  pt->cur_bb_node;
+            DRCCTLIB_PRINTF(" -1 pre bb key %d caller_ctxt_hndl %d", pre_bb->key, pre_bb->caller_ctxt_hndl);
         }
         new_caller_ctxt = pt->cur_bb_node->child_ctxt_start_idx + pt->cur_slot;
     } else {
