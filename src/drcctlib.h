@@ -4,19 +4,11 @@
 #include "dr_api.h"
 #include "drcctlib_global_share.h"
 #include "drcctlib_filter_func_list.h"
-#include "drcctlib_if.h"
 #include "drcctlib_debug.h"
 
 #define context_handle_t int32_t
-
-enum {
-    DRCCTLIB_INSTR_INSTRUMENT_CCT_BB_ENTRY = 0, /**< Priority of  */
-    DRCCTLIB_INSTR_INSTRUMENT_CCT_PRE = 100, /**< Priority of  */
-    DRCCTLIB_INSTR_INSTRUMENT_CCT_NORMAL = 200,
-    DRCCTLIB_INSTR_INSTRUMENT_CCT_POST = 300, /**< Priority of  */
-    DRCCTLIB_INSTR_INSTRUMENT_EXCEPTION_CHECK = 400 /**< Priority of  */
-};
-
+#define DISASM_CACHE_SIZE 80
+#define MAXIMUM_SYMNAME 256
 
 // The handle representing a data object
 // typedef struct DataHandle_t {
@@ -37,7 +29,7 @@ enum {
 typedef struct _context_t {
     char func_name[MAXIMUM_SYMNAME];
     char file_path[MAXIMUM_PATH];
-    char code_asm[MAXIMUM_SYMNAME];
+    char code_asm[DISASM_CACHE_SIZE];
     context_handle_t ctxt_hndl;
     int line_no;
     app_pc ip;
