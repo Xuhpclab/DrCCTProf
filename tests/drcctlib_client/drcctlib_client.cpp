@@ -19,7 +19,6 @@
 #include "drcctlib.h"
 
 using namespace std;
-#define CONTEXT_HANDLE_MAX 2147483647L 
 
 #define DRCCTLIB_PRINTF(format, args...)                                             \
     do {                                                                             \
@@ -84,11 +83,12 @@ static file_t gTraceFile;
 //     }
 // }
 
-// void
-// SimpleCCTQuery()
-// {
-//     // context_handle_t cur_ctxt_hndl =
-//     //     drcctlib_get_context_handle();
+void
+SimpleCCTQuery()
+{
+    context_handle_t cur_ctxt_hndl =
+        drcctlib_get_context_handle();
+    drcctlib_print_ctxt_hndl_msg(cur_ctxt_hndl, false, false);
 //     // int *store = global_handle_call_number_buffer + cur_ctxt_hndl;
 //     // *store = *store + 1;
 //     // drcctlib_print_ctxt_hndl_msg(cur_ctxt_hndl, true, false);
@@ -106,12 +106,12 @@ static file_t gTraceFile;
 //     //                     cur_ctxt_hndl, drcctlib_get_per_thread_date_id());
 //     // }
 // #endif
-// }
+}
 
 void
 InstrumentInsCallback(void *drcontext, instrlist_t *bb, instr_t *instr, void *data)
 {
-    // dr_insert_clean_call(drcontext, bb, instr, (void *)SimpleCCTQuery, false, 0);
+    dr_insert_clean_call(drcontext, bb, instr, (void *)SimpleCCTQuery, false, 0);
 }
 
 // static void
@@ -176,24 +176,24 @@ ClientInit(int argc, const char *argv[])
 void
 ClientExit(void)
 {
-    global_handle_call_number_buffer = drcctlib_get_global_gloabl_hndl_call_num_buff();
-    vector<pair<context_handle_t, int>> tmp;
-    context_handle_t max_ctxt_hndl = drcctlib_get_global_context_handle_num();
-    for(context_handle_t i = 0; i < max_ctxt_hndl; i++){
-        tmp.push_back(make_pair(i, global_handle_call_number_buffer[i]));
-    }
-    sort(tmp.begin(), tmp.end(),
-         [=](pair<context_handle_t, int> &a, pair<context_handle_t, int> &b) {
-             return a.second > b.second;
-             });
-    for(uint i = 0; i < TOP_REACH__NUM_SHOW; i++) {
-    // for(uint i = 0; i < tmp.size(); i++) {
-        dr_fprintf(gTraceFile, "NO. %d ins call number %d ====", i, tmp[i].second);
-        drcctlib_print_ctxt_hndl_msg(tmp[i].first, false, false);
-        dr_fprintf(gTraceFile, "================================================================================\n");
-        drcctlib_print_full_cct(tmp[i].first, true, false, MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile, "================================================================================\n\n\n");
-    }
+    // global_handle_call_number_buffer = drcctlib_get_global_gloabl_hndl_call_num_buff();
+    // vector<pair<context_handle_t, int>> tmp;
+    // context_handle_t max_ctxt_hndl = drcctlib_get_global_context_handle_num();
+    // for(context_handle_t i = 0; i < max_ctxt_hndl; i++){
+    //     tmp.push_back(make_pair(i, global_handle_call_number_buffer[i]));
+    // }
+    // sort(tmp.begin(), tmp.end(),
+    //      [=](pair<context_handle_t, int> &a, pair<context_handle_t, int> &b) {
+    //          return a.second > b.second;
+    //          });
+    // for(uint i = 0; i < TOP_REACH__NUM_SHOW; i++) {
+    // // for(uint i = 0; i < tmp.size(); i++) {
+    //     dr_fprintf(gTraceFile, "NO. %d ins call number %d ====", i, tmp[i].second);
+    //     drcctlib_print_ctxt_hndl_msg(tmp[i].first, false, false);
+    //     dr_fprintf(gTraceFile, "================================================================================\n");
+    //     drcctlib_print_full_cct(tmp[i].first, true, false, MAX_CLIENT_CCT_PRINT_DEPTH);
+    //     dr_fprintf(gTraceFile, "================================================================================\n\n\n");
+    // }
     // if (!drmgr_unregister_thread_init_event(ClientEventThreadStart) ||
     //     !drmgr_unregister_thread_exit_event(ClientEventThreadEnd)||
     //     !drmgr_unregister_tls_field(client_tls_idx)) {
