@@ -13,8 +13,8 @@ BUILD_LOG_PATH=${CUR_DIR}/logs
 if [ ! -d ${BUILD_LOG_PATH} ]; then
     mkdir ${BUILD_LOG_PATH}
 fi
-MAKE_LOG_FILE=${BUILD_LOG_PATH}/make.log
-DR_LOG_FILE=${BUILD_LOG_PATH}/dr.log
+MAKE_LOG_FILE=${BUILD_LOG_PATH}/x86.remake.log
+DR_LOG_FILE=${BUILD_LOG_PATH}/x86.drcctlib.log
 echo -e "Enter \033[34m${BUILD_PATH}\033[0m.."
 
 cd ${BUILD_PATH}

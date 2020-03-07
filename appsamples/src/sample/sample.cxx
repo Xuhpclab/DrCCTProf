@@ -1,6 +1,7 @@
 // #define MULTITHREADING
-#include <stdio.h>
+
 #ifdef MULTITHREADING
+#include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #endif
@@ -71,7 +72,6 @@ int main(){
 #else
     t1_fun();
     t2_fun();
-    printf("sub_fun_call_num %d\n", sub_fun_call_num1 + sub_fun_call_num2);
     return 0;
 #endif   
 }
