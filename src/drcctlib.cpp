@@ -974,12 +974,16 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
             dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_before_bb_first_i,
                          false, 2, OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max));
             instrument_before_start_bb_i(drcontext, bb, instr, cur->state);
+            dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_before_bb_end_i,
+                         false, 2, OPND_CREATE_SLOT(cur->slot), OPND_CREATE_INSTR_STATE_FLAG(cur->state));
         } else if(cur->slot == bb_msg->slot_max - 1) {
             instrument_before_end_bb_i(drcontext, bb, instr, cur->slot, cur->state);
             dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_before_bb_end_i,
                          false, 2, OPND_CREATE_SLOT(cur->slot), OPND_CREATE_INSTR_STATE_FLAG(cur->state));
         } else {
             instrument_before_middle_bb_i(drcontext, bb, instr, cur->slot);
+            dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_before_bb_end_i,
+                         false, 2, OPND_CREATE_SLOT(cur->slot), OPND_CREATE_INSTR_STATE_FLAG(cur->state));
         }
         instr_instrument_client_cb(drcontext, bb, instr, cur->state);         
 
