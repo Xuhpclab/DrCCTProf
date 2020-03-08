@@ -30,6 +30,7 @@ cd ${BUILD_LOG_PATH}
 for i in 1
 do
 time ${SAMPLE_ROOT_DIRECTORY}/build/sample
+time ${RUN_DIRECTORY}/drrun ${CUR_DIR}/appsamples/build/sample
 echo -e "-----Test tool-----(See\033[34m${DR_LOG_FILE}\033[0m for detail)"
 time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${CUR_DIR}/appsamples/build/sample > ${DR_LOG_FILE} 2>&1
 done
