@@ -598,32 +598,32 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
     if(bb_entry_num % 1000 < 30) {
         DRCCTLIB_PRINTF("[r] bb_entry_num %d", bb_entry_num);
     }
-// #ifdef DRCCTLIB_DEBUG
-//     DRCCTLIB_PRINTF("[r] pre key %d, slot_max %d, cur_slot %d, pre_bb_end_state %d", pt->cur_bb_node->key, pt->cur_bb_node->max_slots, pt->cur_slot, pt->pre_bb_end_state);
-//     DRCCTLIB_PRINTF("[r] cur key %d, slot_max %d", new_key, num);
-// #endif
+#ifdef DRCCTLIB_DEBUG
+    DRCCTLIB_PRINTF("[r] pre key %d, slot_max %d, cur_slot %d, pre_bb_end_state %d", pt->cur_bb_node->key, pt->cur_bb_node->max_slots, pt->cur_slot, pt->pre_bb_end_state);
+    DRCCTLIB_PRINTF("[r] cur key %d, slot_max %d", new_key, num);
+#endif
     context_handle_t new_caller_ctxt = 0;
     if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_THREAD_ROOT_VIRTUAL)) {
         new_caller_ctxt =
             pt->root_bb_node->child_ctxt_start_idx + THREAD_ROOT_SHARDED_CALLEE_INDEX;
-    } else if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_CALL_DIRECT) ||
-               instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_CALL_IN_DIRECT)) {
-        new_caller_ctxt = pt->cur_bb_node->child_ctxt_start_idx + pt->cur_slot;
-    } else if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_RETURN)) {
+    // } else if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_CALL_DIRECT) ||
+    //            instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_CALL_IN_DIRECT)) {
+        // new_caller_ctxt = pt->cur_bb_node->child_ctxt_start_idx + pt->cur_slot;
+    // } else if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_RETURN)) {
         // new_caller_ctxt = ctxt_hndl_to_ip_node(pt->cur_bb_node->caller_ctxt_hndl)
         //                       ->parent_bb_node->caller_ctxt_hndl;
     } else {
-        // if(pt->cur_slot >= pt->cur_bb_node->max_slots){
-        //     cct_bb_node_t *pre_bb =  pt->cur_bb_node;
-        //     DRCCTLIB_EXIT_PROCESS(" > pre bb key %d caller_ctxt_hndl %d", pre_bb->key, pre_bb->caller_ctxt_hndl);
-        // }
+        if(pt->cur_slot >= pt->cur_bb_node->max_slots){
+            cct_bb_node_t *pre_bb =  pt->cur_bb_node;
+            DRCCTLIB_EXIT_PROCESS(" > pre bb key %d caller_ctxt_hndl %d", pre_bb->key, pre_bb->caller_ctxt_hndl);
+        }
         new_caller_ctxt = pt->cur_bb_node->caller_ctxt_hndl;
     }
-// #ifndef ARM
-//     for (slot_t i = pt->cur_slot + 1; i < pt->cur_bb_node->max_slots; i++) {
-//         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))--;
-//     }
-// #endif
+#ifndef ARM
+    for (slot_t i = pt->cur_slot + 1; i < pt->cur_bb_node->max_slots; i++) {
+        (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))--;
+    }
+#endif
 
 //     splay_node_t *new_root =
 //         splay_tree_add_and_update(ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree,
@@ -632,13 +632,14 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
 //         new_root->payload = (void *)bb_node_create(new_key, new_caller_ctxt, num);
 //     }
 //     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
-//     pt->pre_bb_end_state = 0;
-//     pt->cur_slot = 0;
-// #ifndef ARM
-//     for(slot_t i = 0; i < num; i++){
-//         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))++;
-//     }
-// #endif
+    pt->cur_bb_node = bb_node_create(new_key, new_caller_ctxt, num);
+    pt->pre_bb_end_state = 0;
+    pt->cur_slot = 0;
+#ifndef ARM
+    for(slot_t i = 0; i < num; i++){
+        (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))++;
+    }
+#endif
 }
 #define ARM_USE_CLEAN_CALL
 #if defined(ARM) && defined(ARM_USE_CLEAN_CALL)
