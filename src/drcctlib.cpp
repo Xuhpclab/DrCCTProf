@@ -636,7 +636,7 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
 //     }
 // #endif
 }
-// #define ARM_USE_CLEAN_CALL
+#define ARM_USE_CLEAN_CALL
 #if defined(ARM) && defined(ARM_USE_CLEAN_CALL)
 static void
 instrument_update_slot_and_state(slot_t slot, state_t state_flag)
@@ -645,7 +645,7 @@ instrument_update_slot_and_state(slot_t slot, state_t state_flag)
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     pt->cur_slot = slot;
     pt->pre_bb_end_state = state_flag;
-    (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + slot))++;
+    // (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + slot))++;
 }
 #endif
 
