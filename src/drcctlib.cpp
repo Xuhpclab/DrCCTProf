@@ -587,10 +587,11 @@ pt_cache_free(void *cache)
 //     }
 //     DRCCTLIB_PRINTF("pt_update_excetion_info error: bb_node == pt->root_bb_node");
 // }
-
+static int32_t bb_entry_num = 0;
 static void
 instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
 {
+    bb_entry_num++;
 //     per_thread_t *pt =
 //         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
 // #ifdef DRCCTLIB_DEBUG
@@ -1327,6 +1328,7 @@ get_peak_rss()
 static void
 print_stats()
 {
+    dr_fprintf(log_file, "\nbb_entry_num %d", bb_entry_num);
     dr_fprintf(log_file, "\nTotalCallPaths = %" PRIu64, global_ip_node_buff_idle_idx);
     // Peak resource usage
     dr_fprintf(log_file, "\nPeakRSS = %zu", get_peak_rss());
