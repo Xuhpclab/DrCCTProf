@@ -1,5 +1,5 @@
 // #define MULTITHREADING
-// #define SINGLETHREAD
+#define SINGLETHREAD
 
 #ifdef MULTITHREADING
 #include <stdio.h>
