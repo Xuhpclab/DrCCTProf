@@ -2,7 +2,6 @@
 #define _DRCCTLIB_DEBUG_H_
 
 #define SPEEDUP_TEST
-#define CACHE_STATE_AND_DISASM
 // #define DRCCTLIB_DEBUG
 #ifdef DRCCTLIB_DEBUG
 const char * drsym_error_t_strlist[] = {

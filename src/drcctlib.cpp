@@ -100,7 +100,11 @@ enum {
     INSTR_STATE_UNINTEREST_FIRST = 0X10,
     INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x20,
     INSTR_STATE_EVENT_SIGNAL = 0x40,
-    INSTR_STATE_EVENT_EXCEPTION = 0x80
+    INSTR_STATE_EVENT_EXCEPTION = 0x80,
+#ifdef ARM
+    INSTR_STATE_BB_START_NOP = 0X100,
+    INSTR_STATE_BB_END_NOP = 0X200
+#endif
 };
 
 typedef struct _client_cb_t {
@@ -110,10 +114,8 @@ typedef struct _client_cb_t {
 
 typedef struct _bb_shadow_t {
     app_pc *ip_shadow;
-#ifdef CACHE_STATE_AND_DISASM
     state_t *state_shadow;
     char *disasm_shadow;
-#endif
     slot_t slot_num;
 } bb_shadow_t;
 
@@ -209,10 +211,6 @@ static context_handle_t global_ip_node_buff_idle_idx = CONTEXT_HANDLE_START;
 static int64_t *gloabl_hndl_call_num;
 
 static int global_thread_id_max = 0;
-
-#ifndef CACHE_STATE_AND_DISASM
-static char global_shared_code[] = "NOT CACHE DISASM";
-#endif
 
 // static char *global_string_pool;
 // static int global_string_pool_idle_idx = 0;
@@ -445,11 +443,9 @@ bb_shadow_create(slot_t num)
     bb_shadow_t *bb_shadow = (bb_shadow_t *)dr_global_alloc(sizeof(bb_shadow_t));
     bb_shadow->slot_num = num;
     bb_shadow->ip_shadow = (app_pc *)dr_global_alloc(num * sizeof(app_pc));
-#ifdef CACHE_STATE_AND_DISASM
     bb_shadow->state_shadow = (state_t *)dr_global_alloc(num * sizeof(state_t));
     bb_shadow->disasm_shadow =
         (char *)dr_global_alloc(DISASM_CACHE_SIZE * num * sizeof(char *));
-#endif
     return bb_shadow;
 }
 
@@ -459,11 +455,9 @@ bb_shadow_free(void *shadow)
     bb_shadow_t *bb_shadow = (bb_shadow_t *)shadow;
     slot_t num = bb_shadow->slot_num;
     dr_global_free((void *)bb_shadow->ip_shadow, num * sizeof(app_pc));
-#ifdef CACHE_STATE_AND_DISASM
     dr_global_free((void *)bb_shadow->state_shadow, num * sizeof(state_t));
     dr_global_free((void *)bb_shadow->disasm_shadow,
                    DISASM_CACHE_SIZE * num * sizeof(char *));
-#endif
     dr_global_free(shadow, sizeof(bb_shadow_t));
 }
 
@@ -1173,18 +1167,22 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     bb_key_t bb_key = 0;
     bb_shadow_t *bb_shadow = NULL;
     bool uninit_shadow = false;
-    app_pc first_pc = instr_get_app_pc(first_instr);
+#ifdef ARM
+    app_pc tag_pc = instr_get_app_pc(instr_get_next_app(first_instr));
+#else
+    app_pc tag_pc = instr_get_app_pc(first_instr);
+#endif
     
     if (uninterested_bb) {
         bb_key = UNINTERESTED_BB_SHARED_BB_KEY;
     } else {
         dr_mutex_lock(bb_shadow_lock);
-        void *stored_key = hashtable_lookup(&global_bb_key_table, (void *)first_pc);
+        void *stored_key = hashtable_lookup(&global_bb_key_table, (void *)tag_pc);
         if (stored_key != NULL) {
             bb_key = (bb_key_t)(ptr_int_t)stored_key;
         } else {
             bb_key = bb_get_new_key();
-            hashtable_add(&global_bb_key_table, (void *)first_pc,
+            hashtable_add(&global_bb_key_table, (void *)tag_pc,
                           (void *)(ptr_int_t)bb_key);
             bb_shadow = bb_shadow_create(interest_instr_num);
             uninit_shadow = true;
@@ -1205,14 +1203,36 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
             instr_state_init(instr, &instr_state_flag);
             if (instr_need_instrument_check_f(instr_state_flag)) {
                 if(uninit_shadow) {
+#ifdef ARM
+                    if(slot == 0){
+                        char code[DISASM_CACHE_SIZE];
+                        instr_disassemble_to_buffer(drcontext, instr,code,
+                                                DISASM_CACHE_SIZE);
+                        DRCCTLIB_PRINTF("BB START NOP (%s)", code);
+                        bb_shadow->ip_shadow[slot] = (app_pc)0;
+                        bb_shadow->state_shadow[slot] = INSTR_STATE_BB_START_NOP;
+                        strcpy(bb_shadow->disasm_shadow, "BB START NOP");
+                    } else {
+                        bb_shadow->ip_shadow[slot] = instr_get_app_pc(instr);
+                        bb_shadow->state_shadow[slot] = instr_state_flag;
+                        instr_disassemble_to_buffer(drcontext, instr,
+                                                bb_shadow->disasm_shadow +
+                                                    slot * DISASM_CACHE_SIZE,
+                                                DISASM_CACHE_SIZE);
+                        if(slot == 1) {
+                            DRCCTLIB_PRINTF("BB START NEXT (%s)", bb_shadow->disasm_shadow +
+                                                    slot * DISASM_CACHE_SIZE);
+                        }
+                    }
+#else
                     bb_shadow->ip_shadow[slot] = instr_get_app_pc(instr);
-#ifdef CACHE_STATE_AND_DISASM
                     bb_shadow->state_shadow[slot] = instr_state_flag;
                     instr_disassemble_to_buffer(drcontext, instr,
                                                 bb_shadow->disasm_shadow +
                                                     slot * DISASM_CACHE_SIZE,
                                                 DISASM_CACHE_SIZE);
 #endif
+
                 }
                 bb_instrument_msg_add(bb_msg, instr_instrument_msg_create(instr, slot, instr_state_flag));
                 slot++;
@@ -1221,6 +1241,18 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     }
     
     *user_data = (void*)bb_msg;
+    return DR_EMIT_DEFAULT;
+}
+
+
+static dr_emit_flags_t
+drcctlib_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+{
+#ifdef ARM
+    instr_t *new_instr;
+    new_instr = XINST_CREATE_move(drcontext, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R0));
+    instrlist_prepend(bb, new_instr);
+#endif
     return DR_EMIT_DEFAULT;
 }
 
@@ -1543,20 +1575,16 @@ static inline void init_global_bb_shadow_table()
 {
     bb_shadow_t *thread_root_bb_shared_shadow = bb_shadow_create(1);
     thread_root_bb_shared_shadow->ip_shadow[0] = 0;
-#ifdef CACHE_STATE_AND_DISASM
     strcpy(thread_root_bb_shared_shadow->disasm_shadow, "thread root bb");
     thread_root_bb_shared_shadow->state_shadow[0] = INSTR_STATE_THREAD_ROOT_VIRTUAL;
-#endif
     hashtable_add(&global_bb_shadow_table,
                   (void *)(ptr_int_t)THREAD_ROOT_BB_SHARED_BB_KEY,
                   (void *)thread_root_bb_shared_shadow);
 
     bb_shadow_t *uninterest_bb_share_shadow = bb_shadow_create(1);
     uninterest_bb_share_shadow->ip_shadow[0] = 0;
-#ifdef CACHE_STATE_AND_DISASM
     strcpy(uninterest_bb_share_shadow->disasm_shadow, "uninterested bb");
     uninterest_bb_share_shadow->state_shadow[0] = INSTR_STATE_UNINTEREST_FIRST;
-#endif
     hashtable_add(&global_bb_shadow_table,
                   (void *)(ptr_int_t)UNINTERESTED_BB_SHARED_BB_KEY,
                   (void *)uninterest_bb_share_shadow);
@@ -1679,14 +1707,9 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
     bb_shadow_t *shadow = (bb_shadow_t *)hashtable_lookup(&global_bb_shadow_table,
                                                           (void *)(ptr_int_t)(bb->key));
     app_pc addr = shadow->ip_shadow[ctxt_hndl - bb->child_ctxt_start_idx];
-    // DRCCTLIB_PRINTF("ctxt_hndl %d addr %lu bb->child_ctxt_start_idx %d bb->max_slots %d", ctxt_hndl, addr, bb->child_ctxt_start_idx, bb->max_slots);
-#ifdef CACHE_STATE_AND_DISASM    
+    // DRCCTLIB_PRINTF("ctxt_hndl %d addr %lu bb->child_ctxt_start_idx %d bb->max_slots %d", ctxt_hndl, addr, bb->child_ctxt_start_idx, bb->max_slots); 
     char *code = shadow->disasm_shadow +
         (ctxt_hndl - bb->child_ctxt_start_idx) * DISASM_CACHE_SIZE;
-#else
-    char *code = global_shared_code;
-#endif
-
     drsym_error_t symres;
     drsym_info_t sym;
     char name[MAXIMUM_SYMNAME];
@@ -1839,6 +1862,10 @@ drcctlib_init(void)
 
     init_global_buff();
     drmgr_register_signal_event(drcctlib_event_signal);
+    if (!drmgr_register_bb_app2app_event(drcctlib_event_bb_app2app, NULL)) {
+        DRCCTLIB_PRINTF("WARNING: drcctlib fail to register bb app2app event");
+        return false;
+    }
     if (!drmgr_register_bb_instrumentation_event(drcctlib_event_bb_analysis,
                                                  drcctlib_event_bb_insert, NULL)) {
         DRCCTLIB_PRINTF("WARNING: drcctlib fail to register bb instrumentation event");
@@ -1880,7 +1907,8 @@ drcctlib_exit(void)
     if (count != 0)
         return;
     print_stats();
-    if (!drmgr_unregister_bb_instrumentation_event(drcctlib_event_bb_analysis) ||
+    if (!drmgr_unregister_bb_app2app_event(drcctlib_event_bb_app2app) ||
+        !drmgr_unregister_bb_instrumentation_event(drcctlib_event_bb_analysis) ||
         // !drmgr_unregister_bb_insertion_event(drcctlib_event_bb_insert) ||
         // !drmgr_unregister_module_load_event(drcctlib_event_module_analysis) ||
         !drmgr_unregister_signal_event(drcctlib_event_signal) ||

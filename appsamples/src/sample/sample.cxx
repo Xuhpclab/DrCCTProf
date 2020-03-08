@@ -1,4 +1,5 @@
 // #define MULTITHREADING
+// #define SINGLETHREAD
 
 #ifdef MULTITHREADING
 #include <stdio.h>
@@ -6,6 +7,7 @@
 #include <pthread.h>
 #endif
 
+#if defined(MULTITHREADING) || defined(SINGLETHREAD)
 static int sub_fun_call_num1 = 0;
 static int sub_fun_call_num2 = 0;
 void t1_sub_fun() {
@@ -29,6 +31,7 @@ void t2_fun() {
         t2_sub_fun();
     }
 }
+#endif
 
 #ifdef MULTITHREADING
 void *thread_1(void *arg)
@@ -69,9 +72,10 @@ int main(){
     }
     printf("sub_fun_call_num %d\n", sub_fun_call_num1 + sub_fun_call_num2);
     return EXIT_SUCCESS;
-#else
+#elif defined(SINGLETHREAD)
     t1_fun();
     t2_fun();
+#else
     return 0;
 #endif   
 }
