@@ -599,7 +599,8 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
 {
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-
+    DRCCTLIB_PRINTF("[r] pre key %d, slot_max %d, cur_slot %d, pre_bb_end_state %d", pt->cur_bb_node->key, pt->cur_bb_node->max_slots, pt->cur_slot, pt->pre_bb_end_state);
+    DRCCTLIB_PRINTF("[r] cur key %d, slot_max %d", new_key, num);
     context_handle_t new_caller_ctxt = 0;
     if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_THREAD_ROOT_VIRTUAL)) {
         new_caller_ctxt =
@@ -841,6 +842,7 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
     if(instr == next_instrument_instr(bb_msg)){
         instr_instrument_msg_t* cur = bb_instrument_msg_pop(bb_msg);
 #ifdef ARM
+        DRCCTLIB_PRINTF("[i] cur key %d, slot_max %d, cur_slot %d, pre_bb_end_state %d", bb_msg->bb_key, bb_msg->slot_max, cur->slot, cur->state);
         if(cur->state == INSTR_STATE_BB_START_NOP) {
             dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_before_bb_first_i,
                          false, 2, OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max));
