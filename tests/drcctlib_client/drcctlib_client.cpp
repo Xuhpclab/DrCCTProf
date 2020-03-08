@@ -96,7 +96,6 @@ static file_t gTraceFile;
 //     //     (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), client_tls_idx);
 //     // AddCtxtHandleCallNum(cur_ctxt_hndl, 1, client_pt->local_map);
 
-// #ifdef DRCCTLIB_DEBUG
 //     // uint64_t printNumber = drcctlib_get_pt_run_number(dr_get_current_drcontext());
 //     // if (!drcctlib_ctxt_hndl_is_valid(cur_ctxt_hndl)) {
 //     //     DRCCTLIB_EXIT_PROCESS("cur_ctxt_hndl %d pt_id %d\n", cur_ctxt_hndl,
@@ -105,7 +104,6 @@ static file_t gTraceFile;
 //     //     DRCCTLIB_PRINTF("printNumber %lu cur_ctxt_hndl %d pt_id %d", printNumber,
 //     //                     cur_ctxt_hndl, drcctlib_get_per_thread_date_id());
 //     // }
-// #endif
 // }
 
 void
@@ -123,10 +121,10 @@ InstrumentInsCallback(void *drcontext, instrlist_t *bb, instr_t *instr, void *da
 
 //     client_pt->local_map = new unordered_map<context_handle_t, int>();
 // }
-#ifdef DRCCTLIB_DEBUG
-static void
-ClientEventThreadEnd(void *drcontext)
-{
+
+// static void
+// ClientEventThreadEnd(void *drcontext)
+// {
     // per_thread_t *client_pt =
     //     (per_thread_t *)drmgr_get_tls_field(drcontext, client_tls_idx);
     // unordered_map<context_handle_t, int>::iterator iter = (*(client_pt->local_map)).begin();
@@ -137,11 +135,8 @@ ClientEventThreadEnd(void *drcontext)
     // dr_mutex_unlock(client_thread_lock);
     // delete client_pt->local_map;
     // dr_thread_free(drcontext, client_pt, sizeof(per_thread_t));
-    long long printNumber = drcctlib_get_pt_run_number(drcontext);
-    DRCCTLIB_PRINTF("%lld seconds", printNumber);
+// }
 
-}
-#endif
 
 void
 ClientInit(int argc, const char *argv[])
@@ -236,9 +231,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     ClientInit(argc, argv);
     // client_tls_idx = drmgr_register_tls_field();
     // drmgr_register_thread_init_event(ClientEventThreadStart);
-#ifdef DRCCTLIB_DEBUG
-    drmgr_register_thread_exit_event(ClientEventThreadEnd);
-#endif
+    // drmgr_register_thread_exit_event(ClientEventThreadEnd);
     // client_thread_lock = dr_mutex_create();
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL);
     dr_register_exit_event(ClientExit);

@@ -152,9 +152,6 @@ typedef struct _bb_instrument_msg_t {
 
 // TLS(thread local storage)
 typedef struct _per_thread_t {
-#ifdef DRCCTLIB_DEBUG
-    long long duration;
-#endif
     int id;
     // for root
     cct_bb_node_t *root_bb_node;
@@ -492,9 +489,6 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->cur_bb_node = root_bb_node;
     pt->cur_slot = 0;
     pt->pre_bb_end_state = INSTR_STATE_THREAD_ROOT_VIRTUAL;
-#ifdef DRCCTLIB_DEBUG
-    pt->duration = 0L;
-#endif
 
     // pt->exception_hndl_ctxt_hndl = 0;
     // pt->exception_hndl_bb_node = NULL;
@@ -599,8 +593,10 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
 {
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+#ifdef DRCCTLIB_DEBUG
     DRCCTLIB_PRINTF("[r] pre key %d, slot_max %d, cur_slot %d, pre_bb_end_state %d", pt->cur_bb_node->key, pt->cur_bb_node->max_slots, pt->cur_slot, pt->pre_bb_end_state);
     DRCCTLIB_PRINTF("[r] cur key %d, slot_max %d", new_key, num);
+#endif
     context_handle_t new_caller_ctxt = 0;
     if (instr_state_contain(pt->pre_bb_end_state, INSTR_STATE_THREAD_ROOT_VIRTUAL)) {
         new_caller_ctxt =
@@ -632,6 +628,7 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
     }
     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
     pt->pre_bb_end_state = 0;
+    pt->cur_slot = 0;
 #ifndef ARM
     for(slot_t i = 0; i < num; i++){
         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))++;
@@ -842,7 +839,9 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
     if(instr == next_instrument_instr(bb_msg)){
         instr_instrument_msg_t* cur = bb_instrument_msg_pop(bb_msg);
 #ifdef ARM
+#ifdef DRCCTLIB_DEBUG
         DRCCTLIB_PRINTF("[i] cur key %d, slot_max %d, cur_slot %d, pre_bb_end_state %d", bb_msg->bb_key, bb_msg->slot_max, cur->slot, cur->state);
+#endif
         if(cur->state == INSTR_STATE_BB_START_NOP) {
             dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_before_bb_first_i,
                          false, 2, OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max));
@@ -1897,13 +1896,6 @@ have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2
 
 
 #ifdef DRCCTLIB_DEBUG
-DR_EXPORT
-long long
-drcctlib_get_pt_run_number(void *drcontext)
-{
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    return pt->duration;
-}
 
 DR_EXPORT
 bool
