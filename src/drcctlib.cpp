@@ -871,7 +871,7 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
 {
 #ifdef ARM
     instr_t *first_nop_instr = instrlist_first_app(bb);
-    instr_t *first_instr = instr_get_next_app(first_nop_instr)
+    instr_t *first_instr = instr_get_next_app(first_nop_instr);
 #else
     instr_t *first_instr = instrlist_first_app(bb);
 #endif
