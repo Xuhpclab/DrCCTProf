@@ -468,11 +468,11 @@ bb_node_create(bb_key_t key, context_handle_t caller_ctxt_hndl, slot_t num)
     new_node->key = key;
     new_node->child_ctxt_start_idx = cur_child_ctxt_start_idx(num);
     new_node->max_slots = num;
-    // cct_ip_node_t *children = ctxt_hndl_to_ip_node(new_node->child_ctxt_start_idx);
-    // for (slot_t i = 0; i < num; ++i) {
-    //     children[i].parent_bb_node = new_node;
-    //     children[i].callee_splay_tree = splay_tree_create(bb_node_free);
-    // }
+    cct_ip_node_t *children = ctxt_hndl_to_ip_node(new_node->child_ctxt_start_idx);
+    for (slot_t i = 0; i < num; ++i) {
+        children[i].parent_bb_node = new_node;
+        children[i].callee_splay_tree = splay_tree_create(bb_node_free);
+    }
     return new_node;
 }
 
@@ -653,52 +653,8 @@ instrument_update_slot_and_state(slot_t slot, state_t state_flag)
 static inline void
 instrument_before_every_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, slot_t slot,
                            state_t state_flag)
-{
-#ifdef X86
-    if (dr_using_all_private_caches()) {
-        per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-        /* private caches - we can use an absolute address */
-        instrlist_meta_preinsert(
-            bb, instr,
-            XINST_CREATE_store(
-                drcontext,
-                OPND_CREATE_ABSMEM(((byte *)&pt) + offsetof(per_thread_t, cur_slot),
-                                   OPSZ_4),
-                OPND_CREATE_SLOT(slot)));
-        instrlist_meta_preinsert(
-            bb, instr,
-            XINST_CREATE_store(
-                drcontext,
-                OPND_CREATE_ABSMEM(
-                    ((byte *)&pt) + offsetof(per_thread_t, pre_bb_end_state), OPSZ_4),
-                OPND_CREATE_SLOT(state_flag)));
-    } else {
-        /* shared caches - we must indirect via thread local storage */
-        reg_id_t scratch;
-        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch) !=
-            DRREG_SUCCESS) {
-            DRCCTLIB_EXIT_PROCESS(
-                "instrument_before_every_bb_i drreg_reserve_register != DRREG_SUCCESS");
-        }
-        drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, scratch);
-        instrlist_meta_preinsert(
-            bb, instr,
-            XINST_CREATE_store(
-                drcontext,
-                OPND_CREATE_PT_CUR_SLOT(scratch, offsetof(per_thread_t, cur_slot)),
-                OPND_CREATE_SLOT(slot)));
-        instrlist_meta_preinsert(
-            bb, instr,
-            XINST_CREATE_store(drcontext,
-                               OPND_CREATE_PT_STATE_FLAG(
-                                   scratch, offsetof(per_thread_t, pre_bb_end_state)),
-                               OPND_CREATE_SLOT(state_flag)));
-        if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS) {
-            DRCCTLIB_EXIT_PROCESS(
-                "instrument_before_every_bb_i drreg_unreserve_register != DRREG_SUCCESS");
-        }
-    }
-#elif defined(ARM)
+{   
+#ifdef ARM
 #    ifdef ARM_USE_CLEAN_CALL
     dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_update_slot_and_state,
                          false, 2, OPND_CREATE_SLOT(slot),
@@ -731,6 +687,50 @@ instrument_before_every_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, s
             "instrument_before_every_bb_i drreg_unreserve_register != DRREG_SUCCESS");
     }
 #    endif
+#else
+    if (dr_using_all_private_caches()) {
+        per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+        /* private caches - we can use an absolute address */
+        instrlist_meta_preinsert(
+            bb, instr,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_ABSMEM(((byte *)&pt) + offsetof(per_thread_t, cur_slot),
+                                   OPSZ_4),
+                OPND_CREATE_SLOT(slot)));
+        instrlist_meta_preinsert(
+            bb, instr,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_ABSMEM(
+                    ((byte *)&pt) + offsetof(per_thread_t, pre_bb_end_state), OPSZ_4),
+                OPND_CREATE_INSTR_STATE_FLAG(state_flag)));
+    } else {
+        /* shared caches - we must indirect via thread local storage */
+        reg_id_t scratch;
+        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch) !=
+            DRREG_SUCCESS) {
+            DRCCTLIB_EXIT_PROCESS(
+                "instrument_before_every_bb_i drreg_reserve_register != DRREG_SUCCESS");
+        }
+        drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, scratch);
+        instrlist_meta_preinsert(
+            bb, instr,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_PT_CUR_SLOT(scratch, offsetof(per_thread_t, cur_slot)),
+                OPND_CREATE_SLOT(slot)));
+        instrlist_meta_preinsert(
+            bb, instr,
+            XINST_CREATE_store(drcontext,
+                               OPND_CREATE_PT_STATE_FLAG(
+                                   scratch, offsetof(per_thread_t, pre_bb_end_state)),
+                               OPND_CREATE_INSTR_STATE_FLAG(state_flag)));
+        if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS) {
+            DRCCTLIB_EXIT_PROCESS(
+                "instrument_before_every_bb_i drreg_unreserve_register != DRREG_SUCCESS");
+        }
+    }
 #endif
 }
 
@@ -874,21 +874,7 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
     if(instr == next_instrument_instr(bb_msg)){
         instr_instrument_msg_t* cur = bb_instrument_msg_pop(bb_msg);
 #ifdef ARM
-#ifdef DRCCTLIB_DEBUG
-        DRCCTLIB_PRINTF("[i] cur key %d, slot_max %d, cur_slot %d, pre_bb_end_state %d", bb_msg->bb_key, bb_msg->slot_max, cur->slot, cur->state);
-#endif
         if(cur->state == INSTR_STATE_BB_START_NOP) {
-            // char code[DISASM_CACHE_SIZE];
-            // instr_disassemble_to_buffer(drcontext, instr,
-            //                                     code,
-            //                                     DISASM_CACHE_SIZE);
-            // DRCCTLIB_PRINTF("[i] cur key %d insert before code(%s)", bb_msg->bb_key, code);
-            // bb_shadow_t *shadow = (bb_shadow_t *)hashtable_lookup(&global_bb_shadow_table,
-            //                                             (void *)(ptr_int_t)(bb_msg->bb_key));
-            // for(slot_t i = 0; i < bb_msg->slot_max; i++){
-            //     DRCCTLIB_PRINTF("[i] cur key %d asm(%s)", bb_msg->bb_key, shadow->disasm_shadow + i * DISASM_CACHE_SIZE);
-            //     test_print_pc_to_origin_code(shadow->ip_shadow[i]);
-            // }
             dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_before_bb_first_i,
                         false, 2, OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max));
         } else {
