@@ -1,4 +1,4 @@
-// #define MULTITHREADING
+#define MULTITHREADING
 // #define SINGLETHREAD
 
 #ifdef MULTITHREADING

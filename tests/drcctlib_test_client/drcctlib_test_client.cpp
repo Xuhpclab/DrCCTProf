@@ -16,7 +16,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                                \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));               \
         pid_t pid = getpid();                                                        \
-        dr_printf("[(%s%d)drcctlib_client msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_test_client msg]====" format "\n", name, pid, ##args); \
     } while (0)
 
 #define DRCCTLIB_EXIT_PROCESS(format, args...)                                      \
@@ -24,7 +24,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                               \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
         pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib_client(%s%d) msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_test_client(%s%d) msg]====" format "\n", name, pid, ##args); \
     } while (0);                                                                    \
     dr_exit_process(-1)
 
@@ -106,13 +106,13 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_client'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_test_client'",
                        "http://dynamorio.org/issues");
     if (!drmgr_init()) {
         DRCCTLIB_PRINTF("WARNING: drcctlib unable to initialize drmgr");
     }
     ClientInit(argc, argv);
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ZERO_INSTR, gTraceFile, InstrumentInsCallback, NULL);
     dr_register_exit_event(ClientExit);
 }
 

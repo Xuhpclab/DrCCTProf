@@ -943,9 +943,10 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
             bb_msg,
             instr_instrument_msg_create(first_nop_instr, 0, INSTR_STATE_BB_START_NOP));
 #else
-    if(uninterested_bb){
-        bb_instrument_msg_add(bb_msg, instr_instrument_msg_create(first_instr, 0, INSTR_STATE_UNINTEREST_FIRST));
-    } else {
+    if(!uninterested_bb) {
+    // if(uninterested_bb){
+    //     bb_instrument_msg_add(bb_msg, instr_instrument_msg_create(first_instr, 0, INSTR_STATE_UNINTEREST_FIRST));
+    // } else {
 #endif
         slot_t slot = 0;
         for (instr_t *instr = first_instr; instr != NULL;

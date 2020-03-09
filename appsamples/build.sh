@@ -1,4 +1,14 @@
 #! /bin/bash
 
+set -euo pipefail
+
+CUR_DIR=$(pwd)
+SRC=${CUR_DIR}/src
+BUILD=${CUR_DIR}/build
+if [ ! -d ${BUILD} ]; then
+    mkdir ${BUILD}
+fi
 # build sample1
-g++ -g src/sample1/sample1.cxx -o build/sample1 -lpthread
+g++ -g ${SRC}/sample/sample.cxx -o ${BUILD}/sample 
+g++ -g ${SRC}/sample/sample_cct.cxx -o ${BUILD}/sample_cct 
+g++ -g ${SRC}/sample/sample_multithread.cxx -o ${BUILD}/sample_multithread -pthread

@@ -31,7 +31,7 @@ done
 
 #=============================================================================
 
-echo "Prepare build directory and log directory.."
+echo -e "Prepare build directory and log directory.."
 # init logs directory and the name of next make log file
 TIMESTAMP=$(date +%s)
 BUILD_LOG_PATH=${CUR_DIR}/logs
@@ -61,25 +61,46 @@ echo -e "Running make..(See \033[34m${MAKE_LOG_FILE}\033[0m for detail)"
 # start make
 make -j >${MAKE_LOG_FILE} 2>&1
 
+echo -e "\033[32m Build successfully! \033[0m"
 echo -e "Leave \033[34m${BUILD_PATH}\033[0m.."
 # leave BUILD_PATH
 cd ${CUR_DIR}
 
-echo -e "\033[32m Build successfully! \033[0m"
+APPSAMPLES=${CUR_DIR}/appsamples
+APPSAMPLES_SRC=${APPSAMPLES}/src
+APPSAMPLES_BUILD=${APPSAMPLES}/build
+rm -rf ${APPSAMPLES_BUILD}
+mkdir ${APPSAMPLES_BUILD}
 
-RUN_DIRECTORY=${BUILD_PATH}/bin64
+echo -e "Enter \033[34m${APPSAMPLES}\033[0m.."
+cd ${APPSAMPLES}
+echo -e "\033[32mStart build app... \033[0m"
+# build sample1
+g++ -g ${APPSAMPLES_SRC}/sample/sample.cxx -o ${APPSAMPLES_BUILD}/sample 
+g++ -g ${APPSAMPLES_SRC}/sample/sample_cct.cxx -o ${APPSAMPLES_BUILD}/sample_cct 
+g++ -g ${APPSAMPLES_SRC}/sample/sample_multithread.cxx -o ${APPSAMPLES_BUILD}/sample_multithread -pthread
+echo -e "\033[32m Build app successfully! \033[0m"
+echo -e "Leave \033[34m${APPSAMPLES}\033[0m.."
+cd ${CUR_DIR}
 
+RUN_DIRECTORY_64=${BUILD_PATH}/bin64
+RUN_DIRECTORY_32=${BUILD_PATH}/bin32
+RUN_DIRECTORY=${RUN_DIRECTORY_32}
+if [ ! -d ${RUN_DIRECTORY_64} ]; then
+    RUN_DIRECTORY=${RUN_DIRECTORY_32}
+else
+    RUN_DIRECTORY=${RUN_DIRECTORY_64}
+fi
+echo -e "\033[32mStart test... \033[0m"
 set +euo pipefail
 cd ${BUILD_LOG_PATH}
 echo "-----Testing Dynamorio---------" && ${RUN_DIRECTORY}/drrun echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 2---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client_mem_only -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 3---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 4---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric_tree_based -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 5---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_deadspy -- ls > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 6---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_deadspy -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 7---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_reader -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-# echo "-----Test 8---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_data_centric -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APPSAMPLES}/build/sample > ${BUILD_LOG_PATH}/drcctlib_test_client.sample.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 2---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APPSAMPLES}/build/sample_cct > ${BUILD_LOG_PATH}/drcctlib_test_client.sample_cct.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 3---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APPSAMPLES}/build/sample_multithread > ${BUILD_LOG_PATH}/drcctlib_test_client.sample_multithread.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 4---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APPSAMPLES}/build/sample > ${BUILD_LOG_PATH}/drcctlib_client.sample.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 5---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APPSAMPLES}/build/sample_cct > ${BUILD_LOG_PATH}/drcctlib_client.sample_cct.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo "-----Test 6---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APPSAMPLES}/build/sample_multithread > ${BUILD_LOG_PATH}/drcctlib_client.sample_multithread.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 echo "*************************************************"
 echo "************* ALL TESTS PASSED ******************"
 echo "*************************************************"
