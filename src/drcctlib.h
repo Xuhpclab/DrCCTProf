@@ -7,7 +7,7 @@
 #include "drcctlib_debug.h"
 
 #define context_handle_t int32_t
-#define CONTEXT_HANDLE_MAX 47483647L 
+#define CONTEXT_HANDLE_MAX 7483647L
 // #define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1
 #define DISASM_CACHE_SIZE 80
 #define MAXIMUM_SYMNAME 256

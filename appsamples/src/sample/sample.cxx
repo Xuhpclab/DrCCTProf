@@ -1,4 +1,4 @@
-// #define MULTITHREADING
+#define MULTITHREADING
 #define SINGLETHREAD
 
 #ifdef MULTITHREADING
@@ -45,6 +45,12 @@ void *thread_2(void *arg)
 }
 #endif
 
+void test_fun() {
+    int i = 0;
+    i ++;
+    return;
+}
+
 
 int main(){
 
@@ -76,6 +82,7 @@ int main(){
     t1_fun();
     t2_fun();
 #else
+    test_fun();
     return 0;
 #endif   
 }
