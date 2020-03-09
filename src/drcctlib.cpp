@@ -468,11 +468,11 @@ bb_node_create(bb_key_t key, context_handle_t caller_ctxt_hndl, slot_t num)
     new_node->key = key;
     new_node->child_ctxt_start_idx = cur_child_ctxt_start_idx(num);
     new_node->max_slots = num;
-    cct_ip_node_t *children = ctxt_hndl_to_ip_node(new_node->child_ctxt_start_idx);
-    for (slot_t i = 0; i < num; ++i) {
-        children[i].parent_bb_node = new_node;
-        children[i].callee_splay_tree = splay_tree_create(bb_node_free);
-    }
+    // cct_ip_node_t *children = ctxt_hndl_to_ip_node(new_node->child_ctxt_start_idx);
+    // for (slot_t i = 0; i < num; ++i) {
+    //     children[i].parent_bb_node = new_node;
+    //     children[i].callee_splay_tree = splay_tree_create(bb_node_free);
+    // }
     return new_node;
 }
 
