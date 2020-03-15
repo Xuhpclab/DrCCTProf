@@ -28,10 +28,12 @@
 #include "splay_tree.h"
 #include "shadow_memory.h"
 
-#ifdef ARM	
-#    define DR_DISASM_DRCCTLIB DR_DISASM_ARM	
-#else	
+#ifdef ARM
+#    define DR_DISASM_DRCCTLIB DR_DISASM_ARM
+#elif defined(X86)
 #    define DR_DISASM_DRCCTLIB DR_DISASM_INTEL	
+#else
+#    define DR_DISASM_DRCCTLIB DR_DISASM_DR	
 #endif
 
 
@@ -60,7 +62,7 @@
 #define OPND_CREATE_BB_KEY OPND_CREATE_INT32
 #define OPND_CREATE_SLOT OPND_CREATE_INT32
 #define OPND_CREATE_INSTR_STATE_FLAG OPND_CREATE_INT32
-#elif defined(ARM)
+#elif defined(ARM_CCTLIB)
 #define OPND_CREATE_PT_ADDR OPND_CREATE_INT
 #define OPND_CREATE_BB_KEY OPND_CREATE_INT
 #define OPND_CREATE_SLOT OPND_CREATE_INT
@@ -101,7 +103,7 @@ enum {
     INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x20,
     INSTR_STATE_EVENT_SIGNAL = 0x40,
     INSTR_STATE_EVENT_EXCEPTION = 0x80,
-#ifdef ARM
+#ifdef ARM_CCTLIB 
     INSTR_STATE_BB_START_NOP = 0X100
 #endif
 };
@@ -157,6 +159,8 @@ typedef struct _per_thread_t {
     cct_bb_node_t *root_bb_node;
     // for current handle
     cct_bb_node_t *cur_bb_node;
+
+    void* cur_bb_child_start_buff;
     slot_t cur_slot;
     // for next
     state_t pre_bb_end_state;
@@ -188,7 +192,20 @@ static hashtable_t global_bb_shadow_table;
 static hashtable_t global_pt_cache_table;
 
 static int init_count = 0;
+
+/* Allocated TLS slot offsets */
+enum {
+    INSTRACE_TLS_OFFS_BUF_PTR,
+    INSTRACE_TLS_COUNT, /* total number of TLS slots allocated */
+};
+
+static reg_id_t tls_seg;
+static uint tls_offs;
 static int tls_idx;
+#define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs + (enum_val))
+#define BUF_PTR(tls_base) *(int64_t **)TLS_SLOT(tls_base, INSTRACE_TLS_OFFS_BUF_PTR)
+#define MINSERT instrlist_meta_preinsert
+
 static file_t log_file;
 static client_cb_t client_cb; 
 
@@ -490,6 +507,9 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->cur_slot = 0;
     pt->pre_bb_end_state = INSTR_STATE_THREAD_ROOT_VIRTUAL;
 
+    pt->cur_bb_child_start_buff = dr_get_dr_segment_base(tls_seg);
+    BUF_PTR(pt->cur_bb_child_start_buff) = gloabl_hndl_call_num;
+
     // pt->exception_hndl_ctxt_hndl = 0;
     // pt->exception_hndl_bb_node = NULL;
     // pt->exception_hndl_pc = 0;
@@ -615,7 +635,7 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
         }
         new_caller_ctxt = pt->cur_bb_node->caller_ctxt_hndl;
     }
-#ifndef ARM
+#ifndef ARM_CCTLIB
     for (slot_t i = pt->cur_slot + 1; i < pt->cur_bb_node->max_slots; i++) {
         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))--;
     }
@@ -629,16 +649,18 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
         new_root->payload = (void *)bb_node_create(new_key, new_caller_ctxt, num);
     }
     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
+    // pt->cur_bb_child_start = pt->cur_bb_node->child_ctxt_start_idx;
+    BUF_PTR(pt->cur_bb_child_start_buff) = gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_bb_end_state = 0;
     pt->cur_slot = 0;
-#ifndef ARM
+#ifndef ARM_CCTLIB
     for(slot_t i = 0; i < num; i++){
         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))++;
     }
 #endif
 }
-#define ARM_USE_CLEAN_CALL
-#if defined(ARM) && defined(ARM_USE_CLEAN_CALL)
+// #define ARM_USE_CLEAN_CALL
+#if defined(ARM_CCTLIB) && defined(ARM_USE_CLEAN_CALL)
 static void
 instrument_update_slot_and_state(slot_t slot, state_t state_flag)
 {
@@ -654,51 +676,67 @@ static inline void
 instrument_before_every_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, slot_t slot,
                            state_t state_flag)
 {   
-#ifdef ARM
+#ifdef ARM_CCTLIB
 #    ifdef ARM_USE_CLEAN_CALL
     dr_insert_clean_call(drcontext, bb, instr, (void *)instrument_update_slot_and_state,
                          false, 2, OPND_CREATE_SLOT(slot),
                          OPND_CREATE_INSTR_STATE_FLAG(state_flag));
 #    else
-    opnd_t opnd1, opnd2, opnd3;
-    reg_id_t reg1, reg2;
+    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("drreg_reserve_aflags != DRREG_SUCCESS");
+    }
+    reg_id_t reg1, reg2, reg3;
     if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg1) != DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, instr, NULL, &reg2) != DRREG_SUCCESS) {
+        drreg_reserve_register(drcontext, bb, instr, NULL, &reg2) != DRREG_SUCCESS || 
+        drreg_reserve_register(drcontext, bb, instr, NULL, &reg3) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS(
             "instrument_before_every_bb_i drreg_reserve_register != DRREG_SUCCESS");
     }
+
     drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, reg1);
+    dr_insert_read_raw_tls(drcontext, bb, instr, tls_seg,
+                           tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, reg2);
 
-    opnd1 = opnd_create_reg(reg2);
-    opnd2 = OPND_CREATE_PT_CUR_SLOT(reg1, offsetof(per_thread_t, cur_slot));
-    opnd3 = OPND_CREATE_SLOT(slot);
-    instrlist_meta_preinsert(bb, instr, XINST_CREATE_load_int(drcontext, opnd1, opnd3));
-    instrlist_meta_preinsert(bb, instr, XINST_CREATE_store(drcontext, opnd2, opnd1));
+    opnd_t opnd_reg_2 = opnd_create_reg(reg2);
+    opnd_t opnd_reg_3 = opnd_create_reg(reg3);
 
-    opnd1 = opnd_create_reg(reg2);
-    opnd2 = OPND_CREATE_PT_STATE_FLAG(reg1, offsetof(per_thread_t, pre_bb_end_state));
-    opnd3 = OPND_CREATE_INSTR_STATE_FLAG(state_flag);
-    instrlist_meta_preinsert(bb, instr, XINST_CREATE_load_int(drcontext, opnd1, opnd3));
-    instrlist_meta_preinsert(bb, instr, XINST_CREATE_store(drcontext, opnd2, opnd1));
+    opnd_t opnd_mem_buff = OPND_CREATE_MEMPTR(reg2, sizeof(int64_t) * slot);
+    MINSERT(bb, instr, XINST_CREATE_load(drcontext, opnd_reg_3, opnd_mem_buff));
+    MINSERT(bb, instr, XINST_CREATE_add(drcontext, opnd_reg_3, OPND_CREATE_INT(1)));
+    MINSERT(bb, instr, XINST_CREATE_store(drcontext, opnd_mem_buff, opnd_reg_3));
+
+    opnd_t opnd_mem_slot = OPND_CREATE_MEM32(reg1, offsetof(per_thread_t, cur_slot));
+    opnd_t opnd_mem_pbes = OPND_CREATE_MEM32(reg1, offsetof(per_thread_t, pre_bb_end_state));
+    opnd_t opnd_imm_slot = OPND_CREATE_INT(slot);
+    opnd_t opnd_imm_pbes = OPND_CREATE_INT(state_flag);
+    MINSERT(bb, instr, XINST_CREATE_load_int(drcontext, opnd_reg_3, opnd_imm_slot));
+    MINSERT(bb, instr, XINST_CREATE_store(drcontext, opnd_mem_slot, opnd_reg_3));
+    MINSERT(bb, instr, XINST_CREATE_load_int(drcontext, opnd_reg_3, opnd_imm_pbes));
+    MINSERT(bb, instr, XINST_CREATE_store(drcontext, opnd_mem_pbes, opnd_reg_3));
 
     if (drreg_unreserve_register(drcontext, bb, instr, reg1) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, bb, instr, reg2) != DRREG_SUCCESS) {
+        drreg_unreserve_register(drcontext, bb, instr, reg2) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, instr, reg3) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS(
             "instrument_before_every_bb_i drreg_unreserve_register != DRREG_SUCCESS");
+    }
+
+    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
     }
 #    endif
 #else
     if (dr_using_all_private_caches()) {
         per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
         /* private caches - we can use an absolute address */
-        instrlist_meta_preinsert(
+        MINSERT(
             bb, instr,
             XINST_CREATE_store(
                 drcontext,
                 OPND_CREATE_ABSMEM(((byte *)&pt) + offsetof(per_thread_t, cur_slot),
                                    OPSZ_4),
                 OPND_CREATE_SLOT(slot)));
-        instrlist_meta_preinsert(
+        MINSERT(
             bb, instr,
             XINST_CREATE_store(
                 drcontext,
@@ -714,13 +752,13 @@ instrument_before_every_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, s
                 "instrument_before_every_bb_i drreg_reserve_register != DRREG_SUCCESS");
         }
         drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, scratch);
-        instrlist_meta_preinsert(
+        MINSERT(
             bb, instr,
             XINST_CREATE_store(
                 drcontext,
                 OPND_CREATE_PT_CUR_SLOT(scratch, offsetof(per_thread_t, cur_slot)),
                 OPND_CREATE_SLOT(slot)));
-        instrlist_meta_preinsert(
+        MINSERT(
             bb, instr,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_PT_STATE_FLAG(
@@ -732,6 +770,22 @@ instrument_before_every_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, s
         }
     }
 #endif
+}
+
+static bool
+instr_is_exclusive_load(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    case OP_ldaxp:
+    case OP_ldaxr:
+    case OP_ldaxrb:
+    case OP_ldaxrh:
+    case OP_ldxp:
+    case OP_ldxr:
+    case OP_ldxrb:
+    case OP_ldxrh: return true;
+    }
+    return false;
 }
 
 static inline void
@@ -909,6 +963,12 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     instr_t *first_instr = instrlist_first_app(bb);
 #endif
 
+#ifdef ARM_CCTLIB
+    if(instr_is_exclusive_store(first_instr) || instr_is_exclusive_load(first_instr)) {
+        *user_data = NULL;
+        return DR_EMIT_DEFAULT;
+    }
+#endif
     slot_t interest_instr_num = bb_get_num_interest_instr(first_instr);
     bool uninterested_bb = (interest_instr_num == 0) ? true : false;
 
@@ -961,8 +1021,15 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
                                                 bb_shadow->disasm_shadow +
                                                     slot * DISASM_CACHE_SIZE,
                                                 DISASM_CACHE_SIZE);
+                    // dr_fprintf(log_file, "bb key %d slot %d : %s \n", bb_key,slot, bb_shadow->disasm_shadow +
+                    //                                 slot * DISASM_CACHE_SIZE);
                 }
                 bb_instrument_msg_add(bb_msg, instr_instrument_msg_create(instr, slot, instr_state_flag));
+#ifdef ARM_CCTLIB
+                if(instr_is_exclusive_load(first_instr)) {
+                    break;
+                }
+#endif
                 slot++;
             }
         }
@@ -1582,7 +1649,11 @@ drcctlib_init(void)
         DRCCTLIB_PRINTF("WARNING: drcctlib unable to initialize drsym");
         return false;
     }
-    drreg_options_t ops = { sizeof(ops), 3 /*max slots needed*/, false };
+#ifdef ARM_CCTLIB
+    drreg_options_t ops = { sizeof(ops), 4 /*max slots needed*/, false };
+#else
+    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
+#endif
     if (drreg_init(&ops) != DRREG_SUCCESS) {
         DRCCTLIB_PRINTF("WARNING: drcctlib unable to initialize drreg");
         return false;
@@ -1623,6 +1694,9 @@ drcctlib_init(void)
         return false;
     if (!drmgr_register_thread_exit_event(drcctlib_event_thread_end))
         return false;
+
+    if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0))
+        DR_ASSERT(false);
 
     return true;
 }

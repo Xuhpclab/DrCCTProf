@@ -6,9 +6,13 @@
 #include "drcctlib_filter_func_list.h"
 #include "drcctlib_debug.h"
 
+#if defined(ARM) || defined(AARCH64)
+#define ARM_CCTLIB
+#endif
+
 #define context_handle_t int32_t
-#define CONTEXT_HANDLE_MAX 7483647L
-// #define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1
+// #define CONTEXT_HANDLE_MAX 7483647L
+#define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1
 #define DISASM_CACHE_SIZE 80
 #define MAXIMUM_SYMNAME 256
 

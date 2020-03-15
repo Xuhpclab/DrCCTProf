@@ -37,11 +37,13 @@ void t2_fun() {
 void *thread_1(void *arg)
 {
     t1_fun();
+    return NULL;
 }
 
 void *thread_2(void *arg)
 {
     t2_fun();
+    return NULL;
 }
 #endif
 

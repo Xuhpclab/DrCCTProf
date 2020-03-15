@@ -29,8 +29,8 @@ using namespace std;
     dr_exit_process(-1)
 
 
-#define MAX_CLIENT_CCT_PRINT_DEPTH 5
-#define TOP_REACH__NUM_SHOW 100
+#define MAX_CLIENT_CCT_PRINT_DEPTH 10
+#define TOP_REACH__NUM_SHOW 200
 
 int64_t *global_handle_call_number_buffer;
 static file_t gTraceFile;
@@ -45,7 +45,7 @@ InstrumentInsCallback(void *drcontext, instrlist_t *bb, instr_t *instr, void *da
 void
 ClientInit(int argc, const char *argv[])
 {
-#ifdef ARM
+#ifdef ARM_CCTLIB
     char name[MAXIMUM_PATH] = "arm.drcctlib.client.out.";
 #else
     char name[MAXIMUM_PATH] = "x86.drcctlib.client.out.";
