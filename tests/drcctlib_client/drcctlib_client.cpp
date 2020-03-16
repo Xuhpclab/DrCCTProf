@@ -113,6 +113,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     }
     ClientInit(argc, argv);
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL);
+    drcctlib_set_global_flags(DRCCTLIB_USE_CLEAN_CALL);
     dr_register_exit_event(ClientExit);
 }
 

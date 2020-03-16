@@ -46,9 +46,9 @@ void
 ClientInit(int argc, const char *argv[])
 {
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib.client.out.";
+    char name[MAXIMUM_PATH] = "arm.drcctlib.test_client.out.";
 #else
-    char name[MAXIMUM_PATH] = "x86.drcctlib.client.out.";
+    char name[MAXIMUM_PATH] = "x86.drcctlib.test_client.out.";
 #endif
     char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
 
@@ -112,7 +112,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_PRINTF("WARNING: drcctlib unable to initialize drmgr");
     }
     ClientInit(argc, argv);
-    drcctlib_init_ex(DRCCTLIB_FILTER_ZERO_INSTR, gTraceFile, InstrumentInsCallback, NULL);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL);
     dr_register_exit_event(ClientExit);
 }
 
