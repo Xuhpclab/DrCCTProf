@@ -611,6 +611,7 @@ static int32_t bb_entry_num = 0;
 static void
 instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
 {   
+    // dr_fprintf(log_file, "%d ", new_key);
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     context_handle_t new_caller_ctxt = 0;
@@ -649,7 +650,6 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
         new_root->payload = (void *)bb_node_create(new_key, new_caller_ctxt, num);
     }
     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
-    // pt->cur_bb_child_start = pt->cur_bb_node->child_ctxt_start_idx;
     BUF_PTR(pt->cur_bb_child_start_buff) = gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_bb_end_state = 0;
     pt->cur_slot = 0;
@@ -685,9 +685,9 @@ instrument_before_every_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, s
                             OPND_CREATE_INSTR_STATE_FLAG(state_flag));
     } else {
 #ifdef ARM_CCTLIB
-        if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
-            DRCCTLIB_EXIT_PROCESS("drreg_reserve_aflags != DRREG_SUCCESS");
-        }
+        // if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        //     DRCCTLIB_EXIT_PROCESS("drreg_reserve_aflags != DRREG_SUCCESS");
+        // }
         reg_id_t reg1, reg2, reg3;
         if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg1) != DRREG_SUCCESS ||
             drreg_reserve_register(drcontext, bb, instr, NULL, &reg2) != DRREG_SUCCESS || 
@@ -700,7 +700,6 @@ instrument_before_every_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, s
         dr_insert_read_raw_tls(drcontext, bb, instr, tls_seg,
                             tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, reg2);
 
-        opnd_t opnd_reg_2 = opnd_create_reg(reg2);
         opnd_t opnd_reg_3 = opnd_create_reg(reg3);
 
         opnd_t opnd_mem_buff = OPND_CREATE_MEMPTR(reg2, sizeof(int64_t) * slot);
@@ -724,9 +723,9 @@ instrument_before_every_bb_i(void *drcontext, instrlist_t *bb, instr_t *instr, s
                 "instrument_before_every_bb_i drreg_unreserve_register != DRREG_SUCCESS");
         }
 
-        if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
-            DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
-        }
+        // if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        //     DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
+        // }
 #else
         if (dr_using_all_private_caches()) {
             per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
@@ -966,12 +965,6 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     instr_t *first_instr = instrlist_first_app(bb);
 #endif
 
-#ifdef ARM_CCTLIB
-    if(instr_is_exclusive_store(first_instr) || instr_is_exclusive_load(first_instr)) {
-        *user_data = NULL;
-        return DR_EMIT_DEFAULT;
-    }
-#endif
     slot_t interest_instr_num = bb_get_num_interest_instr(first_instr);
     bool uninterested_bb = (interest_instr_num == 0) ? true : false;
 
@@ -1011,7 +1004,11 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     //     bb_instrument_msg_add(bb_msg, instr_instrument_msg_create(first_instr, 0, INSTR_STATE_UNINTEREST_FIRST));
     // } else {
 #endif
+        // dr_fprintf(log_file, "\n");
         slot_t slot = 0;
+#ifdef ARM_CCTLIB
+        bool keep_insert_instrument = true;
+#endif
         for (instr_t *instr = first_instr; instr != NULL;
              instr = instr_get_next_app(instr)) {
             state_t instr_state_flag = 0;
@@ -1028,8 +1025,14 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
                     //                                 slot * DISASM_CACHE_SIZE);
                 }
 #ifdef ARM_CCTLIB
-                if(!instr_is_exclusive_load(instr)) {
+                if(keep_insert_instrument){
                     bb_instrument_msg_add(bb_msg, instr_instrument_msg_create(instr, slot, instr_state_flag));
+                }
+                if(instr_is_exclusive_load(instr)) {
+                    keep_insert_instrument = false;
+                }
+                if(instr_is_exclusive_store(instr)) {
+                    keep_insert_instrument = true;
                 }
 #else
                 bb_instrument_msg_add(bb_msg, instr_instrument_msg_create(instr, slot, instr_state_flag));
@@ -1039,6 +1042,12 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
         }
     }
 
+#ifdef ARM_CCTLIB
+    if(instr_is_exclusive_store(first_instr) || instr_is_exclusive_load(first_instr)) {
+        *user_data = NULL;
+        return DR_EMIT_DEFAULT;
+    }
+#endif
     *user_data = (void*)bb_msg;
     return DR_EMIT_DEFAULT;
 }
