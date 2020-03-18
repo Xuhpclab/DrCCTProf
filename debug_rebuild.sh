@@ -67,18 +67,18 @@ echo "run ${APP3}"
 (time ${APP3}) > sample_multithread.runtime.${TIMESTAMP} 2>&1
 
 echo "run drcctlib_test_client ${APP1}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP1} > test_clinet.sample.log.${TIMESTAMP} 2>&1) > test_clinet.sample.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP1} > test_client.sample.log.${TIMESTAMP} 2>&1) > test_client.sample.runtime.${TIMESTAMP} 2>&1
 echo "run drcctlib_test_client ${APP2}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP2} > test_clinet.sample_cct.log.${TIMESTAMP} 2>&1) > test_clinet.sample_cct.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP2} > test_client.sample_cct.log.${TIMESTAMP} 2>&1) > test_client.sample_cct.runtime.${TIMESTAMP} 2>&1
 echo "run drcctlib_test_client ${APP3}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP3} > test_clinet.sample_multithread.log.${TIMESTAMP} 2>&1) > test_clinet.sample_multithread.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP3} > test_client.sample_multithread.log.${TIMESTAMP} 2>&1) > test_client.sample_multithread.runtime.${TIMESTAMP} 2>&1
 
 echo "run drcctlib_client ${APP1}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP1} > clinet.sample.log.${TIMESTAMP} 2>&1) > clinet.sample.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP1} > client.sample.log.${TIMESTAMP} 2>&1) > client.sample.runtime.${TIMESTAMP} 2>&1
 echo "run drcctlib_client ${APP2}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP2} > clinet.sample_cct.log.${TIMESTAMP} 2>&1) > clinet.sample_cct.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP2} > client.sample_cct.log.${TIMESTAMP} 2>&1) > client.sample_cct.runtime.${TIMESTAMP} 2>&1
 echo "run drcctlib_client ${APP3}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP3} > clinet.sample_multithread.log.${TIMESTAMP} 2>&1) > clinet.sample_multithread.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP3} > client.sample_multithread.log.${TIMESTAMP} 2>&1) > client.sample_multithread.runtime.${TIMESTAMP} 2>&1
 
 done
 

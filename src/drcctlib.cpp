@@ -155,6 +155,7 @@ typedef struct _bb_instrument_msg_t {
 // TLS(thread local storage)
 typedef struct _per_thread_t {
     int id;
+    file_t log_file;
     // for root
     cct_bb_node_t *root_bb_node;
     // for current handle
@@ -497,6 +498,19 @@ static inline void
 pt_init(void *drcontext, per_thread_t *const pt, int id)
 {
     pt->id = id;
+    
+
+#ifdef ARM_CCTLIB
+    char name[MAXIMUM_PATH] = "arm.";
+#else
+    char name[MAXIMUM_PATH] = "x86.";
+#endif
+    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
+    pid_t pid = getpid();
+    sprintf(name + strlen(name), "%d.thread%d.log", pid, id);
+    pt->log_file = dr_open_file(name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
+    DR_ASSERT(pt->log_file  != INVALID_FILE);
+
 
     cct_bb_node_t *root_bb_node = bb_node_create(
         THREAD_ROOT_BB_SHARED_BB_KEY, THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE, 1);
@@ -641,7 +655,7 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))--;
     }
 #endif
-    // dr_fprintf(log_file, "pre bb key %d ", pt->cur_bb_node->key);
+    dr_fprintf(pt->log_file, "pre bb key %d cur slot %d -> ", pt->cur_bb_node->key, pt->cur_slot);
     splay_node_t *new_root =
         splay_tree_add_and_update(ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree,
                                   (splay_node_key_t)new_key);
@@ -653,7 +667,7 @@ instrument_before_bb_first_i(bb_key_t new_key, slot_t num)
     BUF_PTR(pt->cur_bb_child_start_buff) = gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_bb_end_state = 0;
     pt->cur_slot = 0;
-    // dr_fprintf(log_file, "cur bb key %d \n", pt->cur_bb_node->key);
+    dr_fprintf(pt->log_file, "cur bb key %d \n", pt->cur_bb_node->key);
 #ifndef ARM_CCTLIB
     for(slot_t i = 0; i < num; i++){
         (*(gloabl_hndl_call_num + pt->cur_bb_node->child_ctxt_start_idx + i))++;
@@ -958,6 +972,16 @@ static dr_emit_flags_t
 drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                            bool translating, OUT void **user_data)
 {
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    if(translating){
+        dr_fprintf(pt->log_file, "translating ");
+    } 
+    if(for_trace) {
+        dr_fprintf(pt->log_file, "for_trace \n");
+    } else {
+        dr_fprintf(pt->log_file, "\n");
+    }
 #ifdef ARM
     instr_t *first_nop_instr = instrlist_first_app(bb);
     instr_t *first_instr = instr_get_next_app(first_nop_instr);
@@ -1004,7 +1028,6 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     //     bb_instrument_msg_add(bb_msg, instr_instrument_msg_create(first_instr, 0, INSTR_STATE_UNINTEREST_FIRST));
     // } else {
 #endif
-        // dr_fprintf(log_file, "\n");
         slot_t slot = 0;
 #ifdef ARM_CCTLIB
         bool keep_insert_instrument = true;
@@ -1021,8 +1044,8 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
                                                 bb_shadow->disasm_shadow +
                                                     slot * DISASM_CACHE_SIZE,
                                                 DISASM_CACHE_SIZE);
-                    // dr_fprintf(log_file, "bb key %d slot %d : %s \n", bb_key,slot, bb_shadow->disasm_shadow +
-                    //                                 slot * DISASM_CACHE_SIZE);
+                    dr_fprintf(pt->log_file, "bb key %d slot %d : %s \n", bb_key,slot, bb_shadow->disasm_shadow +
+                                                    slot * DISASM_CACHE_SIZE);
                 }
 #ifdef ARM_CCTLIB
                 if(keep_insert_instrument){
@@ -1104,6 +1127,7 @@ drcctlib_event_thread_end(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
+    dr_close_file(pt->log_file);
     // DRCCTLIB_PRINTF("thread %d end", pt->id);
     // hashtable_delete(pt->long_jmp_buff_tb);
     pt_cache_t *pt_cache = (pt_cache_t *)hashtable_lookup(&global_pt_cache_table,

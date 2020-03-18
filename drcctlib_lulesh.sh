@@ -51,8 +51,8 @@ export GOMP_CPU_AFFINITY="0-63"
 echo "run lulesh1.0"
 (time ${LULESH}) > lulesh.runtime.${TIMESTAMP} 2>&1
 echo "run drcctlib_test_client lulesh1.0"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${LULESH} > test_clinet.lulesh.log.${TIMESTAMP} 2>&1) > test_clinet.lulesh.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${LULESH} > test_client.lulesh.log.${TIMESTAMP} 2>&1) > test_client.lulesh.runtime.${TIMESTAMP} 2>&1
 echo "run drcctlib_client lulesh1.0"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${LULESH} > clinet.lulesh.log.${TIMESTAMP} 2>&1) > clinet.lulesh.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${LULESH} > client.lulesh.log.${TIMESTAMP} 2>&1) > client.lulesh.runtime.${TIMESTAMP} 2>&1
 done
 

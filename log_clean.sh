@@ -9,3 +9,4 @@ rm -rf ${BUILD_LOG_PATH}/x86*
 rm -rf ${BUILD_LOG_PATH}/client*
 rm -rf ${BUILD_LOG_PATH}/test_client*
 rm -rf ${BUILD_LOG_PATH}/lulesh*
+rm -rf ${BUILD_LOG_PATH}/sample*
