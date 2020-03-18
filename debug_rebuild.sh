@@ -57,18 +57,19 @@ echo -e "Leave \033[34m${APPSAMPLES}\033[0m.."
 
 cd ${BUILD_LOG_PATH}
 
-for i in 4
+# for i in 4
+for i in 1
 do
-NPROC=${i}
-export OMP_NUM_THREADS=${NPROC}
-echo $OMP_NUM_THREADS
-export OMP_DYNAMIC=FALSE
-echo "run ${APP1}"
-(time ${APP1}) > sample.runtime.${TIMESTAMP} 2>&1
-echo "run ${APP2}"
-(time ${APP2}) > sample_cct.runtime.${TIMESTAMP} 2>&1
-echo "run ${APP3}"
-(time ${APP3}) > sample_multithread.runtime.${TIMESTAMP} 2>&1
+# NPROC=${i}
+# export OMP_NUM_THREADS=${NPROC}
+# echo $OMP_NUM_THREADS
+# export OMP_DYNAMIC=FALSE
+# echo "run ${APP1}"
+# (time ${APP1}) > sample.runtime.${TIMESTAMP} 2>&1
+# echo "run ${APP2}"
+# (time ${APP2}) > sample_cct.runtime.${TIMESTAMP} 2>&1
+# echo "run ${APP3}"
+# (time ${APP3}) > sample_multithread.runtime.${TIMESTAMP} 2>&1
 
 echo "run drcctlib_test_client ${APP1}"
 (time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP1} > test_client.sample.log.${TIMESTAMP} 2>&1) > test_client.sample.runtime.${TIMESTAMP} 2>&1

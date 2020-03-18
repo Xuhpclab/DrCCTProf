@@ -96,12 +96,12 @@ set +euo pipefail
 cd ${BUILD_LOG_PATH}
 
 
-for i in 4
-do
-NPROC=${i}
-export OMP_NUM_THREADS=${NPROC}
-echo $OMP_NUM_THREADS
-export OMP_DYNAMIC=FALSE
+# for i in 4
+# do
+# NPROC=${i}
+# export OMP_NUM_THREADS=${NPROC}
+# echo $OMP_NUM_THREADS
+# export OMP_DYNAMIC=FALSE
 
 echo "-----Testing Dynamorio---------" && ${RUN_DIRECTORY}/drrun echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APPSAMPLES}/build/sample > ${BUILD_LOG_PATH}/drcctlib_test_client.sample.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
@@ -114,4 +114,4 @@ echo "*************************************************"
 echo "************* ALL TESTS PASSED ******************"
 echo "*************************************************"
 
-done
+# done
