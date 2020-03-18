@@ -18,7 +18,7 @@ echo -e "Enter \033[34m${BUILD_PATH}\033[0m.."
 
 cd ${BUILD_PATH}
 echo -e "Running make..(See \033[34m${MAKE_LOG_FILE}\033[0m for detail)"
-make -j >${MAKE_LOG_FILE} 2>&1 && echo -e "\033[32m Rebuild successfully! \033[0m" || (echo -e "\033[31m Rebuild fail! \033[0m"; exit -1)
+make -j8 >${MAKE_LOG_FILE} 2>&1 && echo -e "\033[32m Rebuild successfully! \033[0m" || (echo -e "\033[31m Rebuild fail! \033[0m"; exit -1)
 
 echo -e "Leave \033[34m${BUILD_PATH}\033[0m.."
 # leave BUILD_PATH
