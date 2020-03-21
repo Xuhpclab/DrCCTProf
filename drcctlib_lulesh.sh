@@ -18,7 +18,7 @@ echo -e "Enter \033[34m${BUILD_PATH}\033[0m.."
 
 cd ${BUILD_PATH}
 echo -e "Running make..(See \033[34m${MAKE_LOG_FILE}\033[0m for detail)"
-make -j8 >${MAKE_LOG_FILE} 2>&1 && echo -e "\033[32m Rebuild successfully! \033[0m" || (echo -e "\033[31m Rebuild fail! \033[0m"; exit -1)
+make -j >${MAKE_LOG_FILE} 2>&1 && echo -e "\033[32m Rebuild successfully! \033[0m" || (echo -e "\033[31m Rebuild fail! \033[0m"; exit -1)
 
 echo -e "Leave \033[34m${BUILD_PATH}\033[0m.."
 # leave BUILD_PATH
@@ -49,10 +49,9 @@ export OMP_DYNAMIC=FALSE
 export KMP_SCHEDULE=static,balanced
 export GOMP_CPU_AFFINITY="0-63"
 echo "run lulesh1.0"
-(time ${LULESH}) > lulesh.runtime.${TIMESTAMP} 2>&1
-echo "run drcctlib_test_client lulesh1.0"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${LULESH} > test_client.lulesh.log.${TIMESTAMP} 2>&1) > test_client.lulesh.runtime.${TIMESTAMP} 2>&1
+(time ${LULESH}) > runtime.lulesh.${TIMESTAMP} 2>&1
 echo "run drcctlib_client lulesh1.0"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${LULESH} > client.lulesh.log.${TIMESTAMP} 2>&1) > client.lulesh.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${LULESH} > client.drcctlib_client.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_client.lulesh.${TIMESTAMP} 2>&1
+echo "run drcctlib_instr_statistics lulesh1.0"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${LULESH} > client.drcctlib_instr_statistics.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.lulesh.${TIMESTAMP} 2>&1
 done
-

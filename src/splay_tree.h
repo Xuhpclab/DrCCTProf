@@ -6,8 +6,9 @@ extern "C" {
 #endif
 
 #include "drcctlib_global_share.h"
+#include <unistd.h>
 
-#define splay_node_key_t drcctlib_key_t
+#define splay_node_key_t int32_t
 
 typedef struct _splay_node_t {
     splay_node_key_t key;

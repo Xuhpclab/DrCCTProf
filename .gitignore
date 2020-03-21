@@ -6,3 +6,6 @@ appsamples/build
 client.out*
 *.log
 *.backup
+appsamples/src/lulesh1.0/lulesh-par-original
+update_server_files.sh
+pull_server_logs.sh

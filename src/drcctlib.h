@@ -6,11 +6,15 @@
 #include "drcctlib_filter_func_list.h"
 #include "drcctlib_debug.h"
 
-#if defined(ARM) || defined(AARCH64)
-#define ARM_CCTLIB
-#endif
+
 
 #define context_handle_t int32_t
+#ifdef CCTLIB_32
+#define aligned_ctxt_hndl_t int32_t
+#else 
+#define aligned_ctxt_hndl_t int64_t
+#endif
+
 #define CONTEXT_HANDLE_MAX 7483647L
 // #define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1
 #define DISASM_CACHE_SIZE 80
@@ -31,6 +35,14 @@
 //     STATIC_OBJECT, 
 //     UNKNOWN_OBJECT
 // };
+typedef struct _instr_instrument_msg_t {
+    instrlist_t *bb;
+    instr_t *instr;
+    bool interest_start;
+    int32_t slot;
+    int32_t state;
+    struct _instr_instrument_msg_t *next;
+} instr_instrument_msg_t;
 
 typedef struct _context_t {
     char func_name[MAXIMUM_SYMNAME];
@@ -58,7 +70,8 @@ drcctlib_init(void);
 DR_EXPORT
 bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
-                 void (*func)(void *, instrlist_t *, instr_t *, void *), void *data);
+                 void (*func1)(void *, instr_instrument_msg_t*, void *), void *data1,
+                 void (*func2)(void *), void *data2);
 
 DR_EXPORT
 void
@@ -70,8 +83,10 @@ drcctlib_register_instr_filter(bool (*filter)(instr_t *));
 
 DR_EXPORT
 void
-drcctlib_register_client_cb(void (*func)(void *, instrlist_t *, instr_t *, void *),
-                            void *data);
+drcctlib_register_client_cb(void (*func_analysis)(void *, instr_instrument_msg_t*, void *),
+                            void *data_analysis,
+                            void (*func_insert_bb_start)(void *),
+                            void *data_insert_bb_start);
 
 DR_EXPORT
 bool
@@ -112,15 +127,25 @@ drcctlib_get_context_handle();
 
 DR_EXPORT
 context_handle_t
+drcctlib_get_bb_start_context_handle();
+
+DR_EXPORT
+void
+drcctlib_get_context_handle_in_reg(void *drcontext, instr_instrument_msg_t *msg,
+                                   reg_id_t store_reg);
+
+DR_EXPORT
+void
+drcctlib_get_bb_start_context_handle_in_reg(void *drcontext, instr_instrument_msg_t *msg,
+                                            reg_id_t store_reg);
+
+DR_EXPORT
+context_handle_t
 drcctlib_get_caller_handle(context_handle_t ctxt_hndl);
 
 DR_EXPORT
 context_handle_t
 drcctlib_get_global_context_handle_num();
-
-DR_EXPORT
-int64_t *
-drcctlib_get_global_gloabl_hndl_call_num_buff();
 
 DR_EXPORT
 bool

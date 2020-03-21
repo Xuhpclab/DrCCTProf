@@ -18,7 +18,7 @@ echo -e "Enter \033[34m${BUILD_PATH}\033[0m.."
 
 cd ${BUILD_PATH}
 echo -e "Running make..(See \033[34m${MAKE_LOG_FILE}\033[0m for detail)"
-make -j8 >${MAKE_LOG_FILE} 2>&1 && echo -e "\033[32m Rebuild successfully! \033[0m" || (echo -e "\033[31m Rebuild fail! \033[0m"; exit -1)
+make -j >${MAKE_LOG_FILE} 2>&1 && echo -e "\033[32m Rebuild successfully! \033[0m" || (echo -e "\033[31m Rebuild fail! \033[0m"; exit -1)
 
 echo -e "Leave \033[34m${BUILD_PATH}\033[0m.."
 # leave BUILD_PATH
@@ -57,33 +57,26 @@ echo -e "Leave \033[34m${APPSAMPLES}\033[0m.."
 
 cd ${BUILD_LOG_PATH}
 
-# for i in 4
 for i in 1
 do
-# NPROC=${i}
-# export OMP_NUM_THREADS=${NPROC}
-# echo $OMP_NUM_THREADS
-# export OMP_DYNAMIC=FALSE
-# echo "run ${APP1}"
-# (time ${APP1}) > sample.runtime.${TIMESTAMP} 2>&1
-# echo "run ${APP2}"
-# (time ${APP2}) > sample_cct.runtime.${TIMESTAMP} 2>&1
-# echo "run ${APP3}"
-# (time ${APP3}) > sample_multithread.runtime.${TIMESTAMP} 2>&1
-
-echo "run drcctlib_test_client ${APP1}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP1} > test_client.sample.log.${TIMESTAMP} 2>&1) > test_client.sample.runtime.${TIMESTAMP} 2>&1
-echo "run drcctlib_test_client ${APP2}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP2} > test_client.sample_cct.log.${TIMESTAMP} 2>&1) > test_client.sample_cct.runtime.${TIMESTAMP} 2>&1
-echo "run drcctlib_test_client ${APP3}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_test_client -- ${APP3} > test_client.sample_multithread.log.${TIMESTAMP} 2>&1) > test_client.sample_multithread.runtime.${TIMESTAMP} 2>&1
+echo "run ${APP1}"
+(time ${APP1}) > runtime.sample.${TIMESTAMP} 2>&1
+echo "run ${APP2}"
+(time ${APP2}) > runtime.sample_cct.${TIMESTAMP} 2>&1
+echo "run ${APP3}"
+(time ${APP3}) > runtime.sample_multithread.${TIMESTAMP} 2>&1
 
 echo "run drcctlib_client ${APP1}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP1} > client.sample.log.${TIMESTAMP} 2>&1) > client.sample.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP1} > client.drcctlib_client.sample.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_client.sample.${TIMESTAMP} 2>&1
 echo "run drcctlib_client ${APP2}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP2} > client.sample_cct.log.${TIMESTAMP} 2>&1) > client.sample_cct.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP2} > client.drcctlib_client.sample_cct.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_client.sample_cct.${TIMESTAMP} 2>&1
 echo "run drcctlib_client ${APP3}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP3} > client.sample_multithread.log.${TIMESTAMP} 2>&1) > client.sample_multithread.runtime.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP3} > client.drcctlib_client.sample_multithread.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_client.sample_multithread.${TIMESTAMP} 2>&1
 
+echo "run drcctlib_instr_statistics ${APP1}"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP1} > client.drcctlib_instr_statistics.sample.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.sample.${TIMESTAMP} 2>&1
+echo "run drcctlib_instr_statistics ${APP2}"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP2} > client.drcctlib_instr_statistics.sample_cct.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.sample_cct.${TIMESTAMP} 2>&1
+echo "run drcctlib_instr_statistics ${APP3}"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP3} > client.drcctlib_instr_statistics.sample_multithread.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.sample_multithread.${TIMESTAMP} 2>&1
 done
-
