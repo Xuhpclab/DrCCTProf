@@ -160,9 +160,9 @@ static void
 ClientInit(int argc, const char *argv[])
 {
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib.test_client.out.";
+    char name[MAXIMUM_PATH] = "arm.drcctlib.drcctlib_instr_statistics.out.";
 #else
-    char name[MAXIMUM_PATH] = "x86.drcctlib.test_client.out.";
+    char name[MAXIMUM_PATH] = "x86.drcctlib.drcctlib_instr_statistics.out.";
 #endif
     char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
 
