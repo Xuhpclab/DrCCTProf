@@ -19,7 +19,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                                \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));               \
         pid_t pid = getpid();                                                        \
-        dr_printf("[(%s%d)drcctlib_client msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_cct_only msg]====" format "\n", name, pid, ##args); \
     } while (0)
 
 #define DRCCTLIB_EXIT_PROCESS(format, args...)                                      \
@@ -27,7 +27,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                               \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
         pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib_client(%s%d) msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_cct_only(%s%d) msg]====" format "\n", name, pid, ##args); \
     } while (0);                                                                    \
     dr_exit_process(-1)
 
@@ -47,9 +47,9 @@ static void
 ClientInit(int argc, const char *argv[])
 {
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib.client.out.";
+    char name[MAXIMUM_PATH] = "arm.drcctlib_cct_only.out.";
 #else
-    char name[MAXIMUM_PATH] = "x86.drcctlib.client.out.";
+    char name[MAXIMUM_PATH] = "x86.drcctlib_cct_only.out.";
 #endif
     char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
 
@@ -90,10 +90,10 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_client'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_cct_only'",
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
-    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, gTraceFile, InstrumentInsCallback, NULL, NULL, NULL);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ZERO_INSTR, gTraceFile, InstrumentInsCallback, NULL, NULL, NULL);
     // drcctlib_set_global_flags(DRCCTLIB_USE_CLEAN_CALL);
     dr_register_exit_event(ClientExit);
 }

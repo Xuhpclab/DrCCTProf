@@ -50,8 +50,12 @@ export KMP_SCHEDULE=static,balanced
 export GOMP_CPU_AFFINITY="0-63"
 echo "run lulesh1.0"
 (time ${LULESH}) > runtime.lulesh.${TIMESTAMP} 2>&1
-echo "run drcctlib_client lulesh1.0"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${LULESH} > client.drcctlib_client.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_client.lulesh.${TIMESTAMP} 2>&1
-echo "run drcctlib_instr_statistics lulesh1.0"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${LULESH} > client.drcctlib_instr_statistics.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.lulesh.${TIMESTAMP} 2>&1
+echo "run drcctlib_cct_only lulesh1.0"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_cct_only -- ${LULESH} > client.drcctlib_cct_only.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_cct_only.lulesh.${TIMESTAMP} 2>&1
+echo "run drcctlib_memory_only lulesh1.0"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_memory_only -- ${LULESH} > client.drcctlib_memory_only.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_memory_only.lulesh.${TIMESTAMP} 2>&1
+echo "run drcctlib_all_instr_cct lulesh1.0"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${LULESH} > client.drcctlib_all_instr_cct.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.lulesh.${TIMESTAMP} 2>&1
+# echo "run drcctlib_instr_statistics lulesh1.0"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${LULESH} > client.drcctlib_instr_statistics.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.lulesh.${TIMESTAMP} 2>&1
 done

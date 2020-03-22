@@ -66,12 +66,12 @@ echo "run ${APP2}"
 echo "run ${APP3}"
 (time ${APP3}) > runtime.sample_multithread.${TIMESTAMP} 2>&1
 
-echo "run drcctlib_client ${APP1}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP1} > client.drcctlib_client.sample.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_client.sample.${TIMESTAMP} 2>&1
-echo "run drcctlib_client ${APP2}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP2} > client.drcctlib_client.sample_cct.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_client.sample_cct.${TIMESTAMP} 2>&1
-echo "run drcctlib_client ${APP3}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_client -- ${APP3} > client.drcctlib_client.sample_multithread.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_client.sample_multithread.${TIMESTAMP} 2>&1
+echo "run drcctlib_all_instr_cct ${APP1}"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP1} > client.drcctlib_all_instr_cct.sample.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.sample.${TIMESTAMP} 2>&1
+echo "run drcctlib_all_instr_cct ${APP2}"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP2} > client.drcctlib_all_instr_cct.sample_cct.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.sample_cct.${TIMESTAMP} 2>&1
+echo "run drcctlib_all_instr_cct ${APP3}"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP3} > client.drcctlib_all_instr_cct.sample_multithread.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.sample_multithread.${TIMESTAMP} 2>&1
 
 echo "run drcctlib_instr_statistics ${APP1}"
 (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP1} > client.drcctlib_instr_statistics.sample.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.sample.${TIMESTAMP} 2>&1
