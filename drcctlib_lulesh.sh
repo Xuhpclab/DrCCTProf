@@ -56,6 +56,6 @@ echo "run drcctlib_memory_only lulesh1.0"
 (time ${RUN_DIRECTORY}/drrun -t drcctlib_memory_only -- ${LULESH} > client.drcctlib_memory_only.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_memory_only.lulesh.${TIMESTAMP} 2>&1
 echo "run drcctlib_all_instr_cct lulesh1.0"
 (time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${LULESH} > client.drcctlib_all_instr_cct.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.lulesh.${TIMESTAMP} 2>&1
-# echo "run drcctlib_instr_statistics lulesh1.0"
-# (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${LULESH} > client.drcctlib_instr_statistics.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.lulesh.${TIMESTAMP} 2>&1
+echo "run drcctlib_instr_statistics lulesh1.0"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${LULESH} > client.drcctlib_instr_statistics.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.lulesh.${TIMESTAMP} 2>&1
 done

@@ -19,7 +19,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                                \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));               \
         pid_t pid = getpid();                                                        \
-        dr_printf("[(%s%d)drcctlib_all_instr_cct msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_reuse_distance msg]====" format "\n", name, pid, ##args); \
     } while (0)
 
 #define DRCCTLIB_EXIT_PROCESS(format, args...)                                      \
@@ -27,7 +27,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                               \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
         pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib_all_instr_cct(%s%d) msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_reuse_distance(%s%d) msg]====" format "\n", name, pid, ##args); \
     } while (0);                                                                    \
     dr_exit_process(-1)
 
@@ -47,9 +47,9 @@ static void
 ClientInit(int argc, const char *argv[])
 {
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib_all_instr_cct.out.";
+    char name[MAXIMUM_PATH] = "arm.drcctlib.client.out.";
 #else
-    char name[MAXIMUM_PATH] = "x86.drcctlib_all_instr_cct.out.";
+    char name[MAXIMUM_PATH] = "x86.drcctlib.client.out.";
 #endif
     char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
 
@@ -90,7 +90,7 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_all_instr_cct'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_distance'",
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL, NULL, NULL);

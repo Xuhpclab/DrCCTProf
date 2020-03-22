@@ -2889,7 +2889,7 @@ void LagrangeLeapFrog()
 
    // LagrangeRelease() ;  Creation/destruction of temps may be important to capture 
 }
-#define SCALE 20
+#define SCALE 10
 int main(int argc, char *argv[])
 {
    Index_t edgeElems = SCALE ;

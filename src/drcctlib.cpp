@@ -27,6 +27,7 @@
 #include "drcctlib.h"
 #include "splay_tree.h"
 #include "shadow_memory.h"
+#include "memory_cache.h"
 
 #ifdef ARM
 #    define DR_DISASM_DRCCTLIB DR_DISASM_ARM
@@ -140,7 +141,7 @@ typedef struct _cct_bb_node_t {
 
 typedef struct _cct_ip_node_t {
     cct_bb_node_t *parent_bb_node;
-    splay_tree_t *callee_splay_tree;
+    splay_node_t *callee_splay_tree_root;
 } cct_ip_node_t;
 
 
@@ -165,6 +166,10 @@ typedef struct _per_thread_t {
     cct_bb_node_t *cur_bb_node;
 
     void* cur_buf;
+    tls_memory_cache_t<cct_bb_node_t>* bb_node_cache;
+    tls_memory_cache_t<splay_node_t>* splay_node_cache;
+    splay_node_t* next_splay_node;
+    splay_node_t* dummy_splay_node;
 
     aligned_ctxt_hndl_t cur_ctxt_hndl;
     aligned_ctxt_hndl_t cur_bb_child_ctxt_start_idx;
@@ -227,6 +232,11 @@ static cct_ip_node_t *global_ip_node_buff;
 static context_handle_t global_ip_node_buff_idle_idx = CONTEXT_HANDLE_START;
 
 static int global_thread_id_max = 0;
+
+static void *bb_node_cache_lock;
+static void *splay_node_cache_lock;
+static memory_cache_t<cct_bb_node_t> *global_bb_node_cache;
+static memory_cache_t<splay_node_t> *global_splay_node_cache;
 
 // static char *global_string_pool;
 // static int global_string_pool_idle_idx = 0;
@@ -484,9 +494,9 @@ bb_node_free(void *node)
 }
 
 static inline cct_bb_node_t *
-bb_node_create(bb_key_t key, context_handle_t caller_ctxt_hndl, slot_t num)
+bb_node_create(tls_memory_cache_t<cct_bb_node_t>* tls_cache, bb_key_t key, context_handle_t caller_ctxt_hndl, slot_t num)
 {
-    cct_bb_node_t *new_node = (cct_bb_node_t *)dr_global_alloc(sizeof(cct_bb_node_t));
+    cct_bb_node_t *new_node = tls_cache->get_next_object();
     new_node->caller_ctxt_hndl = caller_ctxt_hndl;
     new_node->key = key;
     new_node->child_ctxt_start_idx = cur_child_ctxt_start_idx(num);
@@ -494,7 +504,7 @@ bb_node_create(bb_key_t key, context_handle_t caller_ctxt_hndl, slot_t num)
     cct_ip_node_t *children = ctxt_hndl_to_ip_node(new_node->child_ctxt_start_idx);
     for (slot_t i = 0; i < num; ++i) {
         children[i].parent_bb_node = new_node;
-        children[i].callee_splay_tree = splay_tree_create(bb_node_free);
+        children[i].callee_splay_tree_root = NULL;
     }
     return new_node;
 }
@@ -516,9 +526,12 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->log_file = dr_open_file(name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file  != INVALID_FILE);
 #endif
+    pt->bb_node_cache = new tls_memory_cache_t<cct_bb_node_t>(global_bb_node_cache, bb_node_cache_lock, 100000);
+    pt->splay_node_cache = new tls_memory_cache_t<splay_node_t>(global_splay_node_cache, splay_node_cache_lock, 100000);
+    pt->dummy_splay_node = pt->splay_node_cache->get_next_object();
+    pt->next_splay_node = pt->splay_node_cache->get_next_object();
 
-
-    cct_bb_node_t *root_bb_node = bb_node_create(
+    cct_bb_node_t *root_bb_node = bb_node_create(pt->bb_node_cache, 
         THREAD_ROOT_BB_SHARED_BB_KEY, THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE, 1);
 
     pt->root_bb_node = root_bb_node;
@@ -529,7 +542,7 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
 
 
     pt->cur_buf = dr_get_dr_segment_base(tls_seg);
-    // BUF_PTR(context_handle_t, pt->cur_buf, INSTRACE_TLS_OFFS_BUF_PTR1) = pt->cur_bb_node;
+    
 
     pt->cur_bb_child_ctxt_start_idx  =  pt->cur_bb_node->child_ctxt_start_idx;
     BUF_PTR(aligned_ctxt_hndl_t, pt->cur_buf, INSTRACE_TLS_OFFS_BUF_PTR1) = &(pt->cur_bb_child_ctxt_start_idx);
@@ -766,7 +779,6 @@ bb_instrument_msg_delete(bb_instrument_msg_t *bb_msg)
 static void
 instrument_before_bb_first_instr(bb_key_t new_key, slot_t num)
 {
-    // dr_fprintf(log_file, "%d ", new_key);
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     context_handle_t new_caller_ctxt = 0;
@@ -796,12 +808,15 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t num)
     dr_fprintf(pt->log_file, "pre bb key %d cur slot %d -> ", pt->cur_bb_node->key,
                pt->cur_slot);
 #endif
-    splay_node_t *new_root = splay_tree_add_and_update(
-        ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree,
-        (splay_node_key_t)new_key);
+    splay_node_t *new_root = splay_tree_update(
+        ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree_root,
+        (splay_node_key_t)new_key, pt->dummy_splay_node, pt->next_splay_node);
     if (new_root->payload == NULL) {
-        new_root->payload = (void *)bb_node_create(new_key, new_caller_ctxt, num);
+        new_root->payload =
+            (void *)bb_node_create(pt->bb_node_cache, new_key, new_caller_ctxt, num);
+        pt->next_splay_node = pt->splay_node_cache->get_next_object();
     }
+    ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree_root = new_root;
     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_instr_state = 0;
@@ -1422,7 +1437,7 @@ init_progress_root_ip_node()
     cct_ip_node_t *progress_root_ip =
         global_ip_node_buff + THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE;
     progress_root_ip->parent_bb_node = NULL;
-    progress_root_ip->callee_splay_tree = splay_tree_create(bb_node_free);
+    progress_root_ip->callee_splay_tree_root = NULL;
 }
 
 static inline void
@@ -1435,6 +1450,14 @@ init_global_buff()
         DRCCTLIB_EXIT_PROCESS("init_global_buff error: MAP_FAILED global_ip_node_buff");
     } else {
         init_progress_root_ip_node();
+    }
+    global_bb_node_cache = new memory_cache_t<cct_bb_node_t>();
+    global_splay_node_cache = new memory_cache_t<splay_node_t>();
+    if (!global_bb_node_cache->init(CONTEXT_HANDLE_MAX/10, 1000, 10)) {
+        DRCCTLIB_EXIT_PROCESS("init_global_buff error: MAP_FAILED global_bb_node_cache");
+    }
+    if (!global_splay_node_cache->init(CONTEXT_HANDLE_MAX/10, 1000, 10)) {
+        DRCCTLIB_EXIT_PROCESS("init_global_buff error: MAP_FAILED global_splay_node_cache");
     }
     // global_string_pool = (char *)mmap(0, CONTEXT_HANDLE_MAX * sizeof(char), PROT_WRITE
     // | PROT_READ,
@@ -1470,13 +1493,12 @@ static inline void init_global_bb_shadow_table()
 static inline void
 free_global_buff()
 {
-    for (context_handle_t i = 0; i < global_ip_node_buff_idle_idx; i++) {
-        splay_tree_free(global_ip_node_buff[i].callee_splay_tree);
-    }
     if (munmap(global_ip_node_buff, CONTEXT_HANDLE_MAX * sizeof(cct_ip_node_t)) != 0) {
         // || munmap(global_string_pool, CONTEXT_HANDLE_MAX * sizeof(char)) != 0) {
         DRCCTLIB_PRINTF("free_global_buff munmap error");
     }
+    delete global_bb_node_cache;
+    delete global_splay_node_cache;
 }
 
 
@@ -1486,6 +1508,8 @@ create_global_locks()
 {
     flags_lock = dr_recurlock_create();
     bb_shadow_lock = dr_mutex_create();
+    bb_node_cache_lock = dr_mutex_create();
+    splay_node_cache_lock = dr_mutex_create();
 }
 
 static inline void
@@ -1493,6 +1517,8 @@ destroy_global_locks()
 {
     dr_recurlock_destroy(flags_lock);
     dr_mutex_destroy(bb_shadow_lock);
+    dr_mutex_destroy(bb_node_cache_lock);
+    dr_mutex_destroy(splay_node_cache_lock);
 }
 
 static size_t
