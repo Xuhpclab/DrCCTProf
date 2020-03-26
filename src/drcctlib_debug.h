@@ -1,5 +1,0 @@
-#ifndef _DRCCTLIB_DEBUG_H_
-#define _DRCCTLIB_DEBUG_H_
-
-// #define DRCCTLIB_DEBUG
-#endif // _DRCCTLIB_DEBUG_H_

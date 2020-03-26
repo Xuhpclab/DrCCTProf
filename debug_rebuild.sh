@@ -79,4 +79,11 @@ echo "run drcctlib_instr_statistics ${APP2}"
 (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP2} > client.drcctlib_instr_statistics.sample_cct.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.sample_cct.${TIMESTAMP} 2>&1
 echo "run drcctlib_instr_statistics ${APP3}"
 (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP3} > client.drcctlib_instr_statistics.sample_multithread.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.sample_multithread.${TIMESTAMP} 2>&1
+
+# echo "run drcctlib_reuse_distance ${APP1}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP1} > client.drcctlib_reuse_distance.sample.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_reuse_distance.sample.${TIMESTAMP} 2>&1
+# echo "run drcctlib_reuse_distance ${APP2}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP2} > client.drcctlib_reuse_distance.sample_cct.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_reuse_distance.sample_cct.${TIMESTAMP} 2>&1
+# echo "run drcctlib_reuse_distance ${APP3}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP3} > client.drcctlib_reuse_distance.sample_multithread.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_reuse_distance.sample_multithread.${TIMESTAMP} 2>&1
 done

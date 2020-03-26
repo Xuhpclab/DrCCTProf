@@ -40,6 +40,7 @@ using namespace std;
 int64_t *gloabl_hndl_call_num;
 static file_t gTraceFile;
 static int tls_idx;
+
 enum {
     INSTRACE_TLS_OFFS_BUF_PTR,
     INSTRACE_TLS_COUNT, /* total number of TLS slots allocated */
@@ -47,7 +48,6 @@ enum {
 
 static reg_id_t tls_seg;
 static uint tls_offs;
-
 #define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs + (enum_val))
 #define BUF_PTR(tls_base, enum_val) *(int64_t **)TLS_SLOT(tls_base, enum_val)
 #define MINSERT instrlist_meta_preinsert
@@ -61,14 +61,6 @@ static uint tls_offs;
 typedef struct _per_thread_t {
     void* buff;
 } per_thread_t;
-
-void 
-BBStartCleanCall(void* data)
-{
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-    context_handle_t cur_bb_start = drcctlib_get_bb_start_context_handle();
-    BUF_PTR(pt->buff, INSTRACE_TLS_OFFS_BUF_PTR) = (gloabl_hndl_call_num + cur_bb_start);
-}
 
 void
 EveryInstrInstrument(void *drcontext, instrlist_t *bb, instr_t *instr, int32_t slot)
@@ -116,6 +108,14 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
     //     dr_insert_clean_call(drcontext, bb, instr, (void *)BBStartCleanCall, false, 0);
     // }
     EveryInstrInstrument(drcontext, bb, instr, instrument_msg->slot);
+}
+
+void 
+InstrumentBBStartInsertCallback(void* data)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    context_handle_t cur_bb_start = drcctlib_get_bb_start_context_handle();
+    BUF_PTR(pt->buff, INSTRACE_TLS_OFFS_BUF_PTR) = (gloabl_hndl_call_num + cur_bb_start);
 }
 
 static void
@@ -211,6 +211,9 @@ ClientExit(void)
         dr_fprintf(gTraceFile, "================================================================================\n\n\n");
     }
 
+    FreeGlobalBuff();
+    drcctlib_exit();
+
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
         DRCCTLIB_EXIT_PROCESS("ERROR: dr_raw_tls_calloc fail");
     } 
@@ -220,9 +223,6 @@ ClientExit(void)
         !drmgr_unregister_tls_field(tls_idx)) {
         DRCCTLIB_PRINTF("failed to unregister in ClientExit");
     }
-
-    FreeGlobalBuff();
-    drcctlib_exit();
 }
 
 #ifdef __cplusplus
@@ -234,27 +234,28 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Client 'drcctlib_instr_statistics'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib unable to initialize drmgr");
-    }
+    
+    ClientInit(argc, argv);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL,
+                     InstrumentBBStartInsertCallback, NULL, 0);
 
+    if (!drmgr_init()) {
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics unable to initialize drmgr");
+    }
     drreg_options_t ops = { sizeof(ops), 4 /*max slots needed*/, false};
     if (drreg_init(&ops) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib unable to initialize drreg");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics unable to initialize drreg");
     }
-    ClientInit(argc, argv);
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL, BBStartCleanCall, NULL);
-    
     dr_register_exit_event(ClientExit);
     drmgr_register_thread_init_event(ClientThreadStart);
     drmgr_register_thread_exit_event(ClientThreadEnd);
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1){
-        DRCCTLIB_EXIT_PROCESS("ERROR: drmgr_register_tls_field fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics drmgr_register_tls_field fail");
     }
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: dr_raw_tls_calloc fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics dr_raw_tls_calloc fail");
     }
 }
 

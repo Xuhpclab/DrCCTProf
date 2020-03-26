@@ -58,4 +58,6 @@ echo "run drcctlib_all_instr_cct lulesh1.0"
 (time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${LULESH} > client.drcctlib_all_instr_cct.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.lulesh.${TIMESTAMP} 2>&1
 echo "run drcctlib_instr_statistics lulesh1.0"
 (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${LULESH} > client.drcctlib_instr_statistics.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.lulesh.${TIMESTAMP} 2>&1
+echo "run drcctlib_reuse_distance lulesh1.0"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${LULESH} > client.drcctlib_reuse_distance.lulesh.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_reuse_distance.lulesh.${TIMESTAMP} 2>&1
 done
