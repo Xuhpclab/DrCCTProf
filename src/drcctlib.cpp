@@ -1,7 +1,5 @@
 #include <fcntl.h>
-// #include <gelf.h>
 #include <inttypes.h>
-// #include <libelf.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +19,11 @@
 #include "splay_tree.h"
 #include "shadow_memory.h"
 #include "memory_cache.h"
+
+#ifdef INTEL_CCTLIB
+#include <gelf.h>
+#include <libelf.h>
+#endif
 
 #ifdef ARM32_CCTLIB
 #    define DR_DISASM_DRCCTLIB DR_DISASM_ARM
@@ -407,7 +410,7 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
             DRCCTLIB_EXIT_PROCESS("Need a finite stack size. Dont use unlimited.");
         }
         pt->stack_base =
-            (void *)(ptr_int_t)reg_get_value(DR_REG_RSP, (dr_mcontext_t *)drcontext);
+            (void *)(ptr_int_t)reg_get_value(DR_REG_XSP, (dr_mcontext_t *)drcontext);
         pt->stack_end = (void *)((ptr_int_t)pt->stack_base - rlim.rlim_cur);
         pt->dmem_alloc_size = 0;
         pt->dmem_alloc_ctxt_hndl = 0;
@@ -1021,52 +1024,54 @@ capture_free(void *wrapcxt, void **user_data)
 static void
 compute_static_var(char *filename, const module_data_t *info)
 {
-    // Elf *elf;               /* Our Elf pointer for libelf */
-    // Elf_Scn *scn = NULL;    /* Section Descriptor */
-    // Elf_Data *edata = NULL; /* Data Descriptor */
-    // GElf_Sym sym;           /* Symbol */
-    // GElf_Shdr shdr;         /* Section Header */
+#ifdef INTEL_CCTLIB
+    Elf *elf;               /* Our Elf pointer for libelf */
+    Elf_Scn *scn = NULL;    /* Section Descriptor */
+    Elf_Data *edata = NULL; /* Data Descriptor */
+    GElf_Sym sym;           /* Symbol */
+    GElf_Shdr shdr;         /* Section Header */
 
-    // int i, symbol_count;
-    // int fd = open(filename, O_RDONLY);
+    int i, symbol_count;
+    int fd = open(filename, O_RDONLY);
 
-    // if (elf_version(EV_CURRENT) == EV_NONE) {
-    //     DRCCTLIB_EXIT_PROCESS("WARNING Elf Library is out of date!");
-    // }
+    if (elf_version(EV_CURRENT) == EV_NONE) {
+        DRCCTLIB_EXIT_PROCESS("WARNING Elf Library is out of date!");
+    }
 
-    // // in memory
-    // elf = elf_begin(fd, ELF_C_READ,
-    //                 NULL); // Initialize 'elf' pointer to our file descriptor
+    // in memory
+    elf = elf_begin(fd, ELF_C_READ,
+                    NULL); // Initialize 'elf' pointer to our file descriptor
 
-    // // Iterate each section until symtab section for object symbols
-    // while ((scn = elf_nextscn(elf, scn)) != NULL) {
-    //     gelf_getshdr(scn, &shdr);
+    // Iterate each section until symtab section for object symbols
+    while ((scn = elf_nextscn(elf, scn)) != NULL) {
+        gelf_getshdr(scn, &shdr);
 
-    //     if (shdr.sh_type == SHT_SYMTAB) {
-    //         edata = elf_getdata(scn, edata);
-    //         symbol_count = shdr.sh_size / shdr.sh_entsize;
+        if (shdr.sh_type == SHT_SYMTAB) {
+            edata = elf_getdata(scn, edata);
+            symbol_count = shdr.sh_size / shdr.sh_entsize;
 
-    //         for (i = 0; i < symbol_count; i++) {
-    //             if (gelf_getsym(edata, i, &sym) == NULL) {
-    //                 DRCCTLIB_PRINTF("gelf_getsym return NULL");
-    //                 DRCCTLIB_EXIT_PROCESS("%s", elf_errmsg(elf_errno()));
-    //             }
+            for (i = 0; i < symbol_count; i++) {
+                if (gelf_getsym(edata, i, &sym) == NULL) {
+                    DRCCTLIB_PRINTF("gelf_getsym return NULL");
+                    DRCCTLIB_EXIT_PROCESS("%s", elf_errmsg(elf_errno()));
+                }
 
-    //             if ((sym.st_size == 0) ||
-    //                 (ELF32_ST_TYPE(sym.st_info) != STT_OBJECT)) { // not a variable
-    //                 continue;
-    //             }
+                if ((sym.st_size == 0) ||
+                    (ELF32_ST_TYPE(sym.st_info) != STT_OBJECT)) { // not a variable
+                    continue;
+                }
 
-    //             data_handle_t data_hndl;
-    //             data_hndl.object_type = STATIC_OBJECT;
-    //             char *sym_name = elf_strptr(elf, shdr.sh_link, sym.st_name);
-    //             data_hndl.sym_name = sym_name ? next_string_pool_idx(sym_name) : 0;
-    //             // DRCCTLIB_PRINTF("STATIC_OBJECT %s", sym_name);
-    //             init_shadow_memory_space((void *)((uint64_t)(info->start) + sym.st_value),
-    //                                      (uint32_t)sym.st_size, &data_hndl);
-    //         }
-    //     }
-    // }
+                data_handle_t data_hndl;
+                data_hndl.object_type = STATIC_OBJECT;
+                char *sym_name = elf_strptr(elf, shdr.sh_link, sym.st_name);
+                data_hndl.sym_name = sym_name ? next_string_pool_idx(sym_name) : 0;
+                // DRCCTLIB_PRINTF("STATIC_OBJECT %s", sym_name);
+                init_shadow_memory_space((void *)((uint64_t)(info->start) + sym.st_value),
+                                         (uint32_t)sym.st_size, &data_hndl);
+            }
+        }
+    }
+#endif
 }
 
 static inline app_pc
