@@ -121,6 +121,8 @@ typedef struct _per_thread_t{
     bool sample_mem;
 } per_thread_t;
 
+
+
 #define TLS_MEM_REF_BUFF_SIZE 100000
 
 #define MEM_NUM 200000000
@@ -128,7 +130,7 @@ typedef struct _per_thread_t{
 
 
 #define OUTPUT_SIZE 100
-#define REUSED_THRES 8192
+#define REUSED_THRES 10
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 
 void
@@ -158,8 +160,8 @@ UpdateUseAndReuseMap(per_thread_t *pt, mem_ref_t * ref)
                 break;
             }
         }
-        if (pair_it == pair_range_it.second && ref->is_app_addr != 0 ) {
-        // if (pair_it == pair_range_it.second) {
+        // if (pair_it == pair_range_it.second && ref->is_app_addr != 0 ) {
+        if (pair_it == pair_range_it.second) {
             reuse_node_t val(ref->ctxt_hndl, reuse_distance, 1);
                 (*pair_map).insert(
                     pair<context_handle_t, reuse_node_t>(it->second.use_hndl, val));
@@ -192,7 +194,8 @@ InitPrintFile(int no)
 void
 PrintTopN(per_thread_t *pt, uint32_t print_num)
 {
-    print_num = print_num > (*(pt->tls_reuse_map)).size() ? (*(pt->tls_reuse_map)).size() : print_num;
+    // print_num = print_num  (*(pt->tls_reuse_map)).size() ? (*(pt->tls_reuse_map)).size() : print_num;
+    print_num = (*(pt->tls_reuse_map)).size();
     output_format_t* output_format_list = (output_format_t*)dr_global_alloc(print_num * sizeof(output_format_t));
     for(uint32_t i = 0; i < print_num; i ++ ) {
         output_format_list[i].use_hndl = 0;
@@ -202,8 +205,8 @@ PrintTopN(per_thread_t *pt, uint32_t print_num)
     }
     multimap<context_handle_t, reuse_node_t>::iterator it;
     for (it = (*(pt->tls_reuse_map)).begin(); it != (*(pt->tls_reuse_map)).end(); ++it) {
-        if (it->second.distance / it->second.count < REUSED_THRES)
-            continue;
+        // if (it->second.distance / it->second.count < REUSED_THRES)
+        //     continue;
         if (it->second.count > output_format_list[0].count) {
             uint64_t min_count = output_format_list[1].count;
             uint32_t min_idx = 1;
@@ -303,7 +306,7 @@ BBStartInsertCleancall(int num)
 
 static void
 InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
-              opnd_t ctxt_hndl_addr, int is_app_addr)
+              opnd_t ctxt_hndl_addr, int is_app_addr, bool write)
 {
     /* We need two scratch registers */
     reg_id_t reg_mem_ref_ptr, reg_1, reg_2;
@@ -316,7 +319,11 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
                                tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, reg_mem_ref_ptr);
     if (!drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_1, reg_2)) {
-        // DRCCTLIB_PRINTF("drutil_insert_get_mem_addr fail");
+        // if(write) {
+        //     DRCCTLIB_PRINTF("W????????????");
+        // } else {
+        //     DRCCTLIB_PRINTF("R????????????");
+        // }
     } else {
         // store mem_ref_t->addr
         MINSERT(ilist, where,
@@ -465,12 +472,12 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
     opnd_t ctxt_hndl_addr = OPND_CREATE_CTXT_HNDL_MEM(reg_ctxt_hndl_addr, 0);
     for (int i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_is_memory_reference(instr_get_src(instr, i))){
-            InstrumentMem(drcontext, bb, instr, instr_get_src(instr, i), ctxt_hndl_addr, is_app_addr);
+            InstrumentMem(drcontext, bb, instr, instr_get_src(instr, i), ctxt_hndl_addr, is_app_addr, false);
         }     
     }
     for (int i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-            InstrumentMem(drcontext, bb, instr, instr_get_src(instr, i), ctxt_hndl_addr, is_app_addr);
+            InstrumentMem(drcontext, bb, instr, instr_get_dst(instr, i), ctxt_hndl_addr, is_app_addr, true);
         }
     }
     if (drreg_unreserve_register(drcontext, bb, instr, reg_ctxt_hndl_addr) != DRREG_SUCCESS) {
