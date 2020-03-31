@@ -2866,10 +2866,14 @@ void LagrangeLeapFrog()
    // LagrangeRelease() ;  Creation/destruction of temps may be important to capture 
 }
 
-#define SCALE 5
+#define SCALE 45
 int main(int argc, char *argv[])
 {
-   Index_t edgeElems = SCALE ;
+   int scale = SCALE;
+   if(argc >= 2) {
+      scale = atoi(argv[1]);
+   }
+   Index_t edgeElems = scale ;
    Index_t edgeNodes = edgeElems+1 ;
    // Real_t ds = Real_t(1.125)/Real_t(edgeElems) ; /* may accumulate roundoff */
    Real_t tx, ty, tz ;

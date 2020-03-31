@@ -20,18 +20,16 @@
 #include "shadow_memory.h"
 #include "memory_cache.h"
 
-#ifdef INTEL_CCTLIB
-#include <gelf.h>
-#include <libelf.h>
-#endif
+#include "libelf.h"
 
-#ifdef ARM32_CCTLIB
-#    define DR_DISASM_DRCCTLIB DR_DISASM_ARM
-#elif defined(ARM64_CCTLIB)
+// #ifdef ARM32_CCTLIB
+// #    define DR_DISASM_DRCCTLIB DR_DISASM_ARM
+// #elif defined(ARM64_CCTLIB)
+// #    define DR_DISASM_DRCCTLIB DR_DISASM_DR	
+// #else
+// #    define DR_DISASM_DRCCTLIB DR_DISASM_INTEL
+// #endif
 #    define DR_DISASM_DRCCTLIB DR_DISASM_DR	
-#else
-#    define DR_DISASM_DRCCTLIB DR_DISASM_INTEL
-#endif
 
 #define MAX_CCT_PRINT_DEPTH 15
 
@@ -931,8 +929,6 @@ drcctlib_event_thread_end(void *drcontext)
     DRCCTLIB_PRINTF("thread %d end", pt_cache->cache_data->id);
 }
 
-
-
 static inline int32_t
 next_string_pool_idx(char *name)
 {
@@ -1021,57 +1017,63 @@ capture_free(void *wrapcxt, void **user_data)
 }
 
 // compute static variables
+#ifdef X64
+#    define elf_getshdr elf64_getshdr
+#    define Elf_Shdr Elf64_Shdr
+#    define Elf_Sym Elf64_Sym
+#    define ELF_ST_TYPE ELF64_ST_TYPE
+#else
+#    define elf_getshdr elf32_getshdr
+#    define Elf_Shdr Elf32_Shdr
+#    define Elf_Sym Elf32_Sym
+#    define ELF_ST_TYPE ELF32_ST_TYPE
+#endif
 static void
-compute_static_var(char *filename, const module_data_t *info)
-{
-#ifdef INTEL_CCTLIB
-    Elf *elf;               /* Our Elf pointer for libelf */
-    Elf_Scn *scn = NULL;    /* Section Descriptor */
-    Elf_Data *edata = NULL; /* Data Descriptor */
-    GElf_Sym sym;           /* Symbol */
-    GElf_Shdr shdr;         /* Section Header */
-
-    int i, symbol_count;
-    int fd = open(filename, O_RDONLY);
-
-    if (elf_version(EV_CURRENT) == EV_NONE) {
-        DRCCTLIB_EXIT_PROCESS("WARNING Elf Library is out of date!");
+compute_static_var(const module_data_t *info)
+{   
+    file_t fd = dr_open_file(info->full_path, O_RDONLY);
+    uint64 file_size;
+    if (fd == INVALID_FILE) {
+        DRCCTLIB_PRINTF("------ unable to open %s", info->full_path);
+        return;
     }
-
+    if (!dr_file_size(fd, &file_size)) {
+        DRCCTLIB_PRINTF("------ unable to get file size %s", info->full_path);
+        return;
+    }
+    size_t map_size = file_size;
+    void *map_base =
+        dr_map_file(fd, &map_size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
+    /* map_size can be larger than file_size */
+    if (map_base== NULL || map_size < file_size) {
+        DRCCTLIB_PRINTF("------ unable to map %s", info->full_path);
+        return;
+    }
+    // DRCCTLIB_PRINTF("------ success map %s", info->full_path);
     // in memory
-    elf = elf_begin(fd, ELF_C_READ,
-                    NULL); // Initialize 'elf' pointer to our file descriptor
-
-    // Iterate each section until symtab section for object symbols
-    while ((scn = elf_nextscn(elf, scn)) != NULL) {
-        gelf_getshdr(scn, &shdr);
-
-        if (shdr.sh_type == SHT_SYMTAB) {
-            edata = elf_getdata(scn, edata);
-            symbol_count = shdr.sh_size / shdr.sh_entsize;
-
-            for (i = 0; i < symbol_count; i++) {
-                if (gelf_getsym(edata, i, &sym) == NULL) {
-                    DRCCTLIB_PRINTF("gelf_getsym return NULL");
-                    DRCCTLIB_EXIT_PROCESS("%s", elf_errmsg(elf_errno()));
-                }
-
-                if ((sym.st_size == 0) ||
-                    (ELF32_ST_TYPE(sym.st_info) != STT_OBJECT)) { // not a variable
-                    continue;
-                }
-
-                data_handle_t data_hndl;
-                data_hndl.object_type = STATIC_OBJECT;
-                char *sym_name = elf_strptr(elf, shdr.sh_link, sym.st_name);
-                data_hndl.sym_name = sym_name ? next_string_pool_idx(sym_name) : 0;
-                // DRCCTLIB_PRINTF("STATIC_OBJECT %s", sym_name);
-                init_shadow_memory_space((void *)((uint64_t)(info->start) + sym.st_value),
-                                         (uint32_t)sym.st_size, &data_hndl);
+    Elf *elf = elf_memory((char *)map_base, map_size); // Initialize 'elf' pointer to our file descriptor
+    for (Elf_Scn *scn = elf_getscn(elf, 0); scn != NULL; scn = elf_nextscn(elf, scn)) {
+        Elf_Shdr *shdr = elf_getshdr(scn);
+        if (shdr == NULL || shdr->sh_type != SHT_SYMTAB)
+            continue;
+        int symbol_count = shdr->sh_size / shdr->sh_entsize;
+        Elf_Sym *syms = (Elf_Sym *)(((char *)map_base) + shdr->sh_offset);
+        for (int i = 0; i < symbol_count; i++) {
+            if ((syms[i].st_size == 0) ||
+                (ELF_ST_TYPE(syms[i].st_info) != STT_OBJECT)) { // not a variable
+                continue;
             }
+            data_handle_t data_hndl;
+            data_hndl.object_type = STATIC_OBJECT;
+            char *sym_name = elf_strptr(elf, shdr->sh_link, syms[i].st_name);
+            data_hndl.sym_name = sym_name ? next_string_pool_idx(sym_name) : 0;
+            // DRCCTLIB_PRINTF("STATIC_OBJECT %s %d", sym_name, (uint32_t)syms[i].st_size);
+            init_shadow_memory_space((void *)((uint64_t)(info->start) + syms[i].st_value),
+                                        (uint32_t)syms[i].st_size, &data_hndl);
         }
     }
-#endif
+    dr_unmap_file(map_base, map_size);
+    dr_close_file(fd);
 }
 
 static inline app_pc
@@ -1112,14 +1114,7 @@ static void
 drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info, bool loaded)
 {
     // static analysis
-    char filename[PATH_MAX];
-    char *result = realpath(info->full_path, filename);
-    if (result == NULL) {
-        DRCCTLIB_PRINTF("%s ---- failed to resolve path", info->full_path);
-    } else {
-        DRCCTLIB_PRINTF("%s ---- success to resolve path", info->full_path);
-        compute_static_var(filename, info);
-    }
+    compute_static_var(info);
 
     // dynamic analysis
     insert_func_instrument_by_drwap(info, FUNC_NAME_MALLOC, capture_malloc_size,
@@ -1341,14 +1336,14 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
             ctxt = ctxt_create(ctxt_hndl, sym.line, addr);
         }
         sprintf(ctxt->func_name, "%s", sym.name);
-        sprintf(ctxt->file_path, "%s", data->full_path);
+        sprintf(ctxt->file_path, "%s", sym.file);
         sprintf(ctxt->code_asm, "%s", code);
         dr_free_module_data(data);
         return ctxt;
     } else {
         context_t *ctxt = ctxt_create(ctxt_hndl, 0, addr);
         sprintf(ctxt->func_name, "<noname>");
-        sprintf(ctxt->file_path, "%s", data->full_path);
+        sprintf(ctxt->file_path, "%s", sym.file);
         sprintf(ctxt->code_asm, "%s", code);
         dr_free_module_data(data);
         return ctxt;
@@ -1401,9 +1396,14 @@ drcctlib_init(char flag)
         return false;
     }
     if((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0){
-        global_shadow_memory = new ConcurrentShadowMemory<data_handle_t>();
-        drmgr_register_module_load_event(drcctlib_event_module_load_analysis);
-        drmgr_register_module_unload_event(drcctlib_event_module_unload_analysis);
+        if (elf_version(EV_CURRENT) == EV_NONE) {
+            DRCCTLIB_PRINTF("INIT DATA CENTRIC FAIL: Elf Library is out of date!");
+            global_flags -= DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE;
+        } else {
+            global_shadow_memory = new ConcurrentShadowMemory<data_handle_t>();
+            drmgr_register_module_load_event(drcctlib_event_module_load_analysis);
+            drmgr_register_module_unload_event(drcctlib_event_module_unload_analysis);
+        }
     }
     
 
@@ -1589,48 +1589,55 @@ drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl)
 
 DR_EXPORT
 void
-drcctlib_print_ctxt_hndl_msg(context_handle_t ctxt_hndl, bool print_asm,
+drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print_asm,
                              bool print_file_path)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
         DRCCTLIB_EXIT_PROCESS("drcctlib_print_ctxt_hndl_msg: !ctxt_hndl_is_valid");
     }
+
+    if(file == INVALID_FILE) {
+        file = log_file;
+    }
     context_t *ctxt = ctxt_get_from_ctxt_hndl(ctxt_hndl);
     if (print_asm && print_file_path) {
-        dr_fprintf(log_file, "%s(%d):\"(%p)%s\"[%s]\n", ctxt->func_name, ctxt->line_no,
+        dr_fprintf(file, "%s(%d):\"(%p)%s\"[%s]\n", ctxt->func_name, ctxt->line_no,
                    (uint64_t)ctxt->ip, ctxt->code_asm, ctxt->file_path);
     } else if (print_asm) {
-        dr_fprintf(log_file, "%s(%d):\"(%p)%s\"\n", ctxt->func_name, ctxt->line_no,
+        dr_fprintf(file, "%s(%d):\"(%p)%s\"\n", ctxt->func_name, ctxt->line_no,
                    (uint64_t)ctxt->ip, ctxt->code_asm);
     } else if (print_file_path) {
-        dr_fprintf(log_file, "%s(%d):\"(%p)\"[%s]\n", ctxt->func_name, ctxt->line_no,
+        dr_fprintf(file, "%s(%d):\"(%p)\"[%s]\n", ctxt->func_name, ctxt->line_no,
                    (uint64_t)ctxt->ip, ctxt->file_path);
     } else {
-        dr_fprintf(log_file, "%s(%d):\"(%p)\"\n", ctxt->func_name, ctxt->line_no,
+        dr_fprintf(file, "%s(%d):\"(%p)\"\n", ctxt->func_name, ctxt->line_no,
                    (uint64_t)ctxt->ip);
     }
 }
 
 DR_EXPORT
 void
-drcctlib_print_full_cct(context_handle_t ctxt_hndl, bool print_asm, bool print_file_path,
+drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm, bool print_file_path,
                         int max_depth)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
         DRCCTLIB_EXIT_PROCESS("drcctlib_print_full_cct: !ctxt_hndl_is_valid");
     }
+    if(file == INVALID_FILE) {
+        file = log_file;
+    }
     int depth = 0;
     while (true) {
-        drcctlib_print_ctxt_hndl_msg(ctxt_hndl, print_asm, print_file_path);
+        drcctlib_print_ctxt_hndl_msg(file, ctxt_hndl, print_asm, print_file_path);
         if (ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
             break;
         }
         if (depth >= max_depth) {
-            dr_fprintf(log_file, "Truncated call path (due to client deep call chain)\n");
+            dr_fprintf(file, "Truncated call path (due to client deep call chain)\n");
             break;
         }
         if (depth >= MAX_CCT_PRINT_DEPTH) {
-            dr_fprintf(log_file, "Truncated call path (due to deep call chain)\n");
+            dr_fprintf(file, "Truncated call path (due to deep call chain)\n");
             break;
         }
 
@@ -1753,7 +1760,7 @@ have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2
 // API to get the handle for a data object
 DR_EXPORT
 data_handle_t
-GetDataObjectHandle(void *drcontext, void *address)
+drcctlib_get_date_hndl(void *drcontext, void *address)
 {
     data_handle_t data_hndl;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
@@ -1769,7 +1776,7 @@ GetDataObjectHandle(void *drcontext, void *address)
 
 DR_EXPORT
 char *
-GetStringFromStringPool(int index)
+drcctlib_get_str_from_strpool(int index)
 {
     return global_string_pool+ index;
 }

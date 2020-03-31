@@ -108,11 +108,11 @@ drcctlib_get_per_thread_date_id();
 
 DR_EXPORT
 void
-drcctlib_print_ctxt_hndl_msg(context_handle_t ctxt_hndl, bool print_asm, bool print_file_path);
+drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print_asm, bool print_file_path);
 
 DR_EXPORT
 void
-drcctlib_print_full_cct(context_handle_t ctxt_hndl, bool print_asm, bool print_file_path, int max_depth);
+drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm, bool print_file_path, int max_depth);
 
 DR_EXPORT
 context_t *
@@ -161,10 +161,10 @@ have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2
 
 DR_EXPORT
 data_handle_t
-GetDataObjectHandle(void *drcontext, void *address);
+drcctlib_get_date_hndl(void *drcontext, void *address);
 
 DR_EXPORT
 char *
-GetStringFromStringPool(int index);
+drcctlib_get_str_from_strpool(int index);
 
 #endif // _DRCCTLIB_H_

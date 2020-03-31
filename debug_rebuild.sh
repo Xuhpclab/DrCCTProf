@@ -35,12 +35,21 @@ fi
 APPSAMPLES=${CUR_DIR}/appsamples
 APPSAMPLES_SRC=${APPSAMPLES}/src
 APPSAMPLES_BUILD=${APPSAMPLES}/build
+
 APP1_SRC=${APPSAMPLES_SRC}/sample/sample.cxx
 APP2_SRC=${APPSAMPLES_SRC}/sample/sample_cct.cxx
 APP3_SRC=${APPSAMPLES_SRC}/sample/sample_multithread.cxx
-APP1=${APPSAMPLES_BUILD}/sample
-APP2=${APPSAMPLES_BUILD}/sample_cct
-APP3=${APPSAMPLES_BUILD}/sample_multithread
+APP4_SRC=${APPSAMPLES_SRC}/sample/sample_reuse.cxx
+
+APP1=sample
+APP2=sample_cct
+APP3=sample_multithread
+APP4=sample_reuse
+
+APP1_FULL_PATH=${APPSAMPLES_BUILD}/sample
+APP2_FULL_PATH=${APPSAMPLES_BUILD}/sample_cct
+APP3_FULL_PATH=${APPSAMPLES_BUILD}/sample_multithread
+APP4_FULL_PATH=${APPSAMPLES_BUILD}/sample_reuse
 
 rm -rf ${APPSAMPLES_BUILD}
 mkdir ${APPSAMPLES_BUILD}
@@ -49,9 +58,10 @@ echo -e "Enter \033[34m${APPSAMPLES}\033[0m.."
 cd ${APPSAMPLES}
 echo -e "\033[32mStart build app... \033[0m"
 # build sample1
-g++ -g ${APP1_SRC} -o ${APP1}
-g++ -g ${APP2_SRC} -o ${APP2}
-g++ -g ${APP3_SRC} -o ${APP3} -pthread
+# g++ -g ${APP1_SRC} -o ${APP1_FULL_PATH}
+# g++ -g ${APP2_SRC} -o ${APP2_FULL_PATH}
+# g++ -g ${APP3_SRC} -o ${APP3_FULL_PATH} -pthread
+g++ -g ${APP4_SRC} -o ${APP4_FULL_PATH}
 echo -e "\033[32m Build app successfully! \033[0m"
 echo -e "Leave \033[34m${APPSAMPLES}\033[0m.."
 
@@ -59,31 +69,29 @@ cd ${BUILD_LOG_PATH}
 
 for i in 1
 do
-echo "run ${APP1}"
-(time ${APP1}) > runtime.sample.${TIMESTAMP} 2>&1
-echo "run ${APP2}"
-(time ${APP2}) > runtime.sample_cct.${TIMESTAMP} 2>&1
-echo "run ${APP3}"
-(time ${APP3}) > runtime.sample_multithread.${TIMESTAMP} 2>&1
+# echo "run ${APP1_FULL_PATH}"
+# (time ${APP1_FULL_PATH}) > runtime.${APP1_FULL_PATH}.${TIMESTAMP} 2>&1
+# echo "run ${APP2_FULL_PATH}"
+# (time ${APP2_FULL_PATH}) > runtime.${APP2_FULL_PATH}.${TIMESTAMP} 2>&1
+# echo "run ${APP3_FULL_PATH}"
+# (time ${APP3_FULL_PATH}) > runtime.${APP3_FULL_PATH}.${TIMESTAMP} 2>&1
+echo "run ${APP4_FULL_PATH}"
+(time ${APP4_FULL_PATH}) > runtime.${APP4} 2>&1
 
-echo "run drcctlib_all_instr_cct ${APP1}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP1} > client.drcctlib_all_instr_cct.sample.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.sample.${TIMESTAMP} 2>&1
-echo "run drcctlib_all_instr_cct ${APP2}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP2} > client.drcctlib_all_instr_cct.sample_cct.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.sample_cct.${TIMESTAMP} 2>&1
-echo "run drcctlib_all_instr_cct ${APP3}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP3} > client.drcctlib_all_instr_cct.sample_multithread.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.sample_multithread.${TIMESTAMP} 2>&1
+# echo "run drcctlib_all_instr_cct ${APP1_FULL_PATH}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP1_FULL_PATH} > client.drcctlib_all_instr_cct.${APP1}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.${APP1}.${TIMESTAMP} 2>&1
+# echo "run drcctlib_all_instr_cct ${APP2_FULL_PATH}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP2_FULL_PATH} > client.drcctlib_all_instr_cct.${APP2}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.${APP2}.${TIMESTAMP} 2>&1
+# echo "run drcctlib_all_instr_cct ${APP3_FULL_PATH}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP3_FULL_PATH} > client.drcctlib_all_instr_cct.${APP3}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.${APP3}.${TIMESTAMP} 2>&1
 
-echo "run drcctlib_instr_statistics ${APP1}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP1} > client.drcctlib_instr_statistics.sample.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.sample.${TIMESTAMP} 2>&1
-echo "run drcctlib_instr_statistics ${APP2}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP2} > client.drcctlib_instr_statistics.sample_cct.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.sample_cct.${TIMESTAMP} 2>&1
-echo "run drcctlib_instr_statistics ${APP3}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP3} > client.drcctlib_instr_statistics.sample_multithread.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.sample_multithread.${TIMESTAMP} 2>&1
+# echo "run drcctlib_instr_statistics ${APP1_FULL_PATH}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP1_FULL_PATH} > client.drcctlib_instr_statistics.${APP1}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.${APP1}.${TIMESTAMP} 2>&1
+# echo "run drcctlib_instr_statistics ${APP2_FULL_PATH}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP2_FULL_PATH} > client.drcctlib_instr_statistics.${APP2}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.${APP2}.${TIMESTAMP} 2>&1
+# echo "run drcctlib_instr_statistics ${APP3_FULL_PATH}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP3_FULL_PATH} > client.drcctlib_instr_statistics.${APP3}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.${APP3}.${TIMESTAMP} 2>&1
 
-# echo "run drcctlib_reuse_distance ${APP1}"
-# (time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP1} > client.drcctlib_reuse_distance.sample.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_reuse_distance.sample.${TIMESTAMP} 2>&1
-# echo "run drcctlib_reuse_distance ${APP2}"
-# (time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP2} > client.drcctlib_reuse_distance.sample_cct.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_reuse_distance.sample_cct.${TIMESTAMP} 2>&1
-# echo "run drcctlib_reuse_distance ${APP3}"
-# (time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP3} > client.drcctlib_reuse_distance.sample_multithread.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_reuse_distance.sample_multithread.${TIMESTAMP} 2>&1
+echo "run drcctlib_reuse_distance ${APP4_FULL_PATH}"
+(time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP4_FULL_PATH} > client.drcctlib_reuse_distance.${APP4}.log 2>&1) > runtime.drcctlib_reuse_distance.${APP4} 2>&1
 done

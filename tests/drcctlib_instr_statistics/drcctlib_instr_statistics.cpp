@@ -205,9 +205,9 @@ ClientExit(void)
              });
     for(uint i = 0; i < TOP_REACH__NUM_SHOW; i++) {
         dr_fprintf(gTraceFile, "NO. %d ins call number %d ====", i+1, tmp[i].second);
-        drcctlib_print_ctxt_hndl_msg(tmp[i].first, false, false);
+        drcctlib_print_ctxt_hndl_msg(gTraceFile, tmp[i].first, false, false);
         dr_fprintf(gTraceFile, "================================================================================\n");
-        drcctlib_print_full_cct(tmp[i].first, true, false, MAX_CLIENT_CCT_PRINT_DEPTH);
+        drcctlib_print_full_cct(gTraceFile, tmp[i].first, true, false, MAX_CLIENT_CCT_PRINT_DEPTH);
         dr_fprintf(gTraceFile, "================================================================================\n\n\n");
     }
 
