@@ -5,6 +5,8 @@
 #include "drcctlib_global_share.h"
 #include "drcctlib_filter_func_list.h"
 
+#include <vector>
+
 #define context_handle_t int32_t
 #ifdef CCTLIB_32
 #define aligned_ctxt_hndl_t int32_t
@@ -70,7 +72,7 @@ enum {
     DRCCTLIB_USE_CLEAN_CALL = 0x01,
     DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE = 0x02,
     DRCCTLIB_SAVE_CCTLIB_FILE = 0x04,
-    DRCCTLIB_SAVE_HPCTOOLKIT_FILE = 0x08
+    DRCCTLIB_SAVE_HPCTOOLKIT_FILE = 0x08,
 };
 
 DR_EXPORT
@@ -166,5 +168,36 @@ drcctlib_get_date_hndl(void *drcontext, void *address);
 DR_EXPORT
 char *
 drcctlib_get_str_from_strpool(int index);
+
+
+
+
+typedef struct _HPCRunCCT_t {
+    context_handle_t ctxtHandle1;
+    context_handle_t ctxtHandle2;
+    uint64_t metric;
+    int metric_id;
+} HPCRunCCT_t;
+
+DR_EXPORT
+void
+init_hpcrun_format(const char *app_name, bool metric_cct);
+
+DR_EXPORT
+int
+hpcrun_create_metric(const char *name);
+
+DR_EXPORT
+int
+write_thread_all_cct_hpcrun_format(void *drcontext);
+
+DR_EXPORT
+int
+build_custom_cct_hpurun_format(std::vector<HPCRunCCT_t *> &run_cct_list, void *drcontext);
+
+DR_EXPORT
+int
+write_custom_cct_hpurun_format(void *drcontext);
+
 
 #endif // _DRCCTLIB_H_

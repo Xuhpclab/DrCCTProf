@@ -13,3 +13,11 @@ rm -rf ${BUILD_PATH}
 APPSAMPLES_BUILD=${CUR_DIR}/appsamples/build
 echo -e "Remove \033[34m${APPSAMPLES_BUILD}\033[0m.."
 rm -rf ${APPSAMPLES_BUILD}
+
+DR_EXT_SRC_PATH=${CUR_DIR}/dynamorio/ext/drcctlib
+echo -e "Remove \033[34m${DR_EXT_SRC_PATH}\033[0m.."
+rm -rf ${DR_EXT_SRC_PATH}
+
+DR_CLIENT_SRC_PATH=${CUR_DIR}/dynamorio/clients/drcctlib
+echo -e "Remove \033[34m${DR_CLIENT_SRC_PATH}*\033[0m.."
+rm -rf ${DR_CLIENT_SRC_PATH}*

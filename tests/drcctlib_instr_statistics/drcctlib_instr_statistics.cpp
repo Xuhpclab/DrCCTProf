@@ -223,6 +223,7 @@ ClientExit(void)
         !drmgr_unregister_tls_field(tls_idx)) {
         DRCCTLIB_PRINTF("failed to unregister in ClientExit");
     }
+    drmgr_exit();
 }
 
 #ifdef __cplusplus

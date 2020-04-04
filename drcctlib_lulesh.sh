@@ -35,8 +35,8 @@ fi
 echo -e "Build Lulesh1.0.."
 LULESH_SOURCE_PATH=${CUR_DIR}/appsamples/src/lulesh1.0
 LULESH=${LULESH_SOURCE_PATH}/lulesh-par-original
-g++ -g -O3 -fopenmp -fno-inline ${LULESH_SOURCE_PATH}/luleshOMP-0611.cc ${LULESH_SOURCE_PATH}/instrument.cc -DPOLYBENCH_TIME -o ${LULESH}
-# g++ -g -fopenmp -fno-inline ${LULESH_SOURCE_PATH}/luleshOMP-0611.cc ${LULESH_SOURCE_PATH}/instrument.cc -DPOLYBENCH_TIME -o ${LULESH}
+# g++ -g -O3 -fopenmp -fno-inline ${LULESH_SOURCE_PATH}/luleshOMP-0611.cc ${LULESH_SOURCE_PATH}/instrument.cc -DPOLYBENCH_TIME -o ${LULESH}
+g++ -g -fopenmp -fno-inline ${LULESH_SOURCE_PATH}/luleshOMP-0611.cc ${LULESH_SOURCE_PATH}/instrument.cc -DPOLYBENCH_TIME -o ${LULESH}
 echo -e "Success build Lulesh1.0.."
 
 cd ${BUILD_LOG_PATH}
