@@ -159,6 +159,7 @@ typedef struct _per_thread_t {
     // DO_DATA_CENTRIC
     void *stack_base;
     void *stack_end;
+    bool stack_unlimited;
     size_t dmem_alloc_size;
     context_handle_t dmem_alloc_ctxt_hndl;
 
@@ -445,11 +446,15 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
             DRCCTLIB_EXIT_PROCESS("Failed to getrlimit()");
         }
         if (rlim.rlim_cur == RLIM_INFINITY) {
-            DRCCTLIB_EXIT_PROCESS("Need a finite stack size. Dont use unlimited.");
-        }
-        pt->stack_base =
+            pt->stack_unlimited = true;
+            pt->stack_base = (void *)(ptr_int_t)0;
+            pt->stack_end = (void *)(ptr_int_t)0;
+        } else {
+            pt->stack_unlimited = false;
+            pt->stack_base =
             (void *)(ptr_int_t)reg_get_value(DR_REG_XSP, (dr_mcontext_t *)drcontext);
-        pt->stack_end = (void *)((ptr_int_t)pt->stack_base - rlim.rlim_cur);
+            pt->stack_end = (void *)((ptr_int_t)pt->stack_base - rlim.rlim_cur);
+        }
         pt->dmem_alloc_size = 0;
         pt->dmem_alloc_ctxt_hndl = 0;
     }
@@ -1847,16 +1852,22 @@ DR_EXPORT
 data_handle_t
 drcctlib_get_date_hndl(void *drcontext, void *address)
 {
-    data_handle_t data_hndl;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     // if it is a stack location, set so and return
-    if (address > pt->stack_end && address < pt->stack_base) {
+    if (pt->stack_unlimited && address > pt->stack_end && address < pt->stack_base) {
+        data_handle_t data_hndl;
         data_hndl.object_type = STACK_OBJECT;
         return data_hndl;
     }
-    data_hndl = *(GetOrCreateShadowAddress<0>(*global_shadow_memory,
-                                               (size_t)(uint64_t)address));
-    return data_hndl;
+    data_handle_t *ptr = GetOrCreateShadowAddress<0>(*global_shadow_memory,
+                                               (size_t)(uint64_t)address);
+    if(ptr != NULL) {
+        return *ptr;
+    } else {
+        data_handle_t data_hndl;
+        data_hndl.object_type = UNKNOWN_OBJECT;
+        return data_hndl;
+    }
 }
 
 DR_EXPORT
@@ -2680,12 +2691,14 @@ IPNode_fwrite(hpcviewer_format_ip_node_t *node, FILE *fs)
 
     // adjust the IPaddress to point to return address of the callsite (internal nodes)
     // for hpcrun requirement
-    // if (node->ID > 0)
-    //     node->IPAddress++;
+    
+    
     if (node->IPAddress == 0) {
         hpcfmt_int2_fwrite(0, fs);
         hpcfmt_int8_fwrite((uint64_t)node->IPAddress, fs);
     } else {
+        if (node->ID > 0)
+            node->IPAddress++;
         module_data_t *info = dr_lookup_module(node->IPAddress);
         offline_module_data_t *off_module_data = (offline_module_data_t *)hashtable_lookup(
             &global_module_date_table, (void *)info->start);
