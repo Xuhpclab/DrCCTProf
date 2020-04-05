@@ -187,14 +187,13 @@ static int init_count = 0;
 
 
 enum {
-    INSTRACE_TLS_OFFS_BUF_PTR1,
-    INSTRACE_TLS_OFFS_BUF_PTR2,
+    INSTRACE_TLS_OFFS_BUF_PTR,
     INSTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
 static reg_id_t tls_seg;
 static uint tls_offs;
 #define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs + (enum_val))
-#define BUF_PTR(type, tls_base, enum_val) *(type **)TLS_SLOT(tls_base, enum_val)
+#define BUF_PTR(tls_base, enum_val) *(aligned_ctxt_hndl_t **)TLS_SLOT(tls_base, enum_val)
 #define MINSERT instrlist_meta_preinsert
 
 static int tls_idx;
@@ -245,20 +244,10 @@ static hashtable_t global_module_date_table;
 static void *module_data_lock;
 
 static inline offline_module_data_t *
-offline_module_date_create(const module_data_t *info, int id){
-    offline_module_data_t *off_module_date = (offline_module_data_t *)dr_global_alloc(sizeof(offline_module_data_t));
-    off_module_date->id = id;
-    sprintf(off_module_date->path, "%s", info->full_path);
-    off_module_date->start = info->start;
-    off_module_date->end = info->end;
-    return off_module_date;
-}
+offline_module_date_create(const module_data_t *info, int id);
 
 static inline void
-offline_module_date_free(void *date){
-    offline_module_data_t *mdate = (offline_module_data_t *)date;
-    dr_global_free(mdate, sizeof(offline_module_data_t));
-}
+offline_module_date_free(void *date);
 
 
 // ctxt to ipnode
@@ -432,11 +421,9 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->cur_buf = dr_get_dr_segment_base(tls_seg);
 
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
-    BUF_PTR(aligned_ctxt_hndl_t, pt->cur_buf, INSTRACE_TLS_OFFS_BUF_PTR1) =
-        &(pt->cur_bb_child_ctxt_start_idx);
 
     pt->cur_ctxt_hndl = pt->cur_bb_child_ctxt_start_idx + pt->cur_slot;
-    BUF_PTR(aligned_ctxt_hndl_t, pt->cur_buf, INSTRACE_TLS_OFFS_BUF_PTR2) =
+    BUF_PTR(pt->cur_buf, INSTRACE_TLS_OFFS_BUF_PTR) =
         &(pt->cur_ctxt_hndl);
 
     if((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0){
@@ -1643,16 +1630,7 @@ drcctlib_get_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t 
                                    reg_id_t store_reg)
 {
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
-                           tls_offs + INSTRACE_TLS_OFFS_BUF_PTR2, store_reg);
-}
-
-DR_EXPORT
-void
-drcctlib_get_bb_start_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                            reg_id_t store_reg)
-{
-    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
-                           tls_offs + INSTRACE_TLS_OFFS_BUF_PTR1, store_reg);
+                           tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, store_reg);
 }
 
 DR_EXPORT
@@ -2001,8 +1979,35 @@ typedef struct _hpc_format_global_t {
     char metric_name_arry[MAX_METRICS][MAX_LEN];
     hpcviewer_format_ip_node_t *gHPCRunCCTRoot;
     uint64_t nodeCount;
+    string dirName;
+    string filename;
 } hpc_format_global_t;
 static hpc_format_global_t global_hpc_fmt_data;
+
+
+static inline offline_module_data_t *
+offline_module_date_create(const module_data_t *info, int id){
+    offline_module_data_t *off_module_date = (offline_module_data_t *)dr_global_alloc(sizeof(offline_module_data_t));
+    off_module_date->id = id;
+    sprintf(off_module_date->path, "%s", info->full_path);
+#ifdef ARM_CCTLIB
+    if(strcmp(dr_module_preferred_name(info), global_hpc_fmt_data.filename.c_str())){
+        off_module_date->start = 0;
+    } else {
+        off_module_date->start = 0;
+    }
+#else
+    off_module_date->start = info->start;
+#endif
+    off_module_date->end = info->end;
+    return off_module_date;
+}
+
+static inline void
+offline_module_date_free(void *date){
+    offline_module_data_t *mdate = (offline_module_data_t *)date;
+    dr_global_free(mdate, sizeof(offline_module_data_t));
+}
 
 
 
@@ -2154,8 +2159,6 @@ static int log_rename_done = 0;
 static int log_rename_ret = 0;
 // ***********************************************
 /*   for HPCViewer output format     */
-string dirName;
-string filename;
 
 static int32_t global_fmt_ip_node_start = 0;
 
@@ -2440,7 +2443,7 @@ hpcrun_open_file(int thread, const char *suffix, int flags, const char *fileName
     id = (flags & FILES_EARLY) ? &earlyid : &lateid;
     for (;;) {
         errno = 0;
-        ret = snprintf(name, MAXIMUM_PATH, FILENAME_TEMPLATE, dirName.c_str(), fileName, RANK,
+        ret = snprintf(name, MAXIMUM_PATH, FILENAME_TEMPLATE, global_hpc_fmt_data.dirName.c_str(), fileName, RANK,
                        thread, id->host, mypid, id->gen, suffix);
 
         if (ret >= MAXIMUM_PATH) {
@@ -2790,9 +2793,9 @@ reset_leaf_node_id(hpcviewer_format_ip_node_t *root)
 
 // Initialize binary file and write hpcrun header
 FILE *
-lazy_open_data_file(int tID, string *filename)
+lazy_open_data_file(int tID)
 {
-    const char *fileCharName = filename->c_str();
+    const char *fileCharName = global_hpc_fmt_data.filename.c_str();
     int fd = hpcrun_open_profile_file(tID, fileCharName);
     FILE *fs = fdopen(fd, "w");
     
@@ -2821,7 +2824,7 @@ lazy_open_data_file(int tID, string *filename)
     static int global_arg_len = 9;
     hpcfmt_int4_fwrite(global_arg_len, fs);
     hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_prog, fileCharName);
-    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_progPath, filename->c_str());
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_progPath, global_hpc_fmt_data.filename.c_str());
     hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_envPath, getenv("PATH"));
     hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_jobId, jobIdStr);
     hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_tid, tidStr);
@@ -2851,10 +2854,10 @@ DR_EXPORT
 void
 init_hpcrun_format(const char *app_name, bool metric_cct)
 {
-    filename = app_name;
+    global_hpc_fmt_data.filename = app_name;
     // Create the measurement directory
-    dirName = "hpctoolkit-" + filename + "-measurements";
-    mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    global_hpc_fmt_data.dirName = "hpctoolkit-" + global_hpc_fmt_data.filename + "-measurements";
+    mkdir(global_hpc_fmt_data.dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     // the current metric cursor is set to 1
     global_hpc_fmt_data.metric_num = 0;
     global_hpc_fmt_data.metric_cct = metric_cct;
@@ -2884,7 +2887,7 @@ int
 write_thread_all_cct_hpcrun_format(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    FILE *fs = lazy_open_data_file(pt->id, &filename);
+    FILE *fs = lazy_open_data_file(pt->id);
     if (!fs)
         return -1;
     cct_bb_node_t *root_bb_node = pt->root_bb_node;
@@ -2950,7 +2953,7 @@ int
 write_thread_custom_cct_hpurun_format(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    FILE *fs = lazy_open_data_file(pt->id, &filename);
+    FILE *fs = lazy_open_data_file(pt->id);
     if (!fs)
         return -1;
 
@@ -2999,7 +3002,7 @@ DR_EXPORT
 int
 write_progress_custom_cct_hpurun_format()
 {
-    FILE *fs = lazy_open_data_file(0, &filename);
+    FILE *fs = lazy_open_data_file(0);
     if (!fs)
         return -1;
     hpcviewer_format_ip_node_t * fmt_root_ip = global_hpc_fmt_data.gHPCRunCCTRoot;
