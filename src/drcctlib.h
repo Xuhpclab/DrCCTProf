@@ -173,10 +173,8 @@ drcctlib_get_str_from_strpool(int index);
 
 
 typedef struct _HPCRunCCT_t {
-    context_handle_t ctxtHandle1;
-    context_handle_t ctxtHandle2;
-    int metric_id;
-    uint64_t metric;
+    vector<context_handle_t> ctxt_hndl_list;
+    vector<uint64_t> metric_list;
 } HPCRunCCT_t;
 
 DR_EXPORT

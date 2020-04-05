@@ -2736,43 +2736,34 @@ tranverseNewCCT(vector<hpcviewer_format_ip_node_t *> nodes, FILE *fs)
 }
 
 void
-hpcrun_insert_path(hpcviewer_format_ip_node_t *root, HPCRunCCT_t *HPCRunNode,
+hpcrun_insert_path(hpcviewer_format_ip_node_t *root, HPCRunCCT_t *runNode,
                    uint64_t *nodeCount)
 {
-    if (HPCRunNode->ctxtHandle1 == 0) {
+    if (runNode->ctxt_hndl_list.size() == 0) {
         return;
     }
-    vector<app_pc> contextVec1;
-    get_full_calling_ip_vector(HPCRunNode->ctxtHandle1, contextVec1);
-    hpcviewer_format_ip_node_t *tmp;
     hpcviewer_format_ip_node_t *cur = root;
-    for (int32_t i = contextVec1.size() - 1; i >= 0; i--) {
-        tmp = findSameIPbyIP(cur->childIPNodes, contextVec1[i]);
-        if (!tmp) {
-            hpcviewer_format_ip_node_t *nIP =
-                constructIPNodeFromIP(cur, contextVec1[i], nodeCount);
-            cur = nIP;
-        } else {
-            cur = tmp;
+    for(int i = 0; i < runNode->ctxt_hndl_list.size(); i++){
+        context_handle_t cur_hndl = runNode->ctxt_hndl_list[i];
+        if(cur_hndl == 0) {
+            DRCCTLIB_PRINTF("USE ERROR: HPCRunCCT_t has invalid context_handle_t");
+            break;
         }
-    }
-
-    if (HPCRunNode->ctxtHandle2 != 0) {
-        vector<app_pc> contextVec2;
-        get_full_calling_ip_vector(HPCRunNode->ctxtHandle2, contextVec2);
-        // concatenate the two contexts
-        for (int32_t i = contextVec2.size() - 1; i >= 0; i--) {
-            tmp = findSameIPbyIP(cur->childIPNodes, contextVec2[i]);
+        vector<app_pc> cur_pc_list = get_full_calling_ip_vector(runNode->ctxtHandle1, contextVec1);
+        for (int32_t i = cur_pc_list.size() - 1; i >= 0; i--) {
+            hpcviewer_format_ip_node_t *tmp = findSameIPbyIP(cur->childIPNodes, cur_pc_list[i]);
             if (!tmp) {
                 hpcviewer_format_ip_node_t *nIP =
-                    constructIPNodeFromIP(cur, contextVec2[i], nodeCount);
+                    constructIPNodeFromIP(cur, cur_pc_list[i], nodeCount);
                 cur = nIP;
             } else {
                 cur = tmp;
             }
         }
     }
-    cur->metricVal[HPCRunNode->metric_id] += HPCRunNode->metric;
+    for(int i = 0; i < runNode->metric_list.size(); i++) {
+        cur->metricVal[i] += runNode->metric_list[i];
+    }
 }
 
 void

@@ -205,16 +205,14 @@ ClientExit(void)
          [=](pair<context_handle_t, int> &a, pair<context_handle_t, int> &b) {
              return a.second > b.second;
              });
-    vector<HPCRunCCT_t*> HPCRunNodes;
+    vector<HPCRunCCT_t*> hpcRunNodes;
     for(uint i = 0; i < TOP_REACH__NUM_SHOW; i++) {
-        HPCRunCCT_t *HPCRunNode = new HPCRunCCT_t();
-        HPCRunNode->ctxtHandle1 = tmp[i].first;
-        HPCRunNode->ctxtHandle2 = 0;
-        HPCRunNode->metric_id = ins_metric_id;
-        HPCRunNode->metric = tmp[i].second;
-        HPCRunNodes.push_back(HPCRunNode);
+        HPCRunCCT_t *hpcRunNode = new HPCRunCCT_t();
+        hpcRunNode->ctxt_hndl_list.push_back(tmp[i].first);
+        hpcRunNode->metric_list.push_back(tmp[i].second);
+        hpcRunNodes.push_back(hpcRunNode);
     }
-    build_progress_custom_cct_hpurun_format(HPCRunNodes);
+    build_progress_custom_cct_hpurun_format(hpcRunNodes);
     write_progress_custom_cct_hpurun_format();
     FreeGlobalBuff();
     drcctlib_exit();

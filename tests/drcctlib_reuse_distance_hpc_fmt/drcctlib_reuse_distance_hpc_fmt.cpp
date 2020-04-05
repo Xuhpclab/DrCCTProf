@@ -200,6 +200,8 @@ PrintTopN(void *drcontext, per_thread_t *pt, uint32_t print_num)
             create_hndl = data_hndl.path_handle;
         } else if (object_type == STATIC_OBJECT){
             create_hndl = data_hndl.sym_name;
+        } else {
+            create_hndl = 0;
         }
         if (it->second.count > output_format_list[0].count) {
             uint64_t min_count = output_format_list[1].count;
@@ -239,31 +241,17 @@ PrintTopN(void *drcontext, per_thread_t *pt, uint32_t print_num)
         }
     }
     
-    vector<HPCRunCCT_t*> HPCRunNodes1;
+    vector<HPCRunCCT_t*> hpcRunNodes;
     for(uint i = 0; i < print_num; i++) {
-        if (output_format_list[i].count == 0)
+        if (output_format_list[i].count == 0 || output_format_list[i].object_type != DYNAMIC_OBJECT)
             continue;
-        HPCRunCCT_t *HPCRunNode = new HPCRunCCT_t();
-        HPCRunNode->ctxtHandle1 = output_format_list[i].use_hndl;
-        HPCRunNode->ctxtHandle2 = output_format_list[i].reuse_hndl;
-        HPCRunNode->metric_id = ins_metric_id1;
-        HPCRunNode->metric = output_format_list[i].count;
-        HPCRunNodes1.push_back(HPCRunNode);
+        HPCRunCCT_t *hpcRunNode = new HPCRunCCT_t();
+        hpcRunNode->ctxt_hndl_list.push_back(output_format_list[i].create_hndl);
+        hpcRunNode->ctxt_hndl_list.push_back(output_format_list[i].use_hndl);
+        hpcRunNode->ctxt_hndl_list.push_back(output_format_list[i].reuse_hndl);
+        hpcRunNodes.push_back(hpcRunNode);
     }
-    build_thread_custom_cct_hpurun_format(HPCRunNodes1, drcontext);
-    vector<HPCRunCCT_t*> HPCRunNodes2;
-    for(uint i = 0; i < print_num; i++) {
-        if (output_format_list[i].count == 0)
-            continue;
-        HPCRunCCT_t *HPCRunNode = new HPCRunCCT_t();
-        HPCRunNode->ctxtHandle1 = output_format_list[i].use_hndl;
-        HPCRunNode->ctxtHandle2 = output_format_list[i].reuse_hndl;
-        HPCRunNode->metric_id = ins_metric_id2;
-        HPCRunNode->metric = output_format_list[i].distance;
-        HPCRunNodes2.push_back(HPCRunNode);
-    }
-    build_thread_custom_cct_hpurun_format(HPCRunNodes2, drcontext);
-    
+    build_thread_custom_cct_hpurun_format(hpcRunNodes, drcontext);
     write_thread_custom_cct_hpurun_format(drcontext);
 
     dr_global_free(output_format_list, print_num * sizeof(output_format_t));
@@ -562,7 +550,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, gTraceFile, InstrumentInsCallback, NULL,
-                    NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE&&DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                    NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     init_hpcrun_format(dr_get_application_name(), false);
     ins_metric_id1 = hpcrun_create_metric("SUM_COUNT");
     ins_metric_id2 = hpcrun_create_metric("AVG_DIS");
