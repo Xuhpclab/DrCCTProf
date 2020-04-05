@@ -31,7 +31,7 @@ void test_fun3() {
 
 int main(){
     test_fun1();
-    for(int i =0 ; i < 1000; i++) {
+    for(int i =0 ; i < 100; i++) {
         test_fun2();
         test_fun3();
     }

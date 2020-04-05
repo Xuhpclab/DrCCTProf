@@ -1871,6 +1871,15 @@ drcctlib_get_date_hndl(void *drcontext, void *address)
 }
 
 DR_EXPORT
+data_handle_t*
+drcctlib_get_date_hndl_runtime(void *drcontext, void *address)
+{
+    data_handle_t *ptr = GetOrCreateShadowAddress<0>(*global_shadow_memory,
+                                               (size_t)(uint64_t)address);
+    return ptr;
+}
+
+DR_EXPORT
 char *
 drcctlib_get_str_from_strpool(int index)
 {

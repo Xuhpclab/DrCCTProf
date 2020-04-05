@@ -72,23 +72,25 @@ static uint tls_offs;
 #define OPND_CREATE_MEM_IDX_MEM OPND_CREATE_MEM64
 
 struct use_node_t {
+    context_handle_t create_hndl;
     context_handle_t use_hndl;
     uint64_t last_reuse_mem_idx;
 
-    use_node_t(context_handle_t c, uint64_t m)
-        : use_hndl(c)
+    use_node_t(context_handle_t ch, context_handle_t u, uint64_t m)
+        : create_hndl(ch)
+        , use_hndl(u)
         , last_reuse_mem_idx(m)
     {
     }
 };
 
 struct reuse_node_t {
-    app_pc addr;
+    context_handle_t create_hndl;
     uint64_t distance;
     uint64_t count;
 
-    reuse_node_t(app_pc a, uint64_t d, uint64_t c)
-        : addr(a)
+    reuse_node_t(context_handle_t ch, uint64_t d, uint64_t c)
+        : create_hndl(ch)
         , distance(d)
         , count(c)
     {
@@ -101,7 +103,6 @@ typedef struct _mem_ref_t {
 } mem_ref_t;
 
 typedef struct _output_format_t {
-    uint8_t object_type;
     context_handle_t create_hndl;
     context_handle_t use_hndl;
     context_handle_t reuse_hndl;
@@ -138,7 +139,7 @@ int ins_metric_id1 = 0;
 int ins_metric_id2 = 0;
 
 void
-UpdateUseAndReuseMap(per_thread_t *pt, mem_ref_t * ref, int cur_mem_idx)
+UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur_mem_idx)
 {
     map<uint64_t, use_node_t> *use_map = pt->tls_use_map;
     map<uint64_t, use_node_t>::iterator it = (*use_map).find((uint64_t)ref->addr);
@@ -154,14 +155,14 @@ UpdateUseAndReuseMap(per_thread_t *pt, mem_ref_t * ref, int cur_mem_idx)
             pair_range_it;
         pair_range_it = (*pair_map).equal_range(new_pair);
         for (pair_it = pair_range_it.first; pair_it != pair_range_it.second; ++pair_it) {
-            if (pair_it->second.addr == ref->addr) {
+            if (pair_it->second.create_hndl == it->second.create_hndl) {
                 pair_it->second.count++;
                 pair_it->second.distance += reuse_distance;
                 break;
             }
         }
         if (pair_it == pair_range_it.second) {
-            reuse_node_t val(ref->addr, reuse_distance, 1);
+            reuse_node_t val(it->second.create_hndl, reuse_distance, 1);
                 (*pair_map).insert(
                     pair<uint64_t, reuse_node_t>(new_pair, val));
         }
@@ -169,7 +170,16 @@ UpdateUseAndReuseMap(per_thread_t *pt, mem_ref_t * ref, int cur_mem_idx)
         it->second.use_hndl = ref->ctxt_hndl;
         it->second.last_reuse_mem_idx = cur_mem_idx;
     } else {
-        use_node_t new_entry(ref->ctxt_hndl, cur_mem_idx);
+        data_handle_t* data_hndl = drcctlib_get_date_hndl_runtime(drcontext, ref->addr);
+        context_handle_t create_hndl = 0;
+        if(data_hndl != NULL) {
+            if (data_hndl->object_type == DYNAMIC_OBJECT) {
+                create_hndl = data_hndl->path_handle;
+            } else if (data_hndl->object_type == STATIC_OBJECT) {
+                create_hndl = - data_hndl->sym_name;
+            }
+        }
+        use_node_t new_entry(create_hndl, ref->ctxt_hndl, cur_mem_idx);
         (*use_map).insert(pair<uint64_t, use_node_t>((uint64_t)(ref->addr), new_entry));
     }
 }
@@ -179,7 +189,6 @@ PrintTopN(void *drcontext, per_thread_t *pt, uint32_t print_num)
 {
     output_format_t* output_format_list = (output_format_t*)dr_global_alloc(print_num * sizeof(output_format_t));
     for(uint32_t i = 0; i < print_num; i ++ ) {
-        output_format_list[i].object_type = UNKNOWN_OBJECT;
         output_format_list[i].create_hndl = 0;
         output_format_list[i].use_hndl = 0;
         output_format_list[i].reuse_hndl = 0;
@@ -189,19 +198,14 @@ PrintTopN(void *drcontext, per_thread_t *pt, uint32_t print_num)
     multimap<uint64_t, reuse_node_t>::iterator it;
     for (it = (*(pt->tls_reuse_map)).begin(); it != (*(pt->tls_reuse_map)).end(); ++it) {
         uint64_t distance = it->second.distance / it->second.count;
-        if (distance < REUSED_THRES || it->second.count < REUSED_PRINT_MIN_COUNT)
+        uint64_t count = it->second.count;
+        if (distance < REUSED_THRES || count < REUSED_PRINT_MIN_COUNT)
             continue;
         context_handle_t use_hndl = (context_handle_t)(it->first >> 32);
         context_handle_t reuse_hndl = (context_handle_t)(it->first);
-        context_handle_t create_hndl = 0;
-        data_handle_t data_hndl = drcctlib_get_date_hndl(drcontext, it->second.addr);
-        uint8_t object_type = data_hndl.object_type;
-        if(object_type == DYNAMIC_OBJECT) {
-            create_hndl = data_hndl.path_handle;
-        } else if (object_type == STATIC_OBJECT){
-            create_hndl = data_hndl.sym_name;
-        } else {
-            create_hndl = 0;
+        context_handle_t create_hndl = it->second.create_hndl;
+        if (create_hndl <= 0) {
+            continue;
         }
         if (it->second.count > output_format_list[0].count) {
             uint64_t min_count = output_format_list[1].count;
@@ -213,20 +217,18 @@ PrintTopN(void *drcontext, per_thread_t *pt, uint32_t print_num)
                 }
             }
             if (it->second.count < min_count) {
-                output_format_list[0].count = it->second.count;
+                output_format_list[0].count = count;
                 output_format_list[0].distance = distance;
                 output_format_list[0].reuse_hndl = reuse_hndl;
                 output_format_list[0].use_hndl = use_hndl;
                 output_format_list[0].create_hndl = create_hndl;
-                output_format_list[0].object_type = object_type;
             } else {
                 output_format_list[0] = output_format_list[min_idx];
-                output_format_list[min_idx].count = it->second.count;
+                output_format_list[min_idx].count = count;
                 output_format_list[min_idx].distance = distance;
                 output_format_list[min_idx].reuse_hndl = reuse_hndl;
                 output_format_list[min_idx].use_hndl = use_hndl;
                 output_format_list[min_idx].create_hndl = create_hndl;
-                output_format_list[min_idx].object_type = object_type;
             }
         }
     }
@@ -243,12 +245,15 @@ PrintTopN(void *drcontext, per_thread_t *pt, uint32_t print_num)
     
     vector<HPCRunCCT_t*> hpcRunNodes;
     for(uint i = 0; i < print_num; i++) {
-        if (output_format_list[i].count == 0 || output_format_list[i].object_type != DYNAMIC_OBJECT)
+        if(output_format_list[i].count <= 0) {
             continue;
+        }
         HPCRunCCT_t *hpcRunNode = new HPCRunCCT_t();
         hpcRunNode->ctxt_hndl_list.push_back(output_format_list[i].create_hndl);
         hpcRunNode->ctxt_hndl_list.push_back(output_format_list[i].use_hndl);
         hpcRunNode->ctxt_hndl_list.push_back(output_format_list[i].reuse_hndl);
+        hpcRunNode->metric_list.push_back(output_format_list[i].count);
+        hpcRunNode->metric_list.push_back(output_format_list[i].distance);
         hpcRunNodes.push_back(hpcRunNode);
     }
     build_thread_custom_cct_hpurun_format(hpcRunNodes, drcontext);
@@ -267,7 +272,8 @@ ResetPtMap(per_thread_t *pt)
 void 
 BBStartInsertCleancall(int num)
 {
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    void* drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     int next_buf_max_idx = pt->cur_buf_fill_num + num;
     if (next_buf_max_idx > TLS_MEM_REF_BUFF_SIZE) {
         pt->cur_mem_idx += pt->cur_buf_fill_num;
@@ -280,7 +286,7 @@ BBStartInsertCleancall(int num)
             for (; i < pt->cur_buf_fill_num; i++) {
                 int cur_mem_idx = pt->last_mem_idx + i;
                 if (pt->cur_buf_list[i].addr != 0) {
-                    UpdateUseAndReuseMap(pt, &pt->cur_buf_list[i], cur_mem_idx);
+                    UpdateUseAndReuseMap(drcontext, pt, &pt->cur_buf_list[i], cur_mem_idx);
                 }
             }
             pt->sample_mem = true;
@@ -289,7 +295,7 @@ BBStartInsertCleancall(int num)
             for (int i = 0; i < sample_num; i++) {
                 int cur_mem_idx = pt->last_mem_idx + i;
                 if (pt->cur_buf_list[i].addr != 0) {
-                    UpdateUseAndReuseMap(pt, &pt->cur_buf_list[i], cur_mem_idx);
+                    UpdateUseAndReuseMap(drcontext, pt, &pt->cur_buf_list[i], cur_mem_idx);
                 }
             }
             pt->sample_mem = true;
@@ -301,7 +307,7 @@ BBStartInsertCleancall(int num)
         for (int i = 0; i < pt->cur_buf_fill_num; i++) {
             int cur_mem_idx = pt->last_mem_idx + i;
             if (pt->cur_buf_list[i].addr != 0) {
-                UpdateUseAndReuseMap(pt, &pt->cur_buf_list[i], cur_mem_idx);
+                UpdateUseAndReuseMap(drcontext, pt, &pt->cur_buf_list[i], cur_mem_idx);
             }
         }
 #endif
@@ -550,7 +556,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, gTraceFile, InstrumentInsCallback, NULL,
-                    NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                    NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE | DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     init_hpcrun_format(dr_get_application_name(), false);
     ins_metric_id1 = hpcrun_create_metric("SUM_COUNT");
     ins_metric_id2 = hpcrun_create_metric("AVG_DIS");

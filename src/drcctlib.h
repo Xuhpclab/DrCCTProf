@@ -19,21 +19,6 @@
 #define DISASM_CACHE_SIZE 80
 #define MAXIMUM_SYMNAME 256
 
-// The handle representing a data object
-typedef struct data_handle_t {
-    uint8_t object_type;
-    union {
-        context_handle_t path_handle;
-        int32_t sym_name;
-    };
-} data_handle_t;
-
-enum{ 
-    STACK_OBJECT, 
-    DYNAMIC_OBJECT, 
-    STATIC_OBJECT, 
-    UNKNOWN_OBJECT
-};
 enum {
     INSTR_STATE_CLIENT_INTEREST = 0x01,
     INSTR_STATE_CALL_DIRECT = 0x02,
@@ -158,12 +143,28 @@ DR_EXPORT
 bool
 have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2);
 
-
-
+enum{ 
+    STACK_OBJECT, 
+    DYNAMIC_OBJECT, 
+    STATIC_OBJECT, 
+    UNKNOWN_OBJECT
+};
+// The handle representing a data object
+typedef struct data_handle_t {
+    uint8_t object_type;
+    union {
+        context_handle_t path_handle;
+        int32_t sym_name;
+    };
+} data_handle_t;
 
 DR_EXPORT
 data_handle_t
 drcctlib_get_date_hndl(void *drcontext, void *address);
+
+DR_EXPORT
+data_handle_t*
+drcctlib_get_date_hndl_runtime(void *drcontext, void *address);
 
 DR_EXPORT
 char *
