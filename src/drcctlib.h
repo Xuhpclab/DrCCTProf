@@ -5,6 +5,8 @@
 #include "drcctlib_global_share.h"
 #include "drcctlib_filter_func_list.h"
 
+#include <vector>
+
 #define context_handle_t int32_t
 #ifdef CCTLIB_32
 #define aligned_ctxt_hndl_t int32_t
@@ -70,7 +72,7 @@ enum {
     DRCCTLIB_USE_CLEAN_CALL = 0x01,
     DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE = 0x02,
     DRCCTLIB_SAVE_CCTLIB_FILE = 0x04,
-    DRCCTLIB_SAVE_HPCTOOLKIT_FILE = 0x08
+    DRCCTLIB_SAVE_HPCTOOLKIT_FILE = 0x08,
 };
 
 DR_EXPORT
@@ -108,11 +110,11 @@ drcctlib_get_per_thread_date_id();
 
 DR_EXPORT
 void
-drcctlib_print_ctxt_hndl_msg(context_handle_t ctxt_hndl, bool print_asm, bool print_file_path);
+drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print_asm, bool print_file_path);
 
 DR_EXPORT
 void
-drcctlib_print_full_cct(context_handle_t ctxt_hndl, bool print_asm, bool print_file_path, int max_depth);
+drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm, bool print_file_path, int max_depth);
 
 DR_EXPORT
 context_t *
@@ -161,10 +163,48 @@ have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2
 
 DR_EXPORT
 data_handle_t
-GetDataObjectHandle(void *drcontext, void *address);
+drcctlib_get_date_hndl(void *drcontext, void *address);
 
 DR_EXPORT
 char *
-GetStringFromStringPool(int index);
+drcctlib_get_str_from_strpool(int index);
+
+
+
+
+typedef struct _HPCRunCCT_t {
+    context_handle_t ctxtHandle1;
+    context_handle_t ctxtHandle2;
+    int metric_id;
+    uint64_t metric;
+} HPCRunCCT_t;
+
+DR_EXPORT
+void
+init_hpcrun_format(const char *app_name, bool metric_cct);
+
+DR_EXPORT
+int
+hpcrun_create_metric(const char *name);
+
+DR_EXPORT
+int
+write_thread_all_cct_hpcrun_format(void *drcontext);
+
+DR_EXPORT
+int
+build_thread_custom_cct_hpurun_format(std::vector<HPCRunCCT_t *> &run_cct_list, void *drcontext);
+
+DR_EXPORT
+int
+write_thread_custom_cct_hpurun_format(void *drcontext);
+
+DR_EXPORT
+int
+build_progress_custom_cct_hpurun_format(std::vector<HPCRunCCT_t *> &run_cct_list);
+
+DR_EXPORT
+int
+write_progress_custom_cct_hpurun_format();
 
 #endif // _DRCCTLIB_H_

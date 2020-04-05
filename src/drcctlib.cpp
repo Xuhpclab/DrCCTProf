@@ -20,10 +20,14 @@
 #include "shadow_memory.h"
 #include "memory_cache.h"
 
-#ifdef INTEL_CCTLIB
-#include <gelf.h>
-#include <libelf.h>
-#endif
+#include "libelf.h"
+
+
+// for hpc formate
+#include <vector>
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #ifdef ARM32_CCTLIB
 #    define DR_DISASM_DRCCTLIB DR_DISASM_ARM
@@ -132,6 +136,7 @@ typedef struct _bb_instrument_msg_t {
     bb_key_t bb_key;
 } bb_instrument_msg_t;
 
+struct hpcviewer_format_ip_node_t;
 // TLS(thread local storage)
 typedef struct _per_thread_t {
     int id;
@@ -154,10 +159,16 @@ typedef struct _per_thread_t {
     // DO_DATA_CENTRIC
     void *stack_base;
     void *stack_end;
+    bool stack_unlimited;
     size_t dmem_alloc_size;
     context_handle_t dmem_alloc_ctxt_hndl;
 
+    // HPCVIEWER_FORMAT
+    hpcviewer_format_ip_node_t *tlsHPCRunCCTRoot;
+    uint64_t nodeCount;
+
     IF_DRCCTLIB_DEBUG(file_t log_file;)
+
 } per_thread_t;
 
 typedef struct _pt_cache_t {
@@ -219,7 +230,35 @@ static memory_cache_t<splay_node_t> *global_splay_node_cache;
 #define ATOM_ADD_STRING_POOL_INDEX(origin, val) dr_atomic_add32_return_sum(&origin, val)
 static char *global_string_pool;
 static int global_string_pool_idle_idx = 0;
+
 static ConcurrentShadowMemory<data_handle_t>* global_shadow_memory;
+
+
+typedef struct _offline_module_data_t{
+    int id;
+    char path[MAXIMUM_PATH];
+    app_pc start;
+    app_pc end;
+}offline_module_data_t;
+#define OFFLINE_MODULE_DATA_TABLE_HASH_BITS 6
+static hashtable_t global_module_date_table;
+static void *module_data_lock;
+
+static inline offline_module_data_t *
+offline_module_date_create(const module_data_t *info, int id){
+    offline_module_data_t *off_module_date = (offline_module_data_t *)dr_global_alloc(sizeof(offline_module_data_t));
+    off_module_date->id = id;
+    sprintf(off_module_date->path, "%s", info->full_path);
+    off_module_date->start = info->start;
+    off_module_date->end = info->end;
+    return off_module_date;
+}
+
+static inline void
+offline_module_date_free(void *date){
+    offline_module_data_t *mdate = (offline_module_data_t *)date;
+    dr_global_free(mdate, sizeof(offline_module_data_t));
+}
 
 
 // ctxt to ipnode
@@ -407,13 +446,21 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
             DRCCTLIB_EXIT_PROCESS("Failed to getrlimit()");
         }
         if (rlim.rlim_cur == RLIM_INFINITY) {
-            DRCCTLIB_EXIT_PROCESS("Need a finite stack size. Dont use unlimited.");
-        }
-        pt->stack_base =
+            pt->stack_unlimited = true;
+            pt->stack_base = (void *)(ptr_int_t)0;
+            pt->stack_end = (void *)(ptr_int_t)0;
+        } else {
+            pt->stack_unlimited = false;
+            pt->stack_base =
             (void *)(ptr_int_t)reg_get_value(DR_REG_XSP, (dr_mcontext_t *)drcontext);
-        pt->stack_end = (void *)((ptr_int_t)pt->stack_base - rlim.rlim_cur);
+            pt->stack_end = (void *)((ptr_int_t)pt->stack_base - rlim.rlim_cur);
+        }
         pt->dmem_alloc_size = 0;
         pt->dmem_alloc_ctxt_hndl = 0;
+    }
+    if((global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0){
+        pt->nodeCount = 0;
+        pt->tlsHPCRunCCTRoot = NULL;
     }
 
 #ifdef DRCCTLIB_DEBUG
@@ -931,8 +978,6 @@ drcctlib_event_thread_end(void *drcontext)
     DRCCTLIB_PRINTF("thread %d end", pt_cache->cache_data->id);
 }
 
-
-
 static inline int32_t
 next_string_pool_idx(char *name)
 {
@@ -1021,57 +1066,63 @@ capture_free(void *wrapcxt, void **user_data)
 }
 
 // compute static variables
+#ifdef X64
+#    define elf_getshdr elf64_getshdr
+#    define Elf_Shdr Elf64_Shdr
+#    define Elf_Sym Elf64_Sym
+#    define ELF_ST_TYPE ELF64_ST_TYPE
+#else
+#    define elf_getshdr elf32_getshdr
+#    define Elf_Shdr Elf32_Shdr
+#    define Elf_Sym Elf32_Sym
+#    define ELF_ST_TYPE ELF32_ST_TYPE
+#endif
 static void
-compute_static_var(char *filename, const module_data_t *info)
-{
-#ifdef INTEL_CCTLIB
-    Elf *elf;               /* Our Elf pointer for libelf */
-    Elf_Scn *scn = NULL;    /* Section Descriptor */
-    Elf_Data *edata = NULL; /* Data Descriptor */
-    GElf_Sym sym;           /* Symbol */
-    GElf_Shdr shdr;         /* Section Header */
-
-    int i, symbol_count;
-    int fd = open(filename, O_RDONLY);
-
-    if (elf_version(EV_CURRENT) == EV_NONE) {
-        DRCCTLIB_EXIT_PROCESS("WARNING Elf Library is out of date!");
+compute_static_var(const module_data_t *info)
+{   
+    file_t fd = dr_open_file(info->full_path, O_RDONLY);
+    uint64 file_size;
+    if (fd == INVALID_FILE) {
+        DRCCTLIB_PRINTF("------ unable to open %s", info->full_path);
+        return;
     }
-
+    if (!dr_file_size(fd, &file_size)) {
+        DRCCTLIB_PRINTF("------ unable to get file size %s", info->full_path);
+        return;
+    }
+    size_t map_size = file_size;
+    void *map_base =
+        dr_map_file(fd, &map_size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
+    /* map_size can be larger than file_size */
+    if (map_base== NULL || map_size < file_size) {
+        DRCCTLIB_PRINTF("------ unable to map %s", info->full_path);
+        return;
+    }
+    // DRCCTLIB_PRINTF("------ success map %s", info->full_path);
     // in memory
-    elf = elf_begin(fd, ELF_C_READ,
-                    NULL); // Initialize 'elf' pointer to our file descriptor
-
-    // Iterate each section until symtab section for object symbols
-    while ((scn = elf_nextscn(elf, scn)) != NULL) {
-        gelf_getshdr(scn, &shdr);
-
-        if (shdr.sh_type == SHT_SYMTAB) {
-            edata = elf_getdata(scn, edata);
-            symbol_count = shdr.sh_size / shdr.sh_entsize;
-
-            for (i = 0; i < symbol_count; i++) {
-                if (gelf_getsym(edata, i, &sym) == NULL) {
-                    DRCCTLIB_PRINTF("gelf_getsym return NULL");
-                    DRCCTLIB_EXIT_PROCESS("%s", elf_errmsg(elf_errno()));
-                }
-
-                if ((sym.st_size == 0) ||
-                    (ELF32_ST_TYPE(sym.st_info) != STT_OBJECT)) { // not a variable
-                    continue;
-                }
-
-                data_handle_t data_hndl;
-                data_hndl.object_type = STATIC_OBJECT;
-                char *sym_name = elf_strptr(elf, shdr.sh_link, sym.st_name);
-                data_hndl.sym_name = sym_name ? next_string_pool_idx(sym_name) : 0;
-                // DRCCTLIB_PRINTF("STATIC_OBJECT %s", sym_name);
-                init_shadow_memory_space((void *)((uint64_t)(info->start) + sym.st_value),
-                                         (uint32_t)sym.st_size, &data_hndl);
+    Elf *elf = elf_memory((char *)map_base, map_size); // Initialize 'elf' pointer to our file descriptor
+    for (Elf_Scn *scn = elf_getscn(elf, 0); scn != NULL; scn = elf_nextscn(elf, scn)) {
+        Elf_Shdr *shdr = elf_getshdr(scn);
+        if (shdr == NULL || shdr->sh_type != SHT_SYMTAB)
+            continue;
+        int symbol_count = shdr->sh_size / shdr->sh_entsize;
+        Elf_Sym *syms = (Elf_Sym *)(((char *)map_base) + shdr->sh_offset);
+        for (int i = 0; i < symbol_count; i++) {
+            if ((syms[i].st_size == 0) ||
+                (ELF_ST_TYPE(syms[i].st_info) != STT_OBJECT)) { // not a variable
+                continue;
             }
+            data_handle_t data_hndl;
+            data_hndl.object_type = STATIC_OBJECT;
+            char *sym_name = elf_strptr(elf, shdr->sh_link, syms[i].st_name);
+            data_hndl.sym_name = sym_name ? next_string_pool_idx(sym_name) : 0;
+            // DRCCTLIB_PRINTF("STATIC_OBJECT %s %d", sym_name, (uint32_t)syms[i].st_size);
+            init_shadow_memory_space((void *)((uint64_t)(info->start) + syms[i].st_value),
+                                        (uint32_t)syms[i].st_size, &data_hndl);
         }
     }
-#endif
+    dr_unmap_file(map_base, map_size);
+    dr_close_file(fd);
 }
 
 static inline app_pc
@@ -1108,27 +1159,39 @@ insert_func_instrument_by_drwap(const module_data_t *info, const char *func_name
     }
 }
 
+#define ATOM_ADD_MODULE_KEY(origin) dr_atomic_add32_return_sum(&origin, 1)
+#define MODULE_KEY_START 1
+static inline int32_t
+bb_get_module_key()
+{
+    static int32_t global_module_next_key = MODULE_KEY_START;
+    int32_t key = ATOM_ADD_MODULE_KEY(global_module_next_key);
+    return key - 1;
+}
+
 static void
 drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info, bool loaded)
 {
-    // static analysis
-    char filename[PATH_MAX];
-    char *result = realpath(info->full_path, filename);
-    if (result == NULL) {
-        DRCCTLIB_PRINTF("%s ---- failed to resolve path", info->full_path);
-    } else {
-        DRCCTLIB_PRINTF("%s ---- success to resolve path", info->full_path);
-        compute_static_var(filename, info);
+    if((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {// static analysis
+        compute_static_var(info);
+        // dynamic analysis
+        insert_func_instrument_by_drwap(info, FUNC_NAME_MALLOC, capture_malloc_size,
+                                                    capture_malloc_pointer);
+        insert_func_instrument_by_drwap(info, FUNC_NAME_CALLOC, capture_calloc_size,
+                                                    capture_malloc_pointer);
+        insert_func_instrument_by_drwap(info, FUNC_NAME_REALLOC, capture_realloc_size,
+                                                    capture_malloc_pointer);
+        insert_func_instrument_by_drwap(info, FUNC_NAME_FREE, capture_free, NULL);
     }
-
-    // dynamic analysis
-    insert_func_instrument_by_drwap(info, FUNC_NAME_MALLOC, capture_malloc_size,
-                                             capture_malloc_pointer);
-    insert_func_instrument_by_drwap(info, FUNC_NAME_CALLOC, capture_calloc_size,
-                                             capture_malloc_pointer);
-    insert_func_instrument_by_drwap(info, FUNC_NAME_REALLOC, capture_realloc_size,
-                                             capture_malloc_pointer);
-    insert_func_instrument_by_drwap(info, FUNC_NAME_FREE, capture_free, NULL);
+    if((global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
+        dr_mutex_lock(module_data_lock);
+        void* offline_data = hashtable_lookup(&global_module_date_table, (void *)info->start);
+        if (offline_data == NULL) {
+            offline_data = (void *)offline_module_date_create(info, bb_get_module_key());
+            hashtable_add(&global_module_date_table, (void *)(ptr_int_t)info->start, offline_data);
+        }
+        dr_mutex_unlock(module_data_lock);
+    }
 }
 
 static void
@@ -1211,6 +1274,7 @@ create_global_locks()
 {
     flags_lock = dr_recurlock_create();
     bb_shadow_lock = dr_mutex_create();
+    module_data_lock = dr_mutex_create();
     bb_node_cache_lock = dr_mutex_create();
     splay_node_cache_lock = dr_mutex_create();
 }
@@ -1341,14 +1405,14 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
             ctxt = ctxt_create(ctxt_hndl, sym.line, addr);
         }
         sprintf(ctxt->func_name, "%s", sym.name);
-        sprintf(ctxt->file_path, "%s", data->full_path);
+        sprintf(ctxt->file_path, "%s", sym.file);
         sprintf(ctxt->code_asm, "%s", code);
         dr_free_module_data(data);
         return ctxt;
     } else {
         context_t *ctxt = ctxt_create(ctxt_hndl, 0, addr);
         sprintf(ctxt->func_name, "<noname>");
-        sprintf(ctxt->file_path, "%s", data->full_path);
+        sprintf(ctxt->file_path, "%s", sym.file);
         sprintf(ctxt->code_asm, "%s", code);
         dr_free_module_data(data);
         return ctxt;
@@ -1401,12 +1465,22 @@ drcctlib_init(char flag)
         return false;
     }
     if((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0){
-        global_shadow_memory = new ConcurrentShadowMemory<data_handle_t>();
+        if (elf_version(EV_CURRENT) == EV_NONE) {
+            DRCCTLIB_PRINTF("INIT DATA CENTRIC FAIL: Elf Library is out of date!");
+            global_flags -= DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE;
+        } else {
+            global_shadow_memory = new ConcurrentShadowMemory<data_handle_t>();
+        }
+    }
+    if((global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
+        hashtable_init_ex(&global_module_date_table, OFFLINE_MODULE_DATA_TABLE_HASH_BITS, HASH_INTPTR,
+                      false /*!strdup*/, false /*!synch*/, offline_module_date_free, NULL, NULL);
+    }
+    if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0 ||
+        (global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
         drmgr_register_module_load_event(drcctlib_event_module_load_analysis);
         drmgr_register_module_unload_event(drcctlib_event_module_unload_analysis);
     }
-    
-
 
     hashtable_init(&global_bb_key_table, BB_TABLE_HASH_BITS, HASH_INTPTR, false);
     hashtable_init_ex(&global_bb_shadow_table, BB_TABLE_HASH_BITS, HASH_INTPTR,
@@ -1415,6 +1489,8 @@ drcctlib_init(char flag)
     
     hashtable_init_ex(&global_pt_cache_table, PT_CACHE_TABLE_HASH_BITS, HASH_INTPTR,
                       false /*!strdup*/, false /*!synch*/, pt_cache_free, NULL, NULL);
+
+    
 
     create_global_locks();
 
@@ -1453,10 +1529,16 @@ drcctlib_exit(void)
         !drmgr_unregister_tls_field(tls_idx)) {
         DRCCTLIB_PRINTF("failed to unregister in drcctlib_exit");
     }
-    if((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0){
+    if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0 ||
+        (global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
         drmgr_unregister_module_load_event(drcctlib_event_module_load_analysis);
         drmgr_unregister_module_unload_event(drcctlib_event_module_unload_analysis);
+    }
+    if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
         delete global_shadow_memory;
+    }
+    if ((global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
+        hashtable_delete(&global_module_date_table);
     }
 
     hashtable_delete(&global_bb_key_table);
@@ -1589,48 +1671,59 @@ drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl)
 
 DR_EXPORT
 void
-drcctlib_print_ctxt_hndl_msg(context_handle_t ctxt_hndl, bool print_asm,
+drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print_asm,
                              bool print_file_path)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
         DRCCTLIB_EXIT_PROCESS("drcctlib_print_ctxt_hndl_msg: !ctxt_hndl_is_valid");
     }
+
+    if(file == INVALID_FILE) {
+        file = log_file;
+    }
     context_t *ctxt = ctxt_get_from_ctxt_hndl(ctxt_hndl);
     if (print_asm && print_file_path) {
-        dr_fprintf(log_file, "%s(%d):\"(%p)%s\"[%s]\n", ctxt->func_name, ctxt->line_no,
+        dr_fprintf(file, "%s(%d):\"(%p)%s\"[%s]\n", ctxt->func_name, ctxt->line_no,
                    (uint64_t)ctxt->ip, ctxt->code_asm, ctxt->file_path);
     } else if (print_asm) {
-        dr_fprintf(log_file, "%s(%d):\"(%p)%s\"\n", ctxt->func_name, ctxt->line_no,
+        dr_fprintf(file, "%s(%d):\"(%p)%s\"\n", ctxt->func_name, ctxt->line_no,
                    (uint64_t)ctxt->ip, ctxt->code_asm);
     } else if (print_file_path) {
-        dr_fprintf(log_file, "%s(%d):\"(%p)\"[%s]\n", ctxt->func_name, ctxt->line_no,
+        dr_fprintf(file, "%s(%d):\"(%p)\"[%s]\n", ctxt->func_name, ctxt->line_no,
                    (uint64_t)ctxt->ip, ctxt->file_path);
     } else {
-        dr_fprintf(log_file, "%s(%d):\"(%p)\"\n", ctxt->func_name, ctxt->line_no,
+        dr_fprintf(file, "%s(%d):\"(%p)\"\n", ctxt->func_name, ctxt->line_no,
                    (uint64_t)ctxt->ip);
     }
 }
 
 DR_EXPORT
 void
-drcctlib_print_full_cct(context_handle_t ctxt_hndl, bool print_asm, bool print_file_path,
+drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm, bool print_file_path,
                         int max_depth)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
         DRCCTLIB_EXIT_PROCESS("drcctlib_print_full_cct: !ctxt_hndl_is_valid");
     }
+    bool print_all = false;
+    if(max_depth == 0) {
+        print_all = true;
+    }
+    if(file == INVALID_FILE) {
+        file = log_file;
+    }
     int depth = 0;
     while (true) {
-        drcctlib_print_ctxt_hndl_msg(ctxt_hndl, print_asm, print_file_path);
+        drcctlib_print_ctxt_hndl_msg(file, ctxt_hndl, print_asm, print_file_path);
         if (ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
             break;
         }
-        if (depth >= max_depth) {
-            dr_fprintf(log_file, "Truncated call path (due to client deep call chain)\n");
+        if (!print_all && depth >= max_depth) {
+            dr_fprintf(file, "Truncated call path (due to client deep call chain)\n");
             break;
         }
-        if (depth >= MAX_CCT_PRINT_DEPTH) {
-            dr_fprintf(log_file, "Truncated call path (due to deep call chain)\n");
+        if (!print_all && depth >= MAX_CCT_PRINT_DEPTH) {
+            dr_fprintf(file, "Truncated call path (due to deep call chain)\n");
             break;
         }
 
@@ -1645,6 +1738,10 @@ drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
         DRCCTLIB_EXIT_PROCESS("drcctlib_get_full_cct !ctxt_hndl_is_valid");
+    }
+    bool get_all = false;
+    if(max_depth == 0) {
+        get_all = true;
     }
     context_t *start = NULL;
     context_t *list_pre_ptr = NULL;
@@ -1662,7 +1759,7 @@ drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth)
         if (ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
             break;
         }
-        if (depth >= max_depth) {
+        if (!get_all && depth >= max_depth) {
             context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
             sprintf(ctxt->func_name,
                     "Truncated call path (due to client deep call chain)");
@@ -1672,7 +1769,7 @@ drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth)
             list_pre_ptr = ctxt;
             break;
         }
-        if (depth >= MAX_CCT_PRINT_DEPTH) {
+        if (!get_all && depth >= MAX_CCT_PRINT_DEPTH) {
             context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
             sprintf(ctxt->func_name,
                     "Truncated call path (due to drcctlib deep call chain)");
@@ -1753,23 +1850,1168 @@ have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2
 // API to get the handle for a data object
 DR_EXPORT
 data_handle_t
-GetDataObjectHandle(void *drcontext, void *address)
+drcctlib_get_date_hndl(void *drcontext, void *address)
 {
-    data_handle_t data_hndl;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     // if it is a stack location, set so and return
-    if (address > pt->stack_end && address < pt->stack_base) {
+    if (pt->stack_unlimited && address > pt->stack_end && address < pt->stack_base) {
+        data_handle_t data_hndl;
         data_hndl.object_type = STACK_OBJECT;
         return data_hndl;
     }
-    data_hndl = *(GetOrCreateShadowAddress<0>(*global_shadow_memory,
-                                               (size_t)(uint64_t)address));
-    return data_hndl;
+    data_handle_t *ptr = GetOrCreateShadowAddress<0>(*global_shadow_memory,
+                                               (size_t)(uint64_t)address);
+    if(ptr != NULL) {
+        return *ptr;
+    } else {
+        data_handle_t data_hndl;
+        data_hndl.object_type = UNKNOWN_OBJECT;
+        return data_hndl;
+    }
 }
 
 DR_EXPORT
 char *
-GetStringFromStringPool(int index)
+drcctlib_get_str_from_strpool(int index)
 {
     return global_string_pool+ index;
 }
+
+/* ==================================drcctlib ext for hpctoolkit===================================*/
+static inline app_pc
+get_ip_from_ctxt(context_handle_t ctxt)
+{
+    cct_bb_node_t *bb = ctxt_hndl_to_ip_node(ctxt)->parent_bb_node;
+    bb_shadow_t *bb_shadow = (bb_shadow_t *)hashtable_lookup(
+        &global_bb_shadow_table, (void *)(ptr_int_t)(bb->key));
+    slot_t slot = ctxt - bb->child_ctxt_start_idx;
+    return bb_shadow->ip_shadow[slot];
+}
+
+static inline app_pc
+get_ip_from_ip_node(cct_ip_node_t* ip_node)
+{
+    context_handle_t ctxt = ip_node_to_ctxt_hndl(ip_node);
+    cct_bb_node_t *bb = ip_node->parent_bb_node;
+    bb_shadow_t *bb_shadow = (bb_shadow_t *)hashtable_lookup(&global_bb_shadow_table,
+                                                          (void *)(ptr_int_t)(bb->key));
+    slot_t slot = ctxt - bb->child_ctxt_start_idx;
+    return bb_shadow->ip_shadow[slot];
+}
+
+static void
+get_full_calling_ip_vector(context_handle_t ctxt_hndl, vector<app_pc> &list)
+{
+    if (!ctxt_hndl_is_valid(ctxt_hndl)) {
+        DRCCTLIB_EXIT_PROCESS("drcctlib_get_full_cct !ctxt_hndl_is_valid");
+    }
+    context_handle_t cur_ctxt = ctxt_hndl;
+    while (true) {
+        cct_bb_node_t *parent_bb = ctxt_hndl_to_ip_node(cur_ctxt)->parent_bb_node;
+        if(parent_bb->key == THREAD_ROOT_BB_SHARED_BB_KEY) {
+            break;
+        }
+        slot_t slot = cur_ctxt - parent_bb->child_ctxt_start_idx;
+        bb_shadow_t *shadow = (bb_shadow_t *)hashtable_lookup(&global_bb_shadow_table,
+                                                          (void *)(ptr_int_t)(parent_bb->key));
+        app_pc ip = shadow->ip_shadow[slot];
+        list.push_back(ip);
+
+        cur_ctxt = parent_bb->caller_ctxt_hndl;
+    }
+}
+
+/* ==================================hpcviewer support===================================*/
+/*
+ * This support is added by Xiaonan Hu and tailored by Xu Liu at College of William and Mary.
+ */
+     
+// necessary macros
+#define HASH_PRIME 2001001003
+#define HASH_GEN   4001
+#define SPINLOCK_UNLOCKED_VALUE (0L)
+#define SPINLOCK_LOCKED_VALUE (1L)
+#define OSUtil_hostid_NULL (-1)
+#define INITIALIZE_SPINLOCK(x) { .thelock = (x) }
+#define SPINLOCK_UNLOCKED INITIALIZE_SPINLOCK(SPINLOCK_UNLOCKED_VALUE)
+#define SPINLOCK_LOCKED INITIALIZE_SPINLOCK(SPINLOCK_LOCKED_VALUE)
+
+#define HPCRUN_FMT_NV_prog       "program-name"
+#define HPCRUN_FMT_NV_progPath   "program-path"
+#define HPCRUN_FMT_NV_envPath    "env-path"
+#define HPCRUN_FMT_NV_jobId      "job-id"
+#define HPCRUN_FMT_NV_mpiRank    "mpi-id"
+#define HPCRUN_FMT_NV_tid        "thread-id"
+#define HPCRUN_FMT_NV_hostid     "host-id"
+#define HPCRUN_FMT_NV_pid        "process-id"
+#define HPCRUN_SAMPLE_PROB       "HPCRUN_PROCESS_FRACTION"
+#define HPCRUN_FMT_NV_traceMinTime "trace-min-time"
+#define HPCRUN_FMT_NV_traceMaxTime "trace-max-time"
+
+#define FILENAME_TEMPLATE "%s/%s-%06u-%03d-%08lx-%u-%d.%s"
+#define TEMPORARY "%s/%s-"
+#define RANK 0
+
+#define FILES_RANDOM_GEN 4
+#define FILES_MAX_GEN 11
+#define FILES_EARLY 0x1
+#define FILES_LATE 0x2 
+#define DEFAULT_PROB 0.1
+
+// *** atomic-op-asm.h && atomic-op-gcc.h ***
+#if defined (LL_BODY) && defined(SC_BODY)
+
+#define read_modify_write(type, addr, expn, result) {  \
+  type __new;    \
+  do {           \
+    result = (type) load_linked((unsigned long*)addr); \
+    __new = expn;\
+} while (!store_conditional((unsigned long*)addr, (unsigned long) __new)); \
+}
+#else
+
+#define read_modify_write(type, addr, expn, result) {            \
+  type __new;                                                    \
+  do {                                                           \
+    result = *addr;                                              \
+    __new = expn;                                                \
+  } while (compare_and_swap(addr, result, __new) != result);     \
+}
+#endif
+
+#define compare_and_swap(addr, oldval, newval) \
+    __sync_val_compare_and_swap(addr, oldval, newval)
+
+// ***********************
+
+#define MAX_METRICS (10)
+#define MAX_LEN (128)
+typedef struct _hpc_format_global_t {
+    bool metric_cct;
+    int metric_num;
+    char metric_name_arry[MAX_METRICS][MAX_LEN];
+    hpcviewer_format_ip_node_t *gHPCRunCCTRoot;
+    uint64_t nodeCount;
+} hpc_format_global_t;
+static hpc_format_global_t global_hpc_fmt_data;
+
+
+
+// create a new node type to substitute cct_ip_node_t and cct_bb_node_t
+struct hpcviewer_format_ip_node_t {
+    int32_t parentID;
+    hpcviewer_format_ip_node_t* parentIPNode;
+
+    int32_t ID;
+    app_pc IPAddress;
+    uint64_t *metricVal;
+    
+	vector<hpcviewer_format_ip_node_t *> childIPNodes;
+};
+
+
+typedef enum {
+  MetricFlags_Ty_NULL = 0,
+  MetricFlags_Ty_Raw,
+  MetricFlags_Ty_Final,
+  MetricFlags_Ty_Derived
+} MetricFlags_Ty_t;
+
+
+typedef enum {
+  MetricFlags_ValTy_NULL = 0,
+  MetricFlags_ValTy_Incl,
+  MetricFlags_ValTy_Excl
+} MetricFlags_ValTy_t;
+
+
+typedef enum {
+  MetricFlags_ValFmt_NULL = 0,
+  MetricFlags_ValFmt_Int,
+  MetricFlags_ValFmt_Real,
+} MetricFlags_ValFmt_t;
+
+
+typedef struct epoch_flags_bitfield {
+  bool isLogicalUnwind : 1;
+  uint64_t unused      : 63;
+} epoch_flags_bitfield;
+
+
+typedef union epoch_flags_t {
+  epoch_flags_bitfield fields;
+  uint64_t             bits; // for reading/writing
+} epoch_flags_t;
+
+
+typedef struct metric_desc_properties_t {
+  unsigned time:1;
+  unsigned cycles:1;
+} metric_desc_properties_t;
+
+
+typedef struct hpcrun_metricFlags_fields {
+  MetricFlags_Ty_t      ty    : 8;
+  MetricFlags_ValTy_t   valTy : 8;
+  MetricFlags_ValFmt_t  valFmt: 8;
+  uint8_t               unused0;
+  uint16_t              partner;
+  uint8_t  /*bool*/     show;
+  uint8_t /*bool*/      showPercent;
+  uint64_t              unused1;
+} hpcrun_metricFlags_fields;
+
+
+typedef union hpcrun_metricFlags_t {
+  hpcrun_metricFlags_fields fields;
+  uint8_t bits[2 * 8]; // for reading/writing
+  uint64_t bits_big[2]; // for easy initialization
+} hpcrun_metricFlags_t;
+
+typedef struct metric_desc_t {
+  char* name;
+  char* description;
+  hpcrun_metricFlags_t flags;
+  uint64_t period;
+  metric_desc_properties_t properties;
+  char* formula;
+  char* format;
+  bool is_frequency_metric;
+} metric_desc_t;
+
+
+typedef struct spinlock_t {
+  volatile long thelock;
+} spinlock_t;
+
+
+struct fileid {
+  int done;
+  long host;
+  int gen;
+};
+
+
+extern const metric_desc_t metricDesc_NULL;
+
+const metric_desc_t metricDesc_NULL = {
+  NULL, // name
+  NULL, // description
+  MetricFlags_Ty_NULL,
+  MetricFlags_ValTy_NULL,
+  MetricFlags_ValFmt_NULL,
+  0, // fields.unused0
+  0, // fields.partner
+  (uint8_t)true, // fields.show
+  (uint8_t)true, // fields.showPercent
+  0, // unused 1
+  0, // period
+  0, // properties.time
+  0, // properties.cycles
+  NULL,
+  NULL,
+};
+
+
+
+extern const hpcrun_metricFlags_t hpcrun_metricFlags_NULL;
+
+const hpcrun_metricFlags_t hpcrun_metricFlags_NULL = {
+   MetricFlags_Ty_NULL,
+   MetricFlags_ValTy_NULL,
+   MetricFlags_ValFmt_NULL,
+   0, // fields.unused0
+   0, // fields.partner
+   (uint8_t)true, // fields.show
+   (uint8_t)true, // fields.showPercent
+   0, // unused 1
+};
+
+
+static epoch_flags_t epoch_flags = {
+  .bits = 0x0000000000000000
+};
+
+static const uint64_t default_measurement_granularity = 1;
+static const uint32_t default_ra_to_callsite_distance = 1;
+
+// ***************** file ************************
+static spinlock_t files_lock = SPINLOCK_UNLOCKED;
+static pid_t mypid = 0;
+static struct fileid earlyid;
+static struct fileid lateid;
+static int log_done = 0;
+static int log_rename_done = 0;
+static int log_rename_ret = 0;
+// ***********************************************
+/*   for HPCViewer output format     */
+string dirName;
+string filename;
+
+static int32_t global_fmt_ip_node_start = 0;
+
+// *************************************** format ****************************************
+static const char HPCRUN_FMT_Magic[] = "HPCRUN-profile____";
+static const int HPCRUN_FMT_MagicLen = (sizeof(HPCRUN_FMT_Magic)-1);
+static const char HPCRUN_FMT_Endian[] = "b";
+static const int HPCRUN_FMT_EndianLen = (sizeof(HPCRUN_FMT_Endian)-1);
+static const char HPCRUN_ProfileFnmSfx[] = "hpcrun";
+static const char HPCRUN_FMT_Version[] = "02.00";
+static const char HPCRUN_FMT_VersionLen = (sizeof(HPCRUN_FMT_Version)-1);
+static const char HPCRUN_FMT_EpochTag[] = "EPOCH___";
+static const int HPCRUN_FMT_EpochTagLen = (sizeof(HPCRUN_FMT_EpochTag)-1);
+const uint bufSZ = 32; // sufficient to hold a 64-bit integer in base 10
+int hpcfmt_str_fwrite(const char* str, FILE* outfs);
+int hpcrun_fmt_hdrwrite(FILE* fs);
+int hpcrun_fmt_hdr_fwrite(FILE* fs, const char* arg1, const char* arg2);
+int hpcrun_open_profile_file(int thread, const char* fileName);
+static int hpcrun_open_file(int thread, const char * suffix, int flags, const char* fileName);
+int hpcrun_fmt_loadmap_fwrite(FILE* fs);
+int hpcrun_fmt_epochHdr_fwrite(FILE* fs, epoch_flags_t flags,
+                               uint64_t measurementGranularity, uint32_t raToCallsiteOfst);
+static void hpcrun_files_init();
+uint OSUtil_pid();
+const char* OSUtil_jobid();
+long OSUtil_hostid();
+void hpcrun_set_metric_info_w_fn(int metric_id, const char* name,
+                            MetricFlags_ValFmt_t valFmt, size_t period, FILE* fs);
+size_t hpcio_ben_fwrite(uint64_t val, int n, FILE *fs);
+size_t hpcio_beX_fwrite(uint8_t val, size_t size, FILE* fs);
+
+// ******************************************************************************************
+
+// ****************Merge splay trees **************************************************
+void
+tranverseIPs(hpcviewer_format_ip_node_t *curIPNode, splay_node_t *splay_node,
+             uint64_t *nodeCount);
+hpcviewer_format_ip_node_t *
+constructIPNodeFromIP(hpcviewer_format_ip_node_t *parentIP, app_pc address,
+                      uint64_t *nodeCount);
+hpcviewer_format_ip_node_t *
+findSameIP(vector<hpcviewer_format_ip_node_t *> *nodes, cct_ip_node_t *node);
+hpcviewer_format_ip_node_t *
+findSameIPbyIP(vector<hpcviewer_format_ip_node_t *> nodes, app_pc address);
+void
+mergeIP(hpcviewer_format_ip_node_t *prev, cct_ip_node_t *cur, uint64_t *nodeCount);
+int32_t
+get_fmt_ip_node_new_id();
+// ************************************************************************************
+
+// ****************Print merged splay tree*********************************************
+void IPNode_fwrite(hpcviewer_format_ip_node_t* node, FILE* fs);
+void tranverseNewCCT(vector<hpcviewer_format_ip_node_t*> nodes, FILE* fs);
+// ************************************************************************************
+
+static int unsigned long
+fetch_and_store(volatile long *addr, long newval)
+{
+    long result;
+    read_modify_write(long, addr, newval, result);
+    return result;
+}
+
+static inline void
+spinlock_unlock(spinlock_t *l)
+{
+    l->thelock = SPINLOCK_UNLOCKED_VALUE;
+}
+
+static inline void
+spinlock_lock(spinlock_t *l)
+{
+    /* test-and-test-and-set lock*/
+    for (;;) {
+        while (l->thelock != SPINLOCK_UNLOCKED_VALUE)
+            ;
+
+        if (fetch_and_store(&l->thelock, SPINLOCK_LOCKED_VALUE) ==
+            SPINLOCK_UNLOCKED_VALUE) {
+            break;
+        }
+    }
+}
+
+uint
+OSUtil_pid()
+{
+    pid_t pid = getpid();
+    return (uint)pid;
+}
+
+const char *
+OSUtil_jobid()
+{
+    char *jid = NULL;
+
+    // Cobalt
+    jid = getenv("COBALT_JOB_ID");
+    if (jid)
+        return jid;
+
+    // PBS
+    jid = getenv("PBS_JOB_ID");
+    if (jid)
+        return jid;
+
+    // SLURM
+    jid = getenv("SLURM_JOB_ID");
+    if (jid)
+        return jid;
+
+    // Sun Grid Engine
+    jid = getenv("JOB_ID");
+    if (jid)
+        return jid;
+
+    return jid;
+}
+
+long
+OSUtil_hostid()
+{
+    // static long hostid = OSUtil_hostid_NULL;
+    // if (hostid == OSUtil_hostid_NULL) {
+    // //     DRCCTLIB_PRINTF("if (hostid == OSUtil_hostid_NULL) {");
+    // //     // gethostid returns a 32-bit id. treat it as unsigned to prevent useless sign
+    // //     // extension
+    //     hostid = (uint32_t)gethostid();
+    // //     DRCCTLIB_PRINTF("hostid = (uint32_t)gethostid();");
+    // }
+    // SYS_osf_gethostid();
+    
+    return 0xbad;
+}
+
+size_t
+hpcio_ben_fwrite(uint64_t val, int n, FILE *fs)
+{
+    size_t num_write = 0;
+    for (int shift = 8 * (n - 1); shift >= 0; shift -= 8) {
+        int c = fputc(((val >> shift) & 0xff), fs);
+        if (c == EOF) {
+            break;
+        }
+        num_write++;
+    }
+    return num_write;
+}
+
+size_t
+hpcio_beX_fwrite(uint8_t *val, size_t size, FILE *fs)
+{
+    size_t num_write = 0;
+    for (uint i = 0; i < size; ++i) {
+        int c = fputc(val[i], fs);
+        if (c == EOF)
+            break;
+        num_write++;
+    }
+    return num_write;
+}
+
+int
+hpcio_fclose(FILE *fs)
+{
+    if (fs && fclose(fs) == EOF) {
+        return 1;
+    }
+    return 0;
+}
+
+static inline int
+hpcfmt_int2_fwrite(uint16_t val, FILE *outfs)
+{
+    if (sizeof(uint16_t) != hpcio_ben_fwrite(val, 2, outfs)) {
+        return 0;
+    }
+    return 1;
+}
+
+static inline int
+hpcfmt_int4_fwrite(uint32_t val, FILE *outfs)
+{
+    if (sizeof(uint32_t) != hpcio_ben_fwrite(val, 4, outfs)) {
+        return 0;
+    }
+    return 1;
+}
+
+static inline int
+hpcfmt_int8_fwrite(uint64_t val, FILE *outfs)
+{
+    if (sizeof(uint64_t) != hpcio_ben_fwrite(val, 8, outfs)) {
+        return 0;
+    }
+    return 1;
+}
+
+static inline int
+hpcfmt_intX_fwrite(uint8_t *val, size_t size, FILE *outfs)
+{
+    if (size != hpcio_beX_fwrite(val, size, outfs)) {
+        return 0;
+    }
+    return 1;
+}
+
+int
+hpcfmt_str_fwrite(const char *str, FILE *outfs)
+{
+    unsigned int i;
+    uint32_t len = (str) ? strlen(str) : 0;
+    hpcfmt_int4_fwrite(len, outfs);
+
+    for (i = 0; i < len; i++) {
+        int c = fputc(str[i], outfs);
+
+        if (c == EOF)
+            return 0;
+    }
+
+    return 1;
+}
+
+static void
+hpcrun_files_init(void)
+{
+    pid_t cur_pid = getpid();
+    if (mypid != cur_pid) {
+        mypid = cur_pid;
+        earlyid.done = 0;
+        earlyid.host = OSUtil_hostid();
+        earlyid.gen = 0;
+        lateid = earlyid;
+        log_done = 0;
+        log_rename_done = 0;
+        log_rename_ret = 0;
+    }
+}
+
+// Replace "id" with the next unique id if possible. Normally, (hostid, pid, gen)
+// works after one or two iteration. To be extra robust (eg, hostid is not unique),
+// at some point, give up and pick a random hostid.
+// Returns: 0 on success, else -1 on failure.
+static int
+hpcrun_files_next_id(struct fileid *id)
+{
+    struct timeval tv;
+    int fd;
+
+    if (id->done || id->gen >= FILES_MAX_GEN) {
+        // failure, out of options
+        return -1;
+    }
+
+    id->gen++;
+    if (id->gen >= FILES_RANDOM_GEN) {
+        // give up and use a random host id
+        fd = open("/dev/urandom", O_RDONLY);
+        dr_printf("Inside hpcrun_files_next_id fd = %d\n", fd);
+        if (fd >= 0) {
+            ssize_t read_size = read(fd, &id->host, sizeof(id->host));
+            if(read_size == -1) {
+                dr_printf("hpcrun_files_next_id read_size == -1\n");
+            }
+            close(fd);
+        }
+        gettimeofday(&tv, NULL);
+        id->host += (tv.tv_sec << 20) + tv.tv_usec;
+        id->host &= 0x00ffffffff;
+    }
+    return 0;
+}
+
+static int
+hpcrun_open_file(int thread, const char *suffix, int flags, const char *fileName)
+{
+    char name[MAXIMUM_PATH];
+    struct fileid *id;
+    int fd, ret;
+
+    id = (flags & FILES_EARLY) ? &earlyid : &lateid;
+    for (;;) {
+        errno = 0;
+        ret = snprintf(name, MAXIMUM_PATH, FILENAME_TEMPLATE, dirName.c_str(), fileName, RANK,
+                       thread, id->host, mypid, id->gen, suffix);
+
+        if (ret >= MAXIMUM_PATH) {
+            fd = -1;
+            errno = ENAMETOOLONG;
+            break;
+        }
+
+        fd = open(name, O_WRONLY | O_CREAT | O_EXCL, 0644);
+
+        if (fd >= 0) {
+            // sucess
+            break;
+        }
+
+        if (errno != EEXIST || hpcrun_files_next_id(id) != 0) {
+            // failure, out of options
+            fd = -1;
+            break;
+        }
+    }
+
+    id->done = 1;
+
+    if (flags & FILES_EARLY) {
+        // late id starts where early id is chosen
+        lateid = earlyid;
+        lateid.done = 0;
+    }
+
+    if (fd < 0) {
+        dr_printf("cctlib_hpcrun: unable to open %s file: '%s': %s", suffix, name,
+               strerror(errno));
+    }
+
+    return fd;
+}
+
+int
+hpcrun_open_profile_file(int thread, const char *fileName)
+{
+    int ret;
+    spinlock_lock(&files_lock);
+    hpcrun_files_init();
+    ret = hpcrun_open_file(thread, HPCRUN_ProfileFnmSfx, FILES_LATE, fileName);
+    spinlock_unlock(&files_lock);
+    return ret;
+}
+
+// Write out the format for metric table. Needs updates
+void
+hpcrun_set_metric_info_w_fn(int metric_id, const char* name, size_t period, FILE* fs)
+{
+  // Write out the number of metric table in the program 
+  metric_desc_t mdesc = metricDesc_NULL;
+  mdesc.flags = hpcrun_metricFlags_NULL;
+
+  for (int i = 0; i < 16; i++) {
+     mdesc.flags.bits[i] = (uint8_t) 0x00;
+  }
+
+  mdesc.name = (char*) name;
+  mdesc.description = (char*) name; // TODO
+  mdesc.period = period;
+  mdesc.flags.fields.ty        = MetricFlags_Ty_Raw;
+  MetricFlags_ValFmt_t valFmt  = (MetricFlags_ValFmt_t) 1;
+  mdesc.flags.fields.valFmt    = valFmt;
+  mdesc.flags.fields.show      = true;
+  mdesc.flags.fields.showPercent  = true; 
+  mdesc.formula = NULL;
+  mdesc.format = NULL;
+  mdesc.is_frequency_metric = 0;
+
+  hpcfmt_str_fwrite(mdesc.name, fs);
+  hpcfmt_str_fwrite(mdesc.description, fs);
+  hpcfmt_intX_fwrite(mdesc.flags.bits, sizeof(mdesc.flags), fs); // Write metric flags bits for reading/writing
+  hpcfmt_int8_fwrite(mdesc.period, fs);
+  hpcfmt_str_fwrite(mdesc.formula, fs);
+  hpcfmt_str_fwrite(mdesc.format, fs);
+  hpcfmt_int2_fwrite(mdesc.is_frequency_metric, fs);
+  
+  // write auxaliary description to the table.
+  // These values are only related to perf, not applicable to cctlib, so set all to 0
+  hpcfmt_int2_fwrite(0, fs);
+  hpcfmt_int8_fwrite(0, fs);
+  hpcfmt_int8_fwrite(0, fs);
+}
+
+void 
+hpcrun_fmt_module_date_fwrite(void *payload, void *user_data)
+{
+    FILE * fs = (FILE *)user_data;
+    offline_module_data_t* module_data = (offline_module_data_t *)payload;
+    hpcfmt_int2_fwrite(module_data->id, fs); // Write loadmap id
+    hpcfmt_str_fwrite(module_data->path, fs); // Write loadmap name
+    hpcfmt_int8_fwrite((uint64_t)0, fs); 
+}
+
+int
+hpcrun_fmt_loadmap_fwrite(FILE *fs)
+{
+    // Write loadmap size
+    hpcfmt_int4_fwrite((uint32_t)global_module_date_table.entries, fs); // Write loadmap size
+    hashtable_apply_to_all_payloads_user_data(&global_module_date_table, hpcrun_fmt_module_date_fwrite, (void *)fs);
+    return 0;
+}
+
+int
+hpcrun_fmt_hdrwrite(FILE *fs)
+{
+    fwrite(HPCRUN_FMT_Magic, 1, HPCRUN_FMT_MagicLen, fs);
+    fwrite(HPCRUN_FMT_Version, 1, HPCRUN_FMT_VersionLen, fs);
+    fwrite(HPCRUN_FMT_Endian, 1, HPCRUN_FMT_EndianLen, fs);
+    return 1;
+}
+
+int
+hpcrun_fmt_epochHdr_fwrite(FILE *fs, epoch_flags_t flags, uint64_t measurementGranularity,
+                           uint32_t raToCallsiteOfst)
+{
+    fwrite(HPCRUN_FMT_EpochTag, 1, HPCRUN_FMT_EpochTagLen, fs);
+    hpcfmt_int8_fwrite(flags.bits, fs);
+    hpcfmt_int8_fwrite(measurementGranularity, fs);
+    hpcfmt_int4_fwrite(raToCallsiteOfst, fs);
+    hpcfmt_int4_fwrite((uint32_t)1, fs);
+    hpcrun_fmt_hdr_fwrite(fs, "TODO:epoch-name", "TODO:epoch-value");
+    return 1;
+}
+
+int
+hpcrun_fmt_hdr_fwrite(FILE *fs, const char *arg1, const char *arg2)
+{
+    hpcfmt_str_fwrite(arg1, fs);
+    hpcfmt_str_fwrite(arg2, fs);
+    return 1;
+}
+
+
+
+int32_t
+get_fmt_ip_node_new_id()
+{
+    int32_t next_fmt_ip_node_id =
+        dr_atomic_add32_return_sum(&global_fmt_ip_node_start, 2);
+    return next_fmt_ip_node_id;
+}
+
+// Construct hpcviewer_format_ip_node_t
+hpcviewer_format_ip_node_t *
+constructIPNodeFromIP(hpcviewer_format_ip_node_t *parentIP, app_pc address,
+                      uint64_t *nodeCount)
+{
+    hpcviewer_format_ip_node_t *curIP = new hpcviewer_format_ip_node_t();
+    curIP->childIPNodes.clear();
+    curIP->parentIPNode = parentIP;
+    curIP->IPAddress = address;
+    if(parentIP != NULL) {
+        curIP->parentID = parentIP->ID;
+    } else {
+        curIP->parentID = 0;
+    }
+    curIP->ID = get_fmt_ip_node_new_id();
+    if(global_hpc_fmt_data.metric_num > 0) {
+        curIP->metricVal = new uint64_t[global_hpc_fmt_data.metric_num];
+        for (int i = 0; i < global_hpc_fmt_data.metric_num; i++)
+            curIP->metricVal[i] = 0;
+    }
+    if(parentIP != NULL) {
+        parentIP->childIPNodes.push_back(curIP);
+    }
+    (*nodeCount)++;
+    return curIP;
+}
+
+// Check to see whether another cct_ip_node_t has the same address under the same parent
+hpcviewer_format_ip_node_t *
+findSameIP(vector<hpcviewer_format_ip_node_t *>* nodes, cct_ip_node_t *node)
+{
+    app_pc address = get_ip_from_ip_node(node);
+    for (size_t i = 0; i < (*nodes).size(); i++) {
+        if ((*nodes).at(i)->IPAddress == address)
+            return (*nodes).at(i);
+    }
+    return NULL;
+}
+
+hpcviewer_format_ip_node_t *
+findSameIPbyIP(vector<hpcviewer_format_ip_node_t *> nodes, app_pc address)
+{
+    for (size_t i = 0; i < nodes.size(); i++) {
+        if (nodes.at(i)->IPAddress == address)
+            return nodes.at(i);
+    }
+    return NULL;
+}
+
+// Merging the children of two nodes
+void
+mergeIP(hpcviewer_format_ip_node_t *prev, cct_ip_node_t *cur, uint64_t *nodeCount)
+{
+    if (cur->callee_splay_tree_root) {
+        tranverseIPs(prev, cur->callee_splay_tree_root, nodeCount);
+    }
+    return;
+}
+
+// Inorder tranversal of the previous splay tree and create the new tree
+void
+tranverseIPs(hpcviewer_format_ip_node_t *curIPNode, splay_node_t *splay_node,
+             uint64_t *nodeCount)
+{
+    if (NULL == splay_node)
+        return;
+
+    cct_bb_node_t *bb_node = (cct_bb_node_t *)splay_node->payload;
+
+    tranverseIPs(curIPNode, splay_node->left, nodeCount);
+
+    for (slot_t i = 0; i < bb_node->max_slots; i++) {
+        hpcviewer_format_ip_node_t *sameIP = findSameIP(
+            &(curIPNode->childIPNodes),
+            ctxt_hndl_to_ip_node(bb_node->child_ctxt_start_idx + i));
+        if (sameIP) {
+            mergeIP(sameIP,
+                    ctxt_hndl_to_ip_node(bb_node->child_ctxt_start_idx + i),
+                    nodeCount);
+        } else {
+            cct_ip_node_t *ip_node = ctxt_hndl_to_ip_node(bb_node->child_ctxt_start_idx + i);
+            app_pc addr = get_ip_from_ip_node(ip_node);
+            hpcviewer_format_ip_node_t * new_fmt_node = constructIPNodeFromIP(curIPNode, addr, nodeCount);
+            // curIPNode->childIPNodes.push_back(new_fmt_node);
+            if (ip_node->callee_splay_tree_root) {
+                if(global_hpc_fmt_data.metric_cct){
+                    new_fmt_node->metricVal[0] = 0;
+                }
+                tranverseIPs(new_fmt_node, ip_node->callee_splay_tree_root, nodeCount);
+            } else {
+                new_fmt_node->ID = -new_fmt_node->ID;
+                if(global_hpc_fmt_data.metric_cct){
+                    new_fmt_node->metricVal[0] = 1;
+                }
+            }
+        }
+    }
+    tranverseIPs(curIPNode, splay_node->right, nodeCount);
+    return;
+}
+
+// Write out each IP's id, parent id, loadmodule id (1) and address
+void
+IPNode_fwrite(hpcviewer_format_ip_node_t *node, FILE *fs)
+{
+    if (node == NULL)
+        return;
+    hpcfmt_int4_fwrite(node->ID, fs);
+    hpcfmt_int4_fwrite(node->parentID, fs);
+
+    // adjust the IPaddress to point to return address of the callsite (internal nodes)
+    // for hpcrun requirement
+    
+    
+    if (node->IPAddress == 0) {
+        hpcfmt_int2_fwrite(0, fs);
+        hpcfmt_int8_fwrite((uint64_t)node->IPAddress, fs);
+    } else {
+        if (node->ID > 0)
+            node->IPAddress++;
+        module_data_t *info = dr_lookup_module(node->IPAddress);
+        offline_module_data_t *off_module_data = (offline_module_data_t *)hashtable_lookup(
+            &global_module_date_table, (void *)info->start);
+        hpcfmt_int2_fwrite(off_module_data->id, fs); // Set loadmodule id to 1
+        // normalize the IP offset to the beginning of the load module and write out
+        hpcfmt_int8_fwrite((uint64_t)(node->IPAddress - off_module_data->start), fs);
+    }
+
+    // this uses .metric field in the hpcviewer_format_ip_node_t, which means we have per
+    // cct_ip_node_t metric for this case, by default, we only have one metric
+    for (int i = 0; i < global_hpc_fmt_data.metric_num; i++)
+        hpcfmt_int8_fwrite(node->metricVal[i], fs);
+    return;
+}
+
+// Tranverse and print the calling context tree (nodes first)
+void
+tranverseNewCCT(vector<hpcviewer_format_ip_node_t *> nodes, FILE *fs)
+{
+
+    if (nodes.size() == 0)
+        return;
+    size_t i;
+
+    for (i = 0; i < nodes.size(); i++) {
+        IPNode_fwrite(nodes.at(i), fs);
+    }
+    for (i = 0; i < nodes.size(); i++) {
+
+        if (nodes.at(i)->childIPNodes.size() != 0) {
+            tranverseNewCCT(nodes.at(i)->childIPNodes, fs);
+        }
+    }
+    return;
+}
+
+void
+hpcrun_insert_path(hpcviewer_format_ip_node_t *root, HPCRunCCT_t *HPCRunNode,
+                   uint64_t *nodeCount)
+{
+    if (HPCRunNode->ctxtHandle1 == 0) {
+        return;
+    }
+    vector<app_pc> contextVec1;
+    get_full_calling_ip_vector(HPCRunNode->ctxtHandle1, contextVec1);
+    hpcviewer_format_ip_node_t *tmp;
+    hpcviewer_format_ip_node_t *cur = root;
+    for (int32_t i = contextVec1.size() - 1; i >= 0; i--) {
+        tmp = findSameIPbyIP(cur->childIPNodes, contextVec1[i]);
+        if (!tmp) {
+            hpcviewer_format_ip_node_t *nIP =
+                constructIPNodeFromIP(cur, contextVec1[i], nodeCount);
+            cur = nIP;
+        } else {
+            cur = tmp;
+        }
+    }
+
+    if (HPCRunNode->ctxtHandle2 != 0) {
+        vector<app_pc> contextVec2;
+        get_full_calling_ip_vector(HPCRunNode->ctxtHandle2, contextVec2);
+        // concatenate the two contexts
+        for (int32_t i = contextVec2.size() - 1; i >= 0; i--) {
+            tmp = findSameIPbyIP(cur->childIPNodes, contextVec2[i]);
+            if (!tmp) {
+                hpcviewer_format_ip_node_t *nIP =
+                    constructIPNodeFromIP(cur, contextVec2[i], nodeCount);
+                cur = nIP;
+            } else {
+                cur = tmp;
+            }
+        }
+    }
+    cur->metricVal[HPCRunNode->metric_id] += HPCRunNode->metric;
+}
+
+void
+reset_leaf_node_id(hpcviewer_format_ip_node_t *root)
+{
+    if(root->childIPNodes.size() == 0) {
+        root->ID = - root->ID;
+    } else {
+        for (uint32_t i = 0; i < root->childIPNodes.size(); i++) {
+            reset_leaf_node_id(root->childIPNodes[i]);
+        }
+    }
+}
+
+// Initialize binary file and write hpcrun header
+FILE *
+lazy_open_data_file(int tID, string *filename)
+{
+    const char *fileCharName = filename->c_str();
+    int fd = hpcrun_open_profile_file(tID, fileCharName);
+    FILE *fs = fdopen(fd, "w");
+    
+    if (fs == NULL)
+        return NULL;
+    const char *jobIdStr = OSUtil_jobid();
+
+    if (!jobIdStr)
+        jobIdStr = "";
+
+    char mpiRankStr[bufSZ];
+    mpiRankStr[0] = '0';
+    snprintf(mpiRankStr, bufSZ, "%d", 0);
+    char tidStr[bufSZ];
+    snprintf(tidStr, bufSZ, "%d", tID);
+    char hostidStr[bufSZ];
+    snprintf(hostidStr, bufSZ, "%lx", OSUtil_hostid());
+    char pidStr[bufSZ];
+    snprintf(pidStr, bufSZ, "%u", OSUtil_pid());
+    char traceMinTimeStr[bufSZ];
+    snprintf(traceMinTimeStr, bufSZ, "%" PRIu64, (unsigned long int)0);
+    char traceMaxTimeStr[bufSZ];
+    snprintf(traceMaxTimeStr, bufSZ, "%" PRIu64, (unsigned long int)0);
+    // ======  file hdr  =====
+    hpcrun_fmt_hdrwrite(fs);
+    static int global_arg_len = 9;
+    hpcfmt_int4_fwrite(global_arg_len, fs);
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_prog, fileCharName);
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_progPath, filename->c_str());
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_envPath, getenv("PATH"));
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_jobId, jobIdStr);
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_tid, tidStr);
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_hostid, hostidStr);
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_pid, pidStr);
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_traceMinTime, traceMinTimeStr);
+    hpcrun_fmt_hdr_fwrite(fs, HPCRUN_FMT_NV_traceMaxTime, traceMaxTimeStr);
+    hpcrun_fmt_epochHdr_fwrite(fs, epoch_flags, default_measurement_granularity,
+                               default_ra_to_callsite_distance);
+    // log the number of metrics
+    hpcfmt_int4_fwrite((uint32_t)global_hpc_fmt_data.metric_num, fs);
+    // log each metric
+    for (int i = 0; i < global_hpc_fmt_data.metric_num; i++)
+        hpcrun_set_metric_info_w_fn(i, global_hpc_fmt_data.metric_name_arry[i], 1, fs);
+    hpcrun_fmt_loadmap_fwrite(fs);
+    return fs;
+}
+
+
+/*======APIs to support hpcviewer format======*/
+/*
+ * Initialize the formatting preparation
+ * (called by the clients)
+ * TODO: initialize metric table, provide custom metric merge functions
+ */
+DR_EXPORT
+void
+init_hpcrun_format(const char *app_name, bool metric_cct)
+{
+    filename = app_name;
+    // Create the measurement directory
+    dirName = "hpctoolkit-" + filename + "-measurements";
+    mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    // the current metric cursor is set to 1
+    global_hpc_fmt_data.metric_num = 0;
+    global_hpc_fmt_data.metric_cct = metric_cct;
+    if(metric_cct) {
+        hpcrun_create_metric("CCT");
+    }
+}
+
+/*
+ * API to create new metric
+ */
+DR_EXPORT
+int
+hpcrun_create_metric(const char *name)
+{
+    int t = global_hpc_fmt_data.metric_num;
+    strcpy(global_hpc_fmt_data.metric_name_arry[global_hpc_fmt_data.metric_num++], name);
+    return t;
+}
+
+/*
+ * Write the calling context tree of 'threadid' thread
+ * (Called from clientele program)
+ */
+DR_EXPORT
+int
+write_thread_all_cct_hpcrun_format(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    FILE *fs = lazy_open_data_file(pt->id, &filename);
+    if (!fs)
+        return -1;
+    cct_bb_node_t *root_bb_node = pt->root_bb_node;
+    
+    vector<hpcviewer_format_ip_node_t *> fmt_ip_node_vector;
+    for (slot_t i = 0; i < root_bb_node->max_slots; i++) {
+        cct_ip_node_t *ip_node = ctxt_hndl_to_ip_node(root_bb_node->child_ctxt_start_idx + i);
+        hpcviewer_format_ip_node_t *fmt_ip_node =
+            constructIPNodeFromIP(NULL, (app_pc)0, &pt->nodeCount);
+        fmt_ip_node_vector.push_back(fmt_ip_node);
+        if (ip_node->callee_splay_tree_root) {
+            if(global_hpc_fmt_data.metric_cct){
+                fmt_ip_node->metricVal[0] = 0;
+            }
+            tranverseIPs(fmt_ip_node, ip_node->callee_splay_tree_root, &pt->nodeCount);
+        } else {
+            fmt_ip_node->ID = -fmt_ip_node->ID;
+            if(global_hpc_fmt_data.metric_cct){
+                fmt_ip_node->metricVal[0] = 1;
+            }
+        }
+    }
+    hpcfmt_int8_fwrite(pt->nodeCount, fs);
+    tranverseNewCCT(fmt_ip_node_vector, fs);
+    hpcio_fclose(fs);
+    return 0;
+}
+
+// This API is used to output a hpcrun CCT with selected call paths
+DR_EXPORT
+int
+build_thread_custom_cct_hpurun_format(vector<HPCRunCCT_t *> &run_cct_list, void *drcontext)
+{
+
+    // build the hpcrun-style CCT
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    // initialize the root node (dummy node)
+    if (!pt->tlsHPCRunCCTRoot) {
+        pt->tlsHPCRunCCTRoot = new hpcviewer_format_ip_node_t();
+        pt->tlsHPCRunCCTRoot->childIPNodes.clear();
+        pt->tlsHPCRunCCTRoot->IPAddress = 0;
+        pt->tlsHPCRunCCTRoot->ID = get_fmt_ip_node_new_id();
+        if(global_hpc_fmt_data.metric_num > 0) {
+            pt->tlsHPCRunCCTRoot->metricVal = new uint64_t[global_hpc_fmt_data.metric_num];
+            for (int i = 0; i < global_hpc_fmt_data.metric_num; i++)
+                pt->tlsHPCRunCCTRoot->metricVal[i] = 0;
+        }
+        pt->nodeCount = 1;
+    }
+
+    hpcviewer_format_ip_node_t *root = pt->tlsHPCRunCCTRoot;
+    vector<HPCRunCCT_t *>::iterator it;
+    for (it = run_cct_list.begin(); it != run_cct_list.end(); ++it) {
+        hpcrun_insert_path(root, *it, &pt->nodeCount);
+    }
+    reset_leaf_node_id(pt->tlsHPCRunCCTRoot);
+    return 0;
+}
+
+// output the CCT
+DR_EXPORT
+int
+write_thread_custom_cct_hpurun_format(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    FILE *fs = lazy_open_data_file(pt->id, &filename);
+    if (!fs)
+        return -1;
+
+    hpcviewer_format_ip_node_t * fmt_root_ip = pt->tlsHPCRunCCTRoot;
+
+    vector<hpcviewer_format_ip_node_t *> fmt_ip_node_vector;
+    for (uint32_t i = 0; i < fmt_root_ip->childIPNodes.size(); i++) {
+        fmt_ip_node_vector.push_back(fmt_root_ip->childIPNodes[i]);
+    }
+
+    hpcfmt_int8_fwrite(pt->nodeCount, fs);
+    IPNode_fwrite(fmt_root_ip, fs);
+    tranverseNewCCT(fmt_ip_node_vector, fs);
+    hpcio_fclose(fs);
+    return 0;
+}
+
+// This API is used to output a hpcrun CCT with selected call paths
+DR_EXPORT
+int
+build_progress_custom_cct_hpurun_format(vector<HPCRunCCT_t *> &run_cct_list)
+{
+    // initialize the root node (dummy node)
+    global_hpc_fmt_data.gHPCRunCCTRoot = new hpcviewer_format_ip_node_t();
+    global_hpc_fmt_data.gHPCRunCCTRoot->childIPNodes.clear();
+    global_hpc_fmt_data.gHPCRunCCTRoot->IPAddress = 0;
+    global_hpc_fmt_data.gHPCRunCCTRoot->ID = get_fmt_ip_node_new_id();
+    if(global_hpc_fmt_data.metric_num > 0) {
+        global_hpc_fmt_data.gHPCRunCCTRoot->metricVal = new uint64_t[global_hpc_fmt_data.metric_num];
+        for (int i = 0; i < global_hpc_fmt_data.metric_num; i++)
+            global_hpc_fmt_data.gHPCRunCCTRoot->metricVal[i] = 0;
+    }
+    global_hpc_fmt_data.nodeCount = 1;
+
+    hpcviewer_format_ip_node_t *root = global_hpc_fmt_data.gHPCRunCCTRoot;
+    vector<HPCRunCCT_t *>::iterator it;
+    for (it = run_cct_list.begin(); it != run_cct_list.end(); ++it) {
+        hpcrun_insert_path(root, *it, &global_hpc_fmt_data.nodeCount);
+    }
+    reset_leaf_node_id(global_hpc_fmt_data.gHPCRunCCTRoot);
+    return 0;
+}
+
+// output the CCT
+DR_EXPORT
+int
+write_progress_custom_cct_hpurun_format()
+{
+    FILE *fs = lazy_open_data_file(0, &filename);
+    if (!fs)
+        return -1;
+    hpcviewer_format_ip_node_t * fmt_root_ip = global_hpc_fmt_data.gHPCRunCCTRoot;
+    vector<hpcviewer_format_ip_node_t *> fmt_ip_node_vector;
+    for (uint32_t i = 0; i < fmt_root_ip->childIPNodes.size(); i++) {
+        fmt_ip_node_vector.push_back(fmt_root_ip->childIPNodes[i]);
+    }
+    
+    hpcfmt_int8_fwrite(global_hpc_fmt_data.nodeCount, fs);
+    IPNode_fwrite(fmt_root_ip, fs);
+    tranverseNewCCT(fmt_ip_node_vector, fs);
+    hpcio_fclose(fs);
+    return 0;
+}
+
+// ************************************************************

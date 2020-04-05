@@ -33,6 +33,7 @@ use_DynamoRIO_extension(drcctlib drsyms)
 use_DynamoRIO_extension(drcctlib drwrap)
 use_DynamoRIO_extension(drcctlib drreg)
 
+include_directories("${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/include")
 
 add_library(drcctlib_static STATIC ${srcs_static})
 configure_extension(drcctlib_static ON)

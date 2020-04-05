@@ -76,9 +76,9 @@ echo -e "Enter \033[34m${APPSAMPLES}\033[0m.."
 cd ${APPSAMPLES}
 echo -e "\033[32mStart build app... \033[0m"
 # build sample1
-g++ -g ${APPSAMPLES_SRC}/sample/sample.cxx -o ${APPSAMPLES_BUILD}/sample 
-g++ -g ${APPSAMPLES_SRC}/sample/sample_cct.cxx -o ${APPSAMPLES_BUILD}/sample_cct 
+g++ -g ${APPSAMPLES_SRC}/sample/sample_cct.cxx -o ${APPSAMPLES_BUILD}/sample_cct
 g++ -g ${APPSAMPLES_SRC}/sample/sample_multithread.cxx -o ${APPSAMPLES_BUILD}/sample_multithread -pthread
+g++ -g ${APPSAMPLES_SRC}/sample/sample_reuse.cxx -o ${APPSAMPLES_BUILD}/sample_reuse
 echo -e "\033[32m Build app successfully! \033[0m"
 echo -e "Leave \033[34m${APPSAMPLES}\033[0m.."
 cd ${CUR_DIR}
@@ -95,13 +95,26 @@ echo -e "\033[32mStart test... \033[0m"
 set +euo pipefail
 cd ${BUILD_LOG_PATH}
 
-echo "-----Testing Dynamorio---------" && ${RUN_DIRECTORY}/drrun echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 1---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APPSAMPLES}/build/sample > ${BUILD_LOG_PATH}/build_test.drcctlib_all_instr_cct.sample.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 2---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APPSAMPLES}/build/sample_cct > ${BUILD_LOG_PATH}/build_test.drcctlib_all_instr_cct.sample_cct.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 3---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APPSAMPLES}/build/sample_multithread > ${BUILD_LOG_PATH}/build_test.drcctlib_all_instr_cct.sample_multithread.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 4---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APPSAMPLES}/build/sample > ${BUILD_LOG_PATH}/build_test.drcctlib_instr_statistics.sample.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 5---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APPSAMPLES}/build/sample_cct > ${BUILD_LOG_PATH}/build_test.drcctlib_instr_statistics.sample_cct.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "-----Test 6---------" && ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APPSAMPLES}/build/sample_multithread > ${BUILD_LOG_PATH}/build_test.drcctlib_instr_statistics.sample_multithread.log 2>&1 && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo "*************************************************"
-echo "************* ALL TESTS PASSED ******************"
-echo "*************************************************"
+echo -e "\033[32m-----Testing Dynamorio---------\033[0m" && ${RUN_DIRECTORY}/drrun echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 1---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APPSAMPLES}/build/sample_cct > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 2---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APPSAMPLES}/build/sample_multithread > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 3---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APPSAMPLES}/build/sample_cct > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 4---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APPSAMPLES}/build/sample_multithread > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 5---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APPSAMPLES}/build/sample_reuse > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 6---------\033[0m" 
+cd ${BUILD_LOG_PATH}
+echo -e "\033[32m-----fine grind tool-----\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct_hpc_fmt -- ${APPSAMPLES}/build/sample_cct > /dev/null && echo -e "\033[32m-----PASSED-----\033[0m" || (echo -e "\033[31m-----FAILED-----\033[0m"; exit -1)
+cd ${CUR_DIR}
+${CUR_DIR}/machine_custom_hpc_fmt.sh sample_cct ${APPSAMPLES}/build/sample_cct $APPSAMPLES_SRC
+echo -e "\033[32m----------Finished---------\033[0m"
+
+echo -e "\033[32m----------Test 7---------\033[0m"
+cd ${BUILD_LOG_PATH}
+echo -e "\033[32m-----fine grind tool-----\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance_hpc_fmt -- ${APPSAMPLES}/build/sample_reuse > /dev/null&& echo -e "\033[32m-----PASSED-----\033[0m" || (echo -e "\033[31m-----FAILED-----\033[0m"; exit -1)
+cd ${CUR_DIR}
+${CUR_DIR}/machine_custom_hpc_fmt.sh sample_reuse ${APPSAMPLES}/build/sample_reuse $APPSAMPLES_SRC
+echo -e "\033[32m----------Finished---------\033[0m"
+
+echo -e "\033[32m*************************************************\033[0m"
+echo -e "\033[32m************* ALL TESTS Finished ****************\033[0m"
+echo -e "\033[32m*************************************************\033[0m"
