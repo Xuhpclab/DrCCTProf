@@ -409,7 +409,7 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
                              OPND_CREATE_CCT_INT(bb_num));
     }
 
-    reg_id_t reg_ctxt_hndl_addr, reg_tls;
+    reg_id_t reg_ctxt_hndl_addr;
     if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_ctxt_hndl_addr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("InstrumentInsCallback drreg_reserve_register != DRREG_SUCCESS");
     }
