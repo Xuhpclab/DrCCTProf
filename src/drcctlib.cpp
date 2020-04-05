@@ -2743,13 +2743,14 @@ hpcrun_insert_path(hpcviewer_format_ip_node_t *root, HPCRunCCT_t *runNode,
         return;
     }
     hpcviewer_format_ip_node_t *cur = root;
-    for(int i = 0; i < runNode->ctxt_hndl_list.size(); i++){
+    for(uint32_t i = 0; i < runNode->ctxt_hndl_list.size(); i++){
         context_handle_t cur_hndl = runNode->ctxt_hndl_list[i];
         if(cur_hndl == 0) {
             DRCCTLIB_PRINTF("USE ERROR: HPCRunCCT_t has invalid context_handle_t");
             break;
         }
-        vector<app_pc> cur_pc_list = get_full_calling_ip_vector(runNode->ctxtHandle1, contextVec1);
+        vector<app_pc> cur_pc_list;
+        get_full_calling_ip_vector(runNode->ctxt_hndl_list[i], cur_pc_list);
         for (int32_t i = cur_pc_list.size() - 1; i >= 0; i--) {
             hpcviewer_format_ip_node_t *tmp = findSameIPbyIP(cur->childIPNodes, cur_pc_list[i]);
             if (!tmp) {
@@ -2761,7 +2762,7 @@ hpcrun_insert_path(hpcviewer_format_ip_node_t *root, HPCRunCCT_t *runNode,
             }
         }
     }
-    for(int i = 0; i < runNode->metric_list.size(); i++) {
+    for(uint32_t i = 0; i < runNode->metric_list.size(); i++) {
         cur->metricVal[i] += runNode->metric_list[i];
     }
 }
