@@ -6,7 +6,8 @@ appsamples/build
 client.out*
 *.log
 *.backup
+*.out
 appsamples/src/lulesh1.0/lulesh-par-original
 update_server_files.sh
 pull_server_logs.sh
-appsamples/src/lulesh1.0/lulesh-par-original
+machine_custom_hpc_fmt.sh

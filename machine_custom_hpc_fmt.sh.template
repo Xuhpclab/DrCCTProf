@@ -1,0 +1,12 @@
+#! /bin/bash
+
+HPCPROFTT=
+HPCSTRUCT=
+HPCSTPROF=
+
+APP_NAME=$1
+BIN_DIR=$2
+SRC_DIR=$3
+
+./hpc_measurements_to_database.sh $HPCPROFTT $HPCSTRUCT $HPCSTPROF $APP_NAME $BIN_DIR $SRC_DIR
+

@@ -11,3 +11,6 @@ rm -rf ${BUILD_LOG_PATH}/client*
 rm -rf ${BUILD_LOG_PATH}/build_test*
 rm -rf ${BUILD_LOG_PATH}/hpctoolkit*
 rm -rf ${BUILD_LOG_PATH}/remake*
+rm -rf ${BUILD_LOG_PATH}/*.tt.log
+rm -rf ${BUILD_LOG_PATH}/*.hpcstruct
+rm -rf ${BUILD_LOG_PATH}/*.tar.bz2

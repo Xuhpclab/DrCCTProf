@@ -1979,13 +1979,15 @@ typedef struct _hpc_format_global_t {
     bool metric_cct;
     int metric_num;
     char metric_name_arry[MAX_METRICS][MAX_LEN];
+    hpcviewer_format_ip_node_t *gHPCRunCCTRoot;
+    uint64_t nodeCount;
 } hpc_format_global_t;
 static hpc_format_global_t global_hpc_fmt_data;
 
 
 
 // create a new node type to substitute cct_ip_node_t and cct_bb_node_t
-struct          hpcviewer_format_ip_node_t {
+struct hpcviewer_format_ip_node_t {
     int32_t parentID;
     hpcviewer_format_ip_node_t* parentIPNode;
 
@@ -2583,7 +2585,7 @@ constructIPNodeFromIP(hpcviewer_format_ip_node_t *parentIP, app_pc address,
     curIP->ID = get_fmt_ip_node_new_id();
     if(global_hpc_fmt_data.metric_num > 0) {
         curIP->metricVal = new uint64_t[global_hpc_fmt_data.metric_num];
-        for (int i = 1; i < global_hpc_fmt_data.metric_num; i++)
+        for (int i = 0; i < global_hpc_fmt_data.metric_num; i++)
             curIP->metricVal[i] = 0;
     }
     if(parentIP != NULL) {
@@ -2757,16 +2759,20 @@ hpcrun_insert_path(hpcviewer_format_ip_node_t *root, HPCRunCCT_t *HPCRunNode,
             }
         }
     }
-    // metrics only associated with leaves
-    // if the path already exists, just merge the metrics
-    if (cur->ID < 0) {
-        cur->metricVal[HPCRunNode->metric_id] += HPCRunNode->metric;
-    } else {
-        cur->metricVal[HPCRunNode->metric_id] = HPCRunNode->metric;
-        cur->ID = -cur->ID;
-    }
+    cur->metricVal[HPCRunNode->metric_id] += HPCRunNode->metric;
 }
 
+void
+reset_leaf_node_id(hpcviewer_format_ip_node_t *root)
+{
+    if(root->childIPNodes.size() == 0) {
+        root->ID = - root->ID;
+    } else {
+        for (uint32_t i = 0; i < root->childIPNodes.size(); i++) {
+            reset_leaf_node_id(root->childIPNodes[i]);
+        }
+    }
+}
 
 // Initialize binary file and write hpcrun header
 FILE *
@@ -2775,10 +2781,9 @@ lazy_open_data_file(int tID, string *filename)
     const char *fileCharName = filename->c_str();
     int fd = hpcrun_open_profile_file(tID, fileCharName);
     FILE *fs = fdopen(fd, "w");
-
+    
     if (fs == NULL)
         return NULL;
-    
     const char *jobIdStr = OSUtil_jobid();
 
     if (!jobIdStr)
@@ -2797,7 +2802,6 @@ lazy_open_data_file(int tID, string *filename)
     snprintf(traceMinTimeStr, bufSZ, "%" PRIu64, (unsigned long int)0);
     char traceMaxTimeStr[bufSZ];
     snprintf(traceMaxTimeStr, bufSZ, "%" PRIu64, (unsigned long int)0);
-
     // ======  file hdr  =====
     hpcrun_fmt_hdrwrite(fs);
     static int global_arg_len = 9;
@@ -2898,7 +2902,7 @@ write_thread_all_cct_hpcrun_format(void *drcontext)
 // This API is used to output a hpcrun CCT with selected call paths
 DR_EXPORT
 int
-build_custom_cct_hpurun_format(vector<HPCRunCCT_t *> &run_cct_list, void *drcontext)
+build_thread_custom_cct_hpurun_format(vector<HPCRunCCT_t *> &run_cct_list, void *drcontext)
 {
 
     // build the hpcrun-style CCT
@@ -2908,13 +2912,13 @@ build_custom_cct_hpurun_format(vector<HPCRunCCT_t *> &run_cct_list, void *drcont
         pt->tlsHPCRunCCTRoot = new hpcviewer_format_ip_node_t();
         pt->tlsHPCRunCCTRoot->childIPNodes.clear();
         pt->tlsHPCRunCCTRoot->IPAddress = 0;
-        pt->tlsHPCRunCCTRoot->ID = 0;
+        pt->tlsHPCRunCCTRoot->ID = get_fmt_ip_node_new_id();
         if(global_hpc_fmt_data.metric_num > 0) {
             pt->tlsHPCRunCCTRoot->metricVal = new uint64_t[global_hpc_fmt_data.metric_num];
             for (int i = 0; i < global_hpc_fmt_data.metric_num; i++)
                 pt->tlsHPCRunCCTRoot->metricVal[i] = 0;
         }
-        pt->nodeCount = 0;
+        pt->nodeCount = 1;
     }
 
     hpcviewer_format_ip_node_t *root = pt->tlsHPCRunCCTRoot;
@@ -2922,13 +2926,14 @@ build_custom_cct_hpurun_format(vector<HPCRunCCT_t *> &run_cct_list, void *drcont
     for (it = run_cct_list.begin(); it != run_cct_list.end(); ++it) {
         hpcrun_insert_path(root, *it, &pt->nodeCount);
     }
+    reset_leaf_node_id(pt->tlsHPCRunCCTRoot);
     return 0;
 }
 
 // output the CCT
 DR_EXPORT
 int
-write_custom_cct_hpurun_format(void *drcontext)
+write_thread_custom_cct_hpurun_format(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     FILE *fs = lazy_open_data_file(pt->id, &filename);
@@ -2943,6 +2948,54 @@ write_custom_cct_hpurun_format(void *drcontext)
     }
 
     hpcfmt_int8_fwrite(pt->nodeCount, fs);
+    IPNode_fwrite(fmt_root_ip, fs);
+    tranverseNewCCT(fmt_ip_node_vector, fs);
+    hpcio_fclose(fs);
+    return 0;
+}
+
+// This API is used to output a hpcrun CCT with selected call paths
+DR_EXPORT
+int
+build_progress_custom_cct_hpurun_format(vector<HPCRunCCT_t *> &run_cct_list)
+{
+    // initialize the root node (dummy node)
+    global_hpc_fmt_data.gHPCRunCCTRoot = new hpcviewer_format_ip_node_t();
+    global_hpc_fmt_data.gHPCRunCCTRoot->childIPNodes.clear();
+    global_hpc_fmt_data.gHPCRunCCTRoot->IPAddress = 0;
+    global_hpc_fmt_data.gHPCRunCCTRoot->ID = get_fmt_ip_node_new_id();
+    if(global_hpc_fmt_data.metric_num > 0) {
+        global_hpc_fmt_data.gHPCRunCCTRoot->metricVal = new uint64_t[global_hpc_fmt_data.metric_num];
+        for (int i = 0; i < global_hpc_fmt_data.metric_num; i++)
+            global_hpc_fmt_data.gHPCRunCCTRoot->metricVal[i] = 0;
+    }
+    global_hpc_fmt_data.nodeCount = 1;
+
+    hpcviewer_format_ip_node_t *root = global_hpc_fmt_data.gHPCRunCCTRoot;
+    vector<HPCRunCCT_t *>::iterator it;
+    for (it = run_cct_list.begin(); it != run_cct_list.end(); ++it) {
+        hpcrun_insert_path(root, *it, &global_hpc_fmt_data.nodeCount);
+    }
+    reset_leaf_node_id(global_hpc_fmt_data.gHPCRunCCTRoot);
+    return 0;
+}
+
+// output the CCT
+DR_EXPORT
+int
+write_progress_custom_cct_hpurun_format()
+{
+    FILE *fs = lazy_open_data_file(0, &filename);
+    if (!fs)
+        return -1;
+    hpcviewer_format_ip_node_t * fmt_root_ip = global_hpc_fmt_data.gHPCRunCCTRoot;
+    vector<hpcviewer_format_ip_node_t *> fmt_ip_node_vector;
+    for (uint32_t i = 0; i < fmt_root_ip->childIPNodes.size(); i++) {
+        fmt_ip_node_vector.push_back(fmt_root_ip->childIPNodes[i]);
+    }
+    
+    hpcfmt_int8_fwrite(global_hpc_fmt_data.nodeCount, fs);
+    IPNode_fwrite(fmt_root_ip, fs);
     tranverseNewCCT(fmt_ip_node_vector, fs);
     hpcio_fclose(fs);
     return 0;

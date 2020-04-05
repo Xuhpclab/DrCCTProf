@@ -101,17 +101,15 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_set_client_name("DynamoRIO Client 'drcctlib_all_instr_cct_hpc_fmt'",
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, NULL, NULL, NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
-    init_hpcrun_format(dr_get_application_name(), true);
-
     if (!drmgr_init()) {
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics unable to initialize drmgr");
     }
-
-    dr_register_exit_event(ClientExit);
     drmgr_register_thread_init_event(ClientThreadStart);
     drmgr_register_thread_exit_event(ClientThreadEnd);
     
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, NULL, NULL, NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
+    init_hpcrun_format(dr_get_application_name(), true);
+    dr_register_exit_event(ClientExit);    
 }
 
 #ifdef __cplusplus

@@ -21,7 +21,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                                \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));               \
         pid_t pid = getpid();                                                        \
-        dr_printf("[(%s%d)drcctlib_instr_statistics msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_instr_statistics_hpc_fmt msg]====" format "\n", name, pid, ##args); \
     } while (0)
 
 #define DRCCTLIB_EXIT_PROCESS(format, args...)                                      \
@@ -29,7 +29,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                               \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
         pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib_instr_statistics(%s%d) msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_instr_statistics_hpc_fmt(%s%d) msg]====" format "\n", name, pid, ##args); \
     } while (0);                                                                    \
     dr_exit_process(-1)
 
@@ -135,6 +135,7 @@ ClientThreadEnd(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     dr_thread_free(drcontext, pt, sizeof(per_thread_t));
+
 }
 static inline void
 InitGlobalBuff()
@@ -160,9 +161,9 @@ static void
 ClientInit(int argc, const char *argv[])
 {
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib.drcctlib_instr_statistics.out.";
+    char name[MAXIMUM_PATH] = "arm.drcctlib.drcctlib_instr_statistics_hpc_fmt.out.";
 #else
-    char name[MAXIMUM_PATH] = "x86.drcctlib.drcctlib_instr_statistics.out.";
+    char name[MAXIMUM_PATH] = "x86.drcctlib.drcctlib_instr_statistics_hpc_fmt.out.";
 #endif
     char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
 
@@ -191,6 +192,7 @@ ClientInit(int argc, const char *argv[])
     InitGlobalBuff();
 }
 
+int ins_metric_id = 0;
 static void
 ClientExit(void)
 {
@@ -203,14 +205,17 @@ ClientExit(void)
          [=](pair<context_handle_t, int> &a, pair<context_handle_t, int> &b) {
              return a.second > b.second;
              });
+    vector<HPCRunCCT_t*> HPCRunNodes;
     for(uint i = 0; i < TOP_REACH__NUM_SHOW; i++) {
-        dr_fprintf(gTraceFile, "NO. %d ins call number %d ====", i+1, tmp[i].second);
-        drcctlib_print_ctxt_hndl_msg(gTraceFile, tmp[i].first, false, false);
-        dr_fprintf(gTraceFile, "================================================================================\n");
-        drcctlib_print_full_cct(gTraceFile, tmp[i].first, true, false, MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile, "================================================================================\n\n\n");
+        HPCRunCCT_t *HPCRunNode = new HPCRunCCT_t();
+        HPCRunNode->ctxtHandle1 = tmp[i].first;
+        HPCRunNode->ctxtHandle2 = 0;
+        HPCRunNode->metric_id = ins_metric_id;
+        HPCRunNode->metric = tmp[i].second;
+        HPCRunNodes.push_back(HPCRunNode);
     }
-
+    build_progress_custom_cct_hpurun_format(HPCRunNodes);
+    write_progress_custom_cct_hpurun_format();
     FreeGlobalBuff();
     drcctlib_exit();
 
@@ -233,30 +238,32 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_instr_statistics'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_instr_statistics_hpc_fmt'",
                        "http://dynamorio.org/issues");
     
     ClientInit(argc, argv);
     if (!drmgr_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics unable to initialize drmgr");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics_hpc_fmt unable to initialize drmgr");
     }
     drreg_options_t ops = { sizeof(ops), 4 /*max slots needed*/, false};
     if (drreg_init(&ops) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics unable to initialize drreg");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics_hpc_fmt unable to initialize drreg");
     }
     drmgr_register_thread_init_event(ClientThreadStart);
     drmgr_register_thread_exit_event(ClientThreadEnd);
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1){
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics drmgr_register_tls_field fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics_hpc_fmt drmgr_register_tls_field fail");
     }
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics dr_raw_tls_calloc fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics_hpc_fmt dr_raw_tls_calloc fail");
     }
 
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL,
-                     InstrumentBBStartInsertCallback, NULL, DRCCTLIB_DEFAULT);
+                     InstrumentBBStartInsertCallback, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
+    init_hpcrun_format(dr_get_application_name(), false);
+    ins_metric_id = hpcrun_create_metric("TOT_CALLS");
     dr_register_exit_event(ClientExit);
 }
 

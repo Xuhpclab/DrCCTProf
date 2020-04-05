@@ -175,8 +175,8 @@ drcctlib_get_str_from_strpool(int index);
 typedef struct _HPCRunCCT_t {
     context_handle_t ctxtHandle1;
     context_handle_t ctxtHandle2;
-    uint64_t metric;
     int metric_id;
+    uint64_t metric;
 } HPCRunCCT_t;
 
 DR_EXPORT
@@ -193,11 +193,18 @@ write_thread_all_cct_hpcrun_format(void *drcontext);
 
 DR_EXPORT
 int
-build_custom_cct_hpurun_format(std::vector<HPCRunCCT_t *> &run_cct_list, void *drcontext);
+build_thread_custom_cct_hpurun_format(std::vector<HPCRunCCT_t *> &run_cct_list, void *drcontext);
 
 DR_EXPORT
 int
-write_custom_cct_hpurun_format(void *drcontext);
+write_thread_custom_cct_hpurun_format(void *drcontext);
 
+DR_EXPORT
+int
+build_progress_custom_cct_hpurun_format(std::vector<HPCRunCCT_t *> &run_cct_list);
+
+DR_EXPORT
+int
+write_progress_custom_cct_hpurun_format();
 
 #endif // _DRCCTLIB_H_

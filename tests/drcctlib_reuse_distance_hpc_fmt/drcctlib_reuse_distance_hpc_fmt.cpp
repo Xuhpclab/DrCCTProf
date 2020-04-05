@@ -25,7 +25,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                                \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));               \
         pid_t pid = getpid();                                                        \
-        dr_printf("[(%s%d)drcctlib_reuse_distance msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_reuse_distance_hpc_fmt msg]====" format "\n", name, pid, ##args); \
     } while (0)
 
 #define DRCCTLIB_EXIT_PROCESS(format, args...)                                      \
@@ -33,7 +33,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                               \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
         pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib_reuse_distance(%s%d) msg]====" format "\n", name, pid, ##args); \
+        dr_printf("[(%s%d)drcctlib_reuse_distance_hpc_fmt(%s%d) msg]====" format "\n", name, pid, ##args); \
     } while (0);                                                                    \
     dr_exit_process(-1)
 
@@ -83,13 +83,11 @@ struct use_node_t {
 };
 
 struct reuse_node_t {
-    app_pc addr;
     uint64_t distance;
     uint64_t count;
 
-    reuse_node_t(app_pc a, uint64_t d, uint64_t c)
-        : addr(a)
-        , distance(d)
+    reuse_node_t(uint64_t d, uint64_t c)
+        : distance(d)
         , count(c)
     {
     }
@@ -101,12 +99,10 @@ typedef struct _mem_ref_t {
 } mem_ref_t;
 
 typedef struct _output_format_t {
-    uint8_t object_type;
-    context_handle_t create_hndl;
-    context_handle_t use_hndl;
-    context_handle_t reuse_hndl;
-    uint64_t count;
-    uint64_t distance;
+  context_handle_t use_hndl;
+  context_handle_t reuse_hndl;
+  uint64_t count;
+  uint64_t distance;
 } output_format_t;
 
 typedef struct _per_thread_t{
@@ -116,7 +112,7 @@ typedef struct _per_thread_t{
     int cur_buf_fill_num;
     void *cur_buf;
     map<uint64_t, use_node_t> *tls_use_map;
-    multimap<uint64_t, reuse_node_t> *tls_reuse_map;
+    map<uint64_t, reuse_node_t> *tls_reuse_map;
     bool sample_mem;
 } per_thread_t;
 
@@ -134,6 +130,9 @@ typedef struct _per_thread_t{
 #define REUSED_PRINT_MIN_COUNT 100
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 
+int ins_metric_id1 = 0;
+int ins_metric_id2 = 0;
+
 void
 UpdateUseAndReuseMap(per_thread_t *pt, mem_ref_t * ref, int cur_mem_idx)
 {
@@ -144,25 +143,16 @@ UpdateUseAndReuseMap(per_thread_t *pt, mem_ref_t * ref, int cur_mem_idx)
         uint64_t reuse_distance = cur_mem_idx - it->second.last_reuse_mem_idx;
         uint64_t new_pair = (((uint64_t)it->second.use_hndl) << 32) + ref->ctxt_hndl;
 
-        multimap<uint64_t, reuse_node_t> *pair_map = pt->tls_reuse_map;
-        multimap<uint64_t, reuse_node_t>::iterator pair_it;
-        pair<multimap<uint64_t, reuse_node_t>::iterator,
-             multimap<uint64_t, reuse_node_t>::iterator>
-            pair_range_it;
-        pair_range_it = (*pair_map).equal_range(new_pair);
-        for (pair_it = pair_range_it.first; pair_it != pair_range_it.second; ++pair_it) {
-            if (pair_it->second.addr == ref->addr) {
-                pair_it->second.count++;
-                pair_it->second.distance += reuse_distance;
-                break;
-            }
+        map<uint64_t, reuse_node_t> *pair_map = pt->tls_reuse_map;
+        map<uint64_t, reuse_node_t>::iterator pair_it = (*pair_map).find(new_pair);
+        if (pair_it != (*pair_map).end()) {
+            pair_it->second.count++;
+            pair_it->second.distance += reuse_distance;
+        } else {
+            reuse_node_t val(reuse_distance, 1);
+            (*pair_map).insert(
+                pair<uint64_t, reuse_node_t>(new_pair, val));
         }
-        if (pair_it == pair_range_it.second) {
-            reuse_node_t val(ref->addr, reuse_distance, 1);
-                (*pair_map).insert(
-                    pair<uint64_t, reuse_node_t>(new_pair, val));
-        }
-
         it->second.use_hndl = ref->ctxt_hndl;
         it->second.last_reuse_mem_idx = cur_mem_idx;
     } else {
@@ -172,48 +162,24 @@ UpdateUseAndReuseMap(per_thread_t *pt, mem_ref_t * ref, int cur_mem_idx)
 }
 
 void
-InitPrintFile()
-{
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib_reuse_distance.topn.out.log";
-#else
-    char name[MAXIMUM_PATH] = "x86.drcctlib_reuse_distance.topn.out.log";
-#endif
-    cerr << "Creating log file at:" << name << endl;
-
-    gTraceFile = dr_open_file(name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
-    DR_ASSERT(gTraceFile != INVALID_FILE);
-    // print the arguments passed
-    dr_fprintf(gTraceFile, "\n");
-}
-
-void
 PrintTopN(void *drcontext, per_thread_t *pt, uint32_t print_num)
 {
+    // print_num = (*(pt->tls_reuse_map)).size();
     output_format_t* output_format_list = (output_format_t*)dr_global_alloc(print_num * sizeof(output_format_t));
     for(uint32_t i = 0; i < print_num; i ++ ) {
-        output_format_list[i].object_type = UNKNOWN_OBJECT;
-        output_format_list[i].create_hndl = 0;
         output_format_list[i].use_hndl = 0;
         output_format_list[i].reuse_hndl = 0;
         output_format_list[i].count = 0;
         output_format_list[i].distance = 0;
     }
-    multimap<uint64_t, reuse_node_t>::iterator it;
+    map<uint64_t, reuse_node_t>::iterator it;
     for (it = (*(pt->tls_reuse_map)).begin(); it != (*(pt->tls_reuse_map)).end(); ++it) {
         uint64_t distance = it->second.distance / it->second.count;
         if (distance < REUSED_THRES || it->second.count < REUSED_PRINT_MIN_COUNT)
             continue;
+        
         context_handle_t use_hndl = (context_handle_t)(it->first >> 32);
         context_handle_t reuse_hndl = (context_handle_t)(it->first);
-        context_handle_t create_hndl = 0;
-        data_handle_t data_hndl = drcctlib_get_date_hndl(drcontext, it->second.addr);
-        uint8_t object_type = data_hndl.object_type;
-        if(object_type == DYNAMIC_OBJECT) {
-            create_hndl = data_hndl.path_handle;
-        } else if (object_type == STATIC_OBJECT){
-            create_hndl = data_hndl.sym_name;
-        }
         if (it->second.count > output_format_list[0].count) {
             uint64_t min_count = output_format_list[1].count;
             uint32_t min_idx = 1;
@@ -228,16 +194,16 @@ PrintTopN(void *drcontext, per_thread_t *pt, uint32_t print_num)
                 output_format_list[0].distance = distance;
                 output_format_list[0].reuse_hndl = reuse_hndl;
                 output_format_list[0].use_hndl = use_hndl;
-                output_format_list[0].create_hndl = create_hndl;
-                output_format_list[0].object_type = object_type;
             } else {
-                output_format_list[0] = output_format_list[min_idx];
+                output_format_list[0].count = output_format_list[min_idx].count;
+                output_format_list[0].distance = output_format_list[min_idx].distance;
+                output_format_list[0].reuse_hndl = output_format_list[min_idx].reuse_hndl;
+                output_format_list[0].use_hndl = output_format_list[min_idx].use_hndl;
+
                 output_format_list[min_idx].count = it->second.count;
                 output_format_list[min_idx].distance = distance;
                 output_format_list[min_idx].reuse_hndl = reuse_hndl;
                 output_format_list[min_idx].use_hndl = use_hndl;
-                output_format_list[min_idx].create_hndl = create_hndl;
-                output_format_list[min_idx].object_type = object_type;
             }
         }
     }
@@ -251,31 +217,34 @@ PrintTopN(void *drcontext, per_thread_t *pt, uint32_t print_num)
             }
         }
     }
-    InitPrintFile();
-    dr_fprintf(gTraceFile, "max memory idx %lu\n", pt->cur_mem_idx);
-    // output the selected reuse pairs
-    uint32_t no = 0;
-    for (uint32_t i = 0; i < print_num; i++) {
+
+    vector<HPCRunCCT_t*> HPCRunNodes1;
+    for(uint i = 0; i < print_num; i++) {
         if (output_format_list[i].count == 0)
             continue;
-        no ++;
-        dr_fprintf(gTraceFile, "No.%u counts(%lu) avg distance(%lu)\n", no, output_format_list[i].count, output_format_list[i].distance);
-        dr_fprintf(gTraceFile, "====================================create=======================================\n");
-        if(output_format_list[i].object_type == DYNAMIC_OBJECT) {
-            drcctlib_print_full_cct(gTraceFile, output_format_list[i].create_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
-        } else if (output_format_list[i].object_type == STATIC_OBJECT) {
-            dr_fprintf(gTraceFile, "STATIC_OBJECT %s\n", drcctlib_get_str_from_strpool(output_format_list[i].create_hndl));
-        } else if (output_format_list[i].object_type == STACK_OBJECT) {
-            dr_fprintf(gTraceFile, "STACK_OBJECT\n");
-        } else if (output_format_list[i].object_type == UNKNOWN_OBJECT) {
-            dr_fprintf(gTraceFile, "UNKNOWN_OBJECT\n");
-        }
-        dr_fprintf(gTraceFile, "====================================use=======================================\n");
-        drcctlib_print_full_cct(gTraceFile, output_format_list[i].use_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile, "====================================reuse=========================================\n");
-        drcctlib_print_full_cct(gTraceFile, output_format_list[i].reuse_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile, "================================================================================\n\n\n");
+        HPCRunCCT_t *HPCRunNode = new HPCRunCCT_t();
+        HPCRunNode->ctxtHandle1 = output_format_list[i].use_hndl;
+        HPCRunNode->ctxtHandle2 = output_format_list[i].reuse_hndl;
+        HPCRunNode->metric_id = ins_metric_id1;
+        HPCRunNode->metric = output_format_list[i].count;
+        HPCRunNodes1.push_back(HPCRunNode);
     }
+    build_thread_custom_cct_hpurun_format(HPCRunNodes1, drcontext);
+    vector<HPCRunCCT_t*> HPCRunNodes2;
+    for(uint i = 0; i < print_num; i++) {
+        if (output_format_list[i].count == 0)
+            continue;
+        HPCRunCCT_t *HPCRunNode = new HPCRunCCT_t();
+        HPCRunNode->ctxtHandle1 = output_format_list[i].use_hndl;
+        HPCRunNode->ctxtHandle2 = output_format_list[i].reuse_hndl;
+        HPCRunNode->metric_id = ins_metric_id2;
+        HPCRunNode->metric = output_format_list[i].distance;
+        HPCRunNodes2.push_back(HPCRunNode);
+    }
+    build_thread_custom_cct_hpurun_format(HPCRunNodes2, drcontext);
+    
+    write_thread_custom_cct_hpurun_format(drcontext);
+
     dr_global_free(output_format_list, print_num * sizeof(output_format_t));
 }
 
@@ -465,7 +434,7 @@ ClientThreadStart(void *drcontext)
     BUF_PTR(pt->cur_buf, mem_ref_t, INSTRACE_TLS_OFFS_BUF_PTR) = pt->cur_buf_list;
 
     pt->tls_use_map = new map<uint64_t,use_node_t>();
-    pt->tls_reuse_map = new multimap<uint64_t, reuse_node_t>();
+    pt->tls_reuse_map = new map<uint64_t, reuse_node_t>();
     pt->sample_mem = false;
 }
 
@@ -491,9 +460,9 @@ static void
 ClientInit(int argc, const char *argv[])
 {
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib_reuse_distance.out.";
+    char name[MAXIMUM_PATH] = "arm.drcctlib_reuse_distance_hpc_fmt.out.";
 #else
-    char name[MAXIMUM_PATH] = "x86.drcctlib_reuse_distance.out.";
+    char name[MAXIMUM_PATH] = "x86.drcctlib_reuse_distance_hpc_fmt.out.";
 #endif
     char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
 
@@ -525,12 +494,12 @@ ClientExit(void)
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance dr_raw_tls_calloc fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt dr_raw_tls_calloc fail");
     } 
 
     if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
         !drmgr_unregister_thread_exit_event(ClientThreadEnd)) {
-        DRCCTLIB_PRINTF("ERROR: drcctlib_reuse_distance failed to unregister in ClientExit");
+        DRCCTLIB_PRINTF("ERROR: drcctlib_reuse_distance_hpc_fmt failed to unregister in ClientExit");
     }
     drmgr_exit();
     drutil_exit();
@@ -544,7 +513,7 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_distance'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_distance_hpc_fmt'",
                        "http://dynamorio.org/issues");
     app_name = (char*)dr_global_alloc(MAXIMUM_PATH * sizeof(char));
     const char *name = dr_get_application_name();
@@ -552,27 +521,31 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     ClientInit(argc, argv);
 
     if (!drmgr_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance unable to initialize drmgr");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt unable to initialize drmgr");
     }
     drreg_options_t ops = { sizeof(ops), 3 /*max slots needed*/, false };
     if (drreg_init(&ops) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance unable to initialize drreg");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt unable to initialize drreg");
     }
     if (!drutil_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance unable to initialize drutil");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt unable to initialize drutil");
     }
     drmgr_register_thread_init_event(ClientThreadStart);
     drmgr_register_thread_exit_event(ClientThreadEnd);
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance drmgr_register_tls_field fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt drmgr_register_tls_field fail");
     }
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance dr_raw_tls_calloc fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt dr_raw_tls_calloc fail");
     }
+
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, gTraceFile, InstrumentInsCallback, NULL,
-                    NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                     NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
+    init_hpcrun_format(dr_get_application_name(), false);
+    ins_metric_id1 = hpcrun_create_metric("SUM_COUNT");
+    ins_metric_id2 = hpcrun_create_metric("AVG_DIS");
     dr_register_exit_event(ClientExit);
 }
 
