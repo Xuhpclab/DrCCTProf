@@ -1991,10 +1991,11 @@ offline_module_date_create(const module_data_t *info, int id){
     off_module_date->id = id;
     sprintf(off_module_date->path, "%s", info->full_path);
 #ifdef ARM_CCTLIB
-    if(strcmp(dr_module_preferred_name(info), global_hpc_fmt_data.filename.c_str())){
+    DRCCTLIB_PRINTF("%s %s", dr_module_preferred_name(info), global_hpc_fmt_data.filename.c_str());
+    if(strcmp(dr_module_preferred_name(info), global_hpc_fmt_data.filename.c_str())== 0){
         off_module_date->start = 0;
     } else {
-        off_module_date->start = 0;
+        off_module_date->start = info->start;
     }
 #else
     off_module_date->start = info->start;
