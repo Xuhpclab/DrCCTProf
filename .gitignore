@@ -1,4 +1,5 @@
 build/
+experiment/
 logs/
 .vscode/
 .clang-format
@@ -6,7 +7,13 @@ appsamples/build
 client.out*
 *.log
 *.backup
+*.out
 appsamples/src/lulesh1.0/lulesh-par-original
 update_server_files.sh
 pull_server_logs.sh
-appsamples/src/lulesh1.0/lulesh-par-original
+machine_custom_hpc_fmt.sh
+drcctlib_npb_test.sh
+drcctlib_npb.sh
+env_config.sh
+yhbatch_drcctlib_npb.sh
+yhrun_drcctlib_npb.sh
