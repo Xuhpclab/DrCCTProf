@@ -119,11 +119,6 @@ drcctlib_get_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t 
                                    reg_id_t store_reg);
 
 DR_EXPORT
-void
-drcctlib_get_bb_start_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                            reg_id_t store_reg);
-
-DR_EXPORT
 context_handle_t
 drcctlib_get_caller_handle(context_handle_t ctxt_hndl);
 
