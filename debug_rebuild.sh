@@ -82,8 +82,8 @@ echo "run ${APP3_FULL_PATH}"
 # echo "run drcctlib_instr_statistics ${APP2_FULL_PATH}"
 # (time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP2_FULL_PATH} > client.drcctlib_instr_statistics.${APP2}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.${APP2}.${TIMESTAMP} 2>&1
 
-echo "run drcctlib_reuse_distance ${APP3_FULL_PATH}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP3_FULL_PATH} > client.drcctlib_reuse_distance.${APP3}.log 2>&1) > runtime.drcctlib_reuse_distance.${APP3} 2>&1
+# echo "run drcctlib_reuse_distance ${APP3_FULL_PATH}"
+# (time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP3_FULL_PATH} > client.drcctlib_reuse_distance.${APP3}.log 2>&1) > runtime.drcctlib_reuse_distance.${APP3} 2>&1
 
 # cd ${BUILD_LOG_PATH}
 # echo "run drcctlib_all_instr_cct_hpc_fmt ${APP2_FULL_PATH}"

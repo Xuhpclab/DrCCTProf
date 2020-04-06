@@ -235,6 +235,7 @@ static ConcurrentShadowMemory<data_handle_t>* global_shadow_memory;
 
 typedef struct _offline_module_data_t{
     int id;
+    bool app;
     char path[MAXIMUM_PATH];
     app_pc start;
     app_pc end;
@@ -244,7 +245,7 @@ static hashtable_t global_module_date_table;
 static void *module_data_lock;
 
 static inline offline_module_data_t *
-offline_module_date_create(const module_data_t *info, int id);
+offline_module_date_create(const module_data_t *info);
 
 static inline void
 offline_module_date_free(void *date);
@@ -1147,7 +1148,7 @@ insert_func_instrument_by_drwap(const module_data_t *info, const char *func_name
 }
 
 #define ATOM_ADD_MODULE_KEY(origin) dr_atomic_add32_return_sum(&origin, 1)
-#define MODULE_KEY_START 1
+#define MODULE_KEY_START 2
 static inline int32_t
 bb_get_module_key()
 {
@@ -1174,7 +1175,7 @@ drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info, 
         dr_mutex_lock(module_data_lock);
         void* offline_data = hashtable_lookup(&global_module_date_table, (void *)info->start);
         if (offline_data == NULL) {
-            offline_data = (void *)offline_module_date_create(info, bb_get_module_key());
+            offline_data = (void *)offline_module_date_create(info);
             hashtable_add(&global_module_date_table, (void *)(ptr_int_t)info->start, offline_data);
         }
         dr_mutex_unlock(module_data_lock);
@@ -1986,21 +1987,21 @@ static hpc_format_global_t global_hpc_fmt_data;
 
 
 static inline offline_module_data_t *
-offline_module_date_create(const module_data_t *info, int id){
+offline_module_date_create(const module_data_t *info){
     offline_module_data_t *off_module_date = (offline_module_data_t *)dr_global_alloc(sizeof(offline_module_data_t));
-    off_module_date->id = id;
     sprintf(off_module_date->path, "%s", info->full_path);
-#ifdef ARM_CCTLIB
-    DRCCTLIB_PRINTF("%s %s", dr_module_preferred_name(info), global_hpc_fmt_data.filename.c_str());
-    if(strcmp(dr_module_preferred_name(info), global_hpc_fmt_data.filename.c_str())== 0){
-        off_module_date->start = 0;
-    } else {
-        off_module_date->start = info->start;
-    }
-#else
     off_module_date->start = info->start;
-#endif
     off_module_date->end = info->end;
+    if(strcmp(dr_module_preferred_name(info), global_hpc_fmt_data.filename.c_str())== 0){
+#ifdef ARM_CCTLIB
+        off_module_date->start = 0;
+#endif
+        off_module_date->app = true;
+        off_module_date->id = 1;
+    } else {
+        off_module_date->app = false;
+        off_module_date->id = bb_get_module_key();
+    }
     return off_module_date;
 }
 
@@ -2536,11 +2537,9 @@ hpcrun_set_metric_info_w_fn(int metric_id, const char* name, size_t period, FILE
 void 
 hpcrun_fmt_module_date_fwrite(void *payload, void *user_data)
 {
-    FILE * fs = (FILE *)user_data;
+    offline_module_data_t** print_vector = (offline_module_data_t**)user_data;
     offline_module_data_t* module_data = (offline_module_data_t *)payload;
-    hpcfmt_int2_fwrite(module_data->id, fs); // Write loadmap id
-    hpcfmt_str_fwrite(module_data->path, fs); // Write loadmap name
-    hpcfmt_int8_fwrite((uint64_t)0, fs); 
+    print_vector[module_data->id - 1] = module_data;
 }
 
 int
@@ -2548,7 +2547,15 @@ hpcrun_fmt_loadmap_fwrite(FILE *fs)
 {
     // Write loadmap size
     hpcfmt_int4_fwrite((uint32_t)global_module_date_table.entries, fs); // Write loadmap size
-    hashtable_apply_to_all_payloads_user_data(&global_module_date_table, hpcrun_fmt_module_date_fwrite, (void *)fs);
+    offline_module_data_t** print_vector = (offline_module_data_t **)dr_global_alloc(global_module_date_table.entries * sizeof(offline_module_data_t*));
+    hashtable_apply_to_all_payloads_user_data(&global_module_date_table, hpcrun_fmt_module_date_fwrite, (void *)print_vector);
+
+    for(uint32_t i = 0; i < global_module_date_table.entries; i ++) {
+        hpcfmt_int2_fwrite(print_vector[i]->id, fs); // Write loadmap id
+        hpcfmt_str_fwrite(print_vector[i]->path, fs); // Write loadmap name
+        hpcfmt_int8_fwrite((uint64_t)0, fs);
+    }
+    dr_global_free(print_vector, global_module_date_table.entries * sizeof(offline_module_data_t*));
     return 0;
 }
 
