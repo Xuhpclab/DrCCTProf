@@ -647,11 +647,13 @@ instrument_before_every_instr_meta_instr(void *drcontext, instr_instrument_msg_t
     instr_t *instr = instrument_msg->instr;
     slot_t slot = instrument_msg->slot;
     state_t state_flag = instrument_msg->state;
-
+#ifdef INTEL_CCTLIB
     if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS(
             "instrument_before_every_instr_meta_instr drreg_reserve_aflags != DRREG_SUCCESS");
     }
+#endif
+
 #ifdef ARM_CCTLIB
     reg_id_t reg_store_imm;
     if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_store_imm) !=
@@ -722,9 +724,11 @@ instrument_before_every_instr_meta_instr(void *drcontext, instr_instrument_msg_t
         DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
                                 "drreg_unreserve_register != DRREG_SUCCESS");
     }
+#ifdef INTEL_CCTLIB
     if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
     }
+#endif
 }
 
 #ifdef ARM_CCTLIB
@@ -1227,20 +1231,21 @@ init_global_buff()
     } else {
         init_progress_root_ip_node();
     }
-
-    global_string_pool =
-        (char *)mmap(0, STRING_POOL_NODES_MAX * sizeof(char), PROT_WRITE | PROT_READ,
-                     MAP_NORESERVE | MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    if (global_string_pool == MAP_FAILED) {
-        DRCCTLIB_EXIT_PROCESS("init_global_buff error: MAP_FAILED global_string_pool");
+    if((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0){
+        global_string_pool =
+            (char *)mmap(0, STRING_POOL_NODES_MAX * sizeof(char), PROT_WRITE | PROT_READ,
+                        MAP_NORESERVE | MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+        if (global_string_pool == MAP_FAILED) {
+            DRCCTLIB_EXIT_PROCESS("init_global_buff error: MAP_FAILED global_string_pool");
+        }
     }
 
     global_bb_node_cache = new memory_cache_t<cct_bb_node_t>();
     global_splay_node_cache = new memory_cache_t<splay_node_t>();
-    if (!global_bb_node_cache->init(CONTEXT_HANDLE_MAX/10, 1000, 10)) {
+    if (!global_bb_node_cache->init(CONTEXT_HANDLE_MAX/20, 1000, 10)) {
         DRCCTLIB_EXIT_PROCESS("init_global_buff error: MAP_FAILED global_bb_node_cache");
     }
-    if (!global_splay_node_cache->init(CONTEXT_HANDLE_MAX/10, 1000, 10)) {
+    if (!global_splay_node_cache->init(CONTEXT_HANDLE_MAX/20, 1000, 10)) {
         DRCCTLIB_EXIT_PROCESS("init_global_buff error: MAP_FAILED global_splay_node_cache");
     }
 }
@@ -1248,9 +1253,13 @@ init_global_buff()
 static inline void
 free_global_buff()
 {
-    if (munmap(global_ip_node_buff, CONTEXT_HANDLE_MAX * sizeof(cct_ip_node_t)) != 0
-        || munmap(global_string_pool, STRING_POOL_NODES_MAX * sizeof(char)) != 0) {
+    if (munmap(global_ip_node_buff, CONTEXT_HANDLE_MAX * sizeof(cct_ip_node_t)) != 0) {
         DRCCTLIB_PRINTF("free_global_buff munmap error");
+    }
+    if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
+        if (munmap(global_string_pool, STRING_POOL_NODES_MAX * sizeof(char)) != 0) {
+            DRCCTLIB_PRINTF("free_global_buff munmap error");
+        }
     }
 
     delete global_bb_node_cache;
@@ -1441,7 +1450,7 @@ drcctlib_init(char flag)
 
     disassemble_set_syntax(DR_DISASM_DRCCTLIB);
 
-    init_global_buff();
+    
     drmgr_register_signal_event(drcctlib_event_signal);
     if (!drmgr_register_bb_app2app_event(drcctlib_event_bb_app2app, NULL)) {
         DRCCTLIB_PRINTF("WARNING: drcctlib fail to register bb app2app event");
@@ -1469,6 +1478,7 @@ drcctlib_init(char flag)
         drmgr_register_module_load_event(drcctlib_event_module_load_analysis);
         drmgr_register_module_unload_event(drcctlib_event_module_unload_analysis);
     }
+    init_global_buff();
 
     hashtable_init(&global_bb_key_table, BB_TABLE_HASH_BITS, HASH_INTPTR, false);
     hashtable_init_ex(&global_bb_shadow_table, BB_TABLE_HASH_BITS, HASH_INTPTR,
@@ -1490,8 +1500,10 @@ drcctlib_init(char flag)
     if (!drmgr_register_thread_exit_event(drcctlib_event_thread_end))
         return false;
 
-    if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0))
-        DR_ASSERT(false);
+    if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)){
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_calloc fail");
+        return false;
+    }
 
     return true;
 }
@@ -1505,8 +1517,9 @@ drcctlib_exit(void)
     int count = dr_atomic_add32_return_sum(&init_count, -1);
     if (count != 0)
         return;
-    if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT))
-        DR_ASSERT(false);
+    if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_cfree fail");
+    }
     print_stats();
     if (!drmgr_unregister_bb_app2app_event(drcctlib_event_bb_app2app) ||
         !drmgr_unregister_bb_instrumentation_event(drcctlib_event_bb_analysis) ||

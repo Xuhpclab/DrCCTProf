@@ -65,10 +65,12 @@ typedef struct _per_thread_t {
 void
 EveryInstrInstrument(void *drcontext, instrlist_t *bb, instr_t *instr, int32_t slot)
 {
+#ifdef INTEL_CCTLIB
     if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS(
             "InstrumentInsCallback drreg_reserve_aflags != DRREG_SUCCESS");
     }
+#endif
     reg_id_t reg_cur_bb_buf_start, reg1;
     if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_cur_bb_buf_start) !=
             DRREG_SUCCESS ||
@@ -92,10 +94,13 @@ EveryInstrInstrument(void *drcontext, instrlist_t *bb, instr_t *instr, int32_t s
         DRCCTLIB_EXIT_PROCESS(
             "InstrumentInsCallback drreg_unreserve_register != DRREG_SUCCESS");
     }
+
+#ifdef INTEL_CCTLIB
     if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS(
             "InstrumentInsCallback drreg_unreserve_aflags != DRREG_SUCCESS");
     }
+#endif
 }
 
 

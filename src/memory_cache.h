@@ -102,7 +102,15 @@ memory_cache_t<T>::init(int32_t sub_add_num, int32_t debris_size_min_size,
     cur_use_pool_id_ = 0;
     cur_use_pool_start_ = 0;
     cache_pool_vector_ = (T **)dr_global_alloc(max_add_times_ * sizeof(T *));
-    return sub_add();
+    T *sub_cache = (T *)mmap(0, sub_add_num_ * sizeof(T), PROT_WRITE | PROT_READ,
+                                   MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    if (sub_cache == MAP_FAILED) {
+        dr_printf("memory_cache_t init_error \n");
+        return false;
+    }
+    cache_pool_vector_[cur_use_pool_id_] = sub_cache;
+    cur_use_pool_start_ = 0;
+    return true;
 }
 
 template <class T>
@@ -110,11 +118,13 @@ bool
 memory_cache_t<T>::sub_add()
 {
     if (cur_use_pool_id_ + 1 >= max_add_times_) {
+        dr_printf("memory_cache_t full_error \n");
         return false;
     }
     T *sub_cache = (T *)mmap(0, sub_add_num_ * sizeof(T), PROT_WRITE | PROT_READ,
                                    MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
     if (sub_cache == MAP_FAILED) {
+        dr_printf("memory_cache_t sub_add_error \n");
         return false;
     }
     cur_use_pool_id_++;
