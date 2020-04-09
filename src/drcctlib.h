@@ -28,7 +28,7 @@ enum {
     INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x20,
     INSTR_STATE_EVENT_SIGNAL = 0x40,
     INSTR_STATE_EVENT_EXCEPTION = 0x80,
-#ifdef ARM_CCTLIB 
+#ifdef ARM32_CCTLIB 
     INSTR_STATE_BB_START_NOP = 0X100
 #endif
 };
@@ -107,7 +107,7 @@ drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth);
 
 DR_EXPORT
 context_handle_t
-drcctlib_get_context_handle();
+drcctlib_get_context_handle(int32_t slot);
 
 DR_EXPORT
 context_handle_t
@@ -116,7 +116,7 @@ drcctlib_get_bb_start_context_handle();
 DR_EXPORT
 void
 drcctlib_get_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t store_reg);
+                                   int32_t slot, reg_id_t store_reg, reg_id_t addr_reg);
 
 DR_EXPORT
 context_handle_t
@@ -137,6 +137,10 @@ drcctlib_get_pc(context_handle_t ctxt_hndl);
 DR_EXPORT
 bool
 have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2);
+
+DR_EXPORT
+bool
+has_same_call_path(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2);
 
 enum{ 
     STACK_OBJECT, 

@@ -58,20 +58,11 @@
 #ifdef INTEL_CCTLIB
 #    define OPND_CREATE_BB_KEY OPND_CREATE_INT32
 #    define OPND_CREATE_SLOT OPND_CREATE_INT32
-#    define OPND_CREATE_INSTR_STATE_FLAG OPND_CREATE_INT32
+#    define OPND_CREATE_STATE OPND_CREATE_INT32
 #elif defined(ARM_CCTLIB)
 #    define OPND_CREATE_BB_KEY OPND_CREATE_INT
 #    define OPND_CREATE_SLOT OPND_CREATE_INT
-#    define OPND_CREATE_INSTR_STATE_FLAG OPND_CREATE_INT
-#endif
-#define OPND_CREATE_PT_CUR_SLOT OPND_CREATE_MEM32
-#define OPND_CREATE_PT_PRE_INSTR_STATE OPND_CREATE_MEM32
-#ifdef CCTLIB_32
-#    define OPND_CREATE_PT_CUR_CTXT_HNDLE OPND_CREATE_MEM32
-#    define OPND_CREATE_PT_CUR_BB_CHILD_CTXT_START_IDX OPND_CREATE_MEM32
-#else
-#    define OPND_CREATE_PT_CUR_CTXT_HNDLE OPND_CREATE_MEM64
-#    define OPND_CREATE_PT_CUR_BB_CHILD_CTXT_START_IDX OPND_CREATE_MEM64
+#    define OPND_CREATE_STATE OPND_CREATE_INT
 #endif
 
 #define THREAD_ROOT_BB_SHARED_BB_KEY 0
@@ -134,6 +125,7 @@ typedef struct _bb_instrument_msg_t {
     int32_t number;
     slot_t slot_max;
     bb_key_t bb_key;
+    state_t bb_end_state;
 } bb_instrument_msg_t;
 
 struct hpcviewer_format_ip_node_t;
@@ -151,9 +143,7 @@ typedef struct _per_thread_t {
     splay_node_t* next_splay_node;
     splay_node_t* dummy_splay_node;
 
-    aligned_ctxt_hndl_t cur_ctxt_hndl;
     aligned_ctxt_hndl_t cur_bb_child_ctxt_start_idx;
-    slot_t cur_slot;
     state_t pre_instr_state;
 
     // DO_DATA_CENTRIC
@@ -365,7 +355,7 @@ bb_shadow_create(slot_t num)
     bb_shadow->ip_shadow = (app_pc *)dr_global_alloc(num * sizeof(app_pc));
     bb_shadow->state_shadow = (state_t *)dr_global_alloc(num * sizeof(state_t));
     bb_shadow->disasm_shadow =
-        (char *)dr_global_alloc(DISASM_CACHE_SIZE * num * sizeof(char *));
+        (char *)dr_global_alloc(DISASM_CACHE_SIZE * num * sizeof(char));
     return bb_shadow;
 }
 
@@ -377,7 +367,7 @@ bb_shadow_free(void *shadow)
     dr_global_free((void *)bb_shadow->ip_shadow, num * sizeof(app_pc));
     dr_global_free((void *)bb_shadow->state_shadow, num * sizeof(state_t));
     dr_global_free((void *)bb_shadow->disasm_shadow,
-                   DISASM_CACHE_SIZE * num * sizeof(char *));
+                   DISASM_CACHE_SIZE * num * sizeof(char));
     dr_global_free(shadow, sizeof(bb_shadow_t));
 }
 
@@ -416,16 +406,13 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->root_bb_node = root_bb_node;
 
     pt->cur_bb_node = root_bb_node;
-    pt->cur_slot = 0;
     pt->pre_instr_state = INSTR_STATE_THREAD_ROOT_VIRTUAL;
 
     pt->cur_buf = dr_get_dr_segment_base(tls_seg);
 
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
-
-    pt->cur_ctxt_hndl = pt->cur_bb_child_ctxt_start_idx + pt->cur_slot;
     BUF_PTR(pt->cur_buf, INSTRACE_TLS_OFFS_BUF_PTR) =
-        &(pt->cur_ctxt_hndl);
+        &(pt->cur_bb_child_ctxt_start_idx);
 
     if((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0){
         // Set stack sizes if data-centric is needed
@@ -507,13 +494,14 @@ instr_instrument_msg_delete(instr_instrument_msg_t *msg)
 }
 
 static inline bb_instrument_msg_t *
-bb_instrument_msg_create(bb_key_t bb_key, slot_t slot_max)
+bb_instrument_msg_create(bb_key_t bb_key, slot_t slot_max, state_t bb_end_state)
 {
     bb_instrument_msg_t *bb_msg = (bb_instrument_msg_t *)dr_global_alloc(sizeof(bb_instrument_msg_t));
     bb_msg->first = bb_msg->end = NULL;
     bb_msg->number = 0;
     bb_msg->slot_max = slot_max;
     bb_msg->bb_key = bb_key;
+    bb_msg->bb_end_state = bb_end_state;
     return bb_msg;
 }
 
@@ -570,19 +558,19 @@ bb_instrument_msg_delete(bb_instrument_msg_t *bb_msg)
 }
 
 static void
-instrument_before_bb_first_instr(bb_key_t new_key, slot_t num)
+instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state)
 {
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-    IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file, "pre bb key %d cur slot %d -> ",
-                                 pt->cur_bb_node->key, pt->cur_slot);)
+    IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file, "pre bb key %d ->",
+                                 pt->cur_bb_node->key);)
     context_handle_t new_caller_ctxt = 0;
     if (instr_state_contain(pt->pre_instr_state, INSTR_STATE_THREAD_ROOT_VIRTUAL)) {
         new_caller_ctxt =
             pt->root_bb_node->child_ctxt_start_idx + THREAD_ROOT_SHARDED_CALLEE_INDEX;
     } else if (instr_state_contain(pt->pre_instr_state, INSTR_STATE_CALL_DIRECT) ||
                instr_state_contain(pt->pre_instr_state, INSTR_STATE_CALL_IN_DIRECT)) {
-        new_caller_ctxt = pt->cur_bb_node->child_ctxt_start_idx + pt->cur_slot;
+        new_caller_ctxt = pt->cur_bb_node->child_ctxt_start_idx + pt->cur_bb_node->max_slots - 1;
     } else if (instr_state_contain(pt->pre_instr_state, INSTR_STATE_RETURN)) {
         if (pt->cur_bb_node->caller_ctxt_hndl !=
             pt->root_bb_node->child_ctxt_start_idx + THREAD_ROOT_SHARDED_CALLEE_INDEX) {
@@ -592,11 +580,6 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t num)
             new_caller_ctxt = pt->cur_bb_node->caller_ctxt_hndl;
         }
     } else {
-        if (pt->cur_slot >= pt->cur_bb_node->max_slots) {
-            cct_bb_node_t *pre_bb = pt->cur_bb_node;
-            DRCCTLIB_EXIT_PROCESS(" > pre bb key %d caller_ctxt_hndl %d", pre_bb->key,
-                                  pre_bb->caller_ctxt_hndl);
-        }
         new_caller_ctxt = pt->cur_bb_node->caller_ctxt_hndl;
     }
     splay_node_t *new_root = splay_tree_update(
@@ -610,126 +593,20 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t num)
     ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree_root = new_root;
     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
-    pt->pre_instr_state = 0;
-    pt->cur_slot = 0;
+    pt->pre_instr_state = end_state;
     if (client_cb.func_insert_bb_start != NULL) {
         (*client_cb.func_insert_bb_start)(client_cb.insert_data);
     }
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file, "cur bb key %d \n", pt->cur_bb_node->key);)
 }
 
-static void
-instrument_before_every_instr_clean_call(slot_t slot, state_t state_flag)
-{
-    per_thread_t *pt =
-        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-    pt->cur_slot = slot;
-    pt->pre_instr_state = state_flag;
-    pt->cur_ctxt_hndl = pt->cur_bb_child_ctxt_start_idx + slot;
-}
-
 #ifdef DRCCTLIB_DEBUG
 static void
 instrument_before_every_instr_debug_clean_call()
 {
-    per_thread_t *pt =
-        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-    pt->cur_slot = slot;
-    pt->pre_instr_state = state_flag;
-    pt->cur_ctxt_hndl = pt->cur_bb_child_ctxt_start_idx + slot;
+
 }
 #endif
-
-static inline void
-instrument_before_every_instr_meta_instr(void *drcontext, instr_instrument_msg_t *instrument_msg)
-{
-    instrlist_t *bb = instrument_msg->bb;
-    instr_t *instr = instrument_msg->instr;
-    slot_t slot = instrument_msg->slot;
-    state_t state_flag = instrument_msg->state;
-#ifdef INTEL_CCTLIB
-    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS(
-            "instrument_before_every_instr_meta_instr drreg_reserve_aflags != DRREG_SUCCESS");
-    }
-#endif
-
-#ifdef ARM_CCTLIB
-    reg_id_t reg_store_imm;
-    if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_store_imm) !=
-        DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
-                                "drreg_reserve_register != DRREG_SUCCESS");
-    }
-    opnd_t opnd_reg_store_imm = opnd_create_reg(reg_store_imm);
-#endif
-    reg_id_t reg_tls, reg_buf, reg1;
-    if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg1) != DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, instr, NULL, &reg_buf) != DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, instr, NULL, &reg_tls) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
-                                "drreg_reserve_register != DRREG_SUCCESS");
-    }
-    opnd_t opnd_reg_1 = opnd_create_reg(reg1);
-    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, reg_tls);
-    opnd_t opnd_mem_pis = OPND_CREATE_PT_PRE_INSTR_STATE(
-            reg_tls, offsetof(per_thread_t, pre_instr_state));
-    opnd_t opnd_mem_cs =
-            OPND_CREATE_PT_CUR_SLOT(reg_tls, offsetof(per_thread_t, cur_slot));
-    opnd_t opnd_mem_cch = OPND_CREATE_PT_CUR_CTXT_HNDLE(
-            reg_tls, offsetof(per_thread_t, cur_ctxt_hndl));
-    
-    opnd_t opnd_mem_cbccsi = OPND_CREATE_PT_CUR_BB_CHILD_CTXT_START_IDX(
-            reg_tls, offsetof(per_thread_t, cur_bb_child_ctxt_start_idx));
-    opnd_t opnd_imm_pis = OPND_CREATE_INSTR_STATE_FLAG(state_flag);
-    opnd_t opnd_imm_cs = OPND_CREATE_SLOT(slot);
-
-    // pt->pre_instr_state = state_flag;
-#ifdef ARM_CCTLIB
-    MINSERT(bb, instr,
-            XINST_CREATE_load_int(drcontext, opnd_reg_store_imm, opnd_imm_pis));
-    MINSERT(bb, instr,
-            XINST_CREATE_store(drcontext, opnd_mem_pis, opnd_reg_store_imm));
-#else
-    MINSERT(bb, instr, XINST_CREATE_store(drcontext, opnd_mem_pis, opnd_imm_pis));
-#endif
-    // pt->cur_slot = slot;
-#ifdef ARM_CCTLIB
-    MINSERT(bb, instr,
-            XINST_CREATE_load_int(drcontext, opnd_reg_store_imm, opnd_imm_cs));
-    MINSERT(bb, instr,
-            XINST_CREATE_store(drcontext, opnd_mem_cs, opnd_reg_store_imm));
-#else
-    MINSERT(bb, instr, XINST_CREATE_store(drcontext, opnd_mem_cs, opnd_imm_cs));
-#endif
-    // pt->cur_ctxt_hndl = pt->cur_bb_child_ctxt_start_idx + slot;
-    MINSERT(bb, instr, XINST_CREATE_load(drcontext, opnd_reg_1, opnd_mem_cbccsi));
-#ifdef ARM_CCTLIB
-    MINSERT(bb, instr, XINST_CREATE_add(drcontext, opnd_reg_1, opnd_reg_store_imm));
-#else
-    MINSERT(bb, instr, XINST_CREATE_add(drcontext, opnd_reg_1, opnd_imm_cs));
-#endif
-    MINSERT(bb, instr, XINST_CREATE_store(drcontext, opnd_mem_cch, opnd_reg_1));
-
-#ifdef ARM_CCTLIB
-    if (drreg_unreserve_register(drcontext, bb, instr, reg_store_imm) !=
-        DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
-                                "drreg_unreserve_register != DRREG_SUCCESS");
-    }
-#endif
-    if (drreg_unreserve_register(drcontext, bb, instr, reg_tls) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, bb, instr, reg_buf) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, bb, instr, reg1) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
-                                "drreg_unreserve_register != DRREG_SUCCESS");
-    }
-#ifdef INTEL_CCTLIB
-    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
-    }
-#endif
-}
 
 #ifdef ARM_CCTLIB
 static bool
@@ -762,17 +639,10 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
 #ifdef ARM32_CCTLIB
         if (instrument_msg->state == INSTR_STATE_BB_START_NOP) {
             dr_insert_clean_call(
-                drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 2,
-                OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max));
+                drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 3,
+                OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max),
+                OPND_CREATE_STATE(bb_msg->bb_end_state));
         } else {
-            if ((global_flags & DRCCTLIB_USE_CLEAN_CALL) != 0) {
-                dr_insert_clean_call(drcontext, bb, instr,
-                                     (void *)instrument_before_every_instr_clean_call,
-                                     false, 2, OPND_CREATE_SLOT(instrument_msg->slot),
-                                     OPND_CREATE_INSTR_STATE_FLAG(instrument_msg->state));
-            } else {
-                instrument_before_every_instr_meta_instr(drcontext, instrument_msg);
-            }
             IF_DRCCTLIB_DEBUG(dr_insert_clean_call(
                                   drcontext, bb, instr,
                                   (void *)instrument_before_every_instr_debug_clean_call,
@@ -782,16 +652,9 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
 #else
         if (instrument_msg->slot == 0) {
             dr_insert_clean_call(
-                drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 2,
-                OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max));
-        }
-        if ((global_flags & DRCCTLIB_USE_CLEAN_CALL) != 0) {
-            dr_insert_clean_call(drcontext, bb, instr,
-                                 (void *)instrument_before_every_instr_clean_call, false,
-                                 2, OPND_CREATE_SLOT(instrument_msg->slot),
-                                 OPND_CREATE_INSTR_STATE_FLAG(instrument_msg->state));
-        } else {
-            instrument_before_every_instr_meta_instr(drcontext, instrument_msg);
+                drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 3,
+                OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max),
+                OPND_CREATE_STATE(bb_msg->bb_end_state));
         }
 
         IF_DRCCTLIB_DEBUG(
@@ -846,8 +709,10 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
         }
         dr_mutex_unlock(bb_shadow_lock);
     }
+    state_t bb_end_state = 0;
+    instr_state_init(instrlist_last_app(bb), &bb_end_state);
     bb_instrument_msg_t *bb_msg =
-        bb_instrument_msg_create(bb_key, uninterested_bb ? 1 : interest_instr_num);
+        bb_instrument_msg_create(bb_key, uninterested_bb ? 1 : interest_instr_num, bb_end_state);
 
     if(!uninterested_bb) {
         IF_ARM32_CCTLIB(bb_instrument_msg_add(bb_msg,
@@ -1622,11 +1487,11 @@ drcctlib_get_per_thread_date_id()
 
 DR_EXPORT
 context_handle_t
-drcctlib_get_context_handle()
+drcctlib_get_context_handle(int32_t slot)
 {
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-    return (context_handle_t)(pt->cur_ctxt_hndl);
+    return (context_handle_t)(pt->cur_bb_child_ctxt_start_idx + slot);
 }
 
 DR_EXPORT
@@ -1638,13 +1503,35 @@ drcctlib_get_bb_start_context_handle()
     return (context_handle_t)(pt->cur_bb_child_ctxt_start_idx);
 }
 
+#ifdef CCTLIB_64
+#    define OPND_CREATE_CTXT_HNDL_MEM OPND_CREATE_MEM64
+#else
+#    define OPND_CREATE_CTXT_HNDL_MEM OPND_CREATE_MEM32
+#endif
+
 DR_EXPORT
 void
 drcctlib_get_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t store_reg)
+                                   int32_t slot, reg_id_t store_reg, reg_id_t addr_reg)
 {
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
-                           tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, store_reg);
+                           tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, addr_reg);
+    MINSERT(ilist, where,
+            XINST_CREATE_load(drcontext, opnd_create_reg(store_reg), 
+                OPND_CREATE_CTXT_HNDL_MEM(addr_reg, 0)));
+#ifdef ARM_CCTLIB
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(addr_reg), 
+                OPND_CREATE_SLOT(slot)));
+    MINSERT(ilist, where, 
+            XINST_CREATE_add(drcontext, opnd_create_reg(store_reg), 
+                opnd_create_reg(addr_reg)));
+#else
+    MINSERT(ilist, where, 
+            XINST_CREATE_add(drcontext, opnd_create_reg(store_reg), 
+                OPND_CREATE_SLOT(slot)));
+#endif
+    
 }
 
 DR_EXPORT
@@ -1837,6 +1724,31 @@ have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2
     context_handle_t t2 =
         ctxt_hndl_to_ip_node(ctxt_hndl2)->parent_bb_node->caller_ctxt_hndl;
     return t1 == t2;
+}
+
+DR_EXPORT
+bool
+has_same_call_path(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2)
+{
+    if(ctxt_hndl1 == ctxt_hndl2) {
+        return true;
+    }
+    if (ctxt_hndl1 == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE ||
+        ctxt_hndl2 == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
+        return false;
+    }
+    context_handle_t p1 =
+        ctxt_hndl_to_ip_node(ctxt_hndl1)->parent_bb_node->caller_ctxt_hndl;
+    context_handle_t p2 =
+        ctxt_hndl_to_ip_node(ctxt_hndl2)->parent_bb_node->caller_ctxt_hndl;
+    if(has_same_call_path(p1, p2)){
+        app_pc pc1 = drcctlib_get_pc(ctxt_hndl1);
+        app_pc pc2 = drcctlib_get_pc(ctxt_hndl2);
+        if(pc1 == pc2) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // API to get the handle for a data object
