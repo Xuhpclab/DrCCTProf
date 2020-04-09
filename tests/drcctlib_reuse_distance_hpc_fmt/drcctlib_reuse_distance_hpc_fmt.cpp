@@ -320,18 +320,17 @@ BBStartInsertCleancall(int num)
 
 static void
 InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
-              opnd_t ctxt_hndl_addr)
+              reg_id_t reg_ctxt_hndl, reg_id_t free_reg)
 {
     /* We need two scratch registers */
-    reg_id_t reg_mem_ref_ptr, reg_1;
+    reg_id_t reg_mem_ref_ptr;
     if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_mem_ref_ptr) !=
-            DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_1) != DRREG_SUCCESS) {
+            DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("InstrumentMem drreg_reserve_register != DRREG_SUCCESS");
     }
-    if (!drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_1, reg_mem_ref_ptr)) {
+    if (!drutil_insert_get_mem_addr(drcontext, ilist, where, ref, free_reg, reg_mem_ref_ptr)) {
         MINSERT(ilist, where,
-            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_1),
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(free_reg),
                                     OPND_CREATE_CCT_INT(0)));
     }
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
@@ -341,23 +340,21 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
             XINST_CREATE_store(
                 drcontext,
                 OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(mem_ref_t, addr)),
-                opnd_create_reg(reg_1)));
+                opnd_create_reg(free_reg)));
     // store mem_ref_t->ctxt_hndl
-    MINSERT(ilist, where,
-            XINST_CREATE_load(drcontext, opnd_create_reg(reg_1), ctxt_hndl_addr));
     MINSERT(ilist, where,
             XINST_CREATE_store(
                 drcontext,
                 OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(mem_ref_t, ctxt_hndl)),
-                opnd_create_reg(reg_1)));
+                opnd_create_reg(reg_ctxt_hndl)));
 
 #ifdef ARM_CCTLIB
     MINSERT(ilist, where,
-            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_1),
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(free_reg),
                                     OPND_CREATE_CCT_INT(sizeof(mem_ref_t))));
     MINSERT(ilist, where,
             XINST_CREATE_add(drcontext, opnd_create_reg(reg_mem_ref_ptr),
-                                opnd_create_reg(reg_1)));
+                                opnd_create_reg(free_reg)));
 #else
     MINSERT(ilist, where,
             XINST_CREATE_add(drcontext, opnd_create_reg(reg_mem_ref_ptr),
@@ -367,8 +364,7 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
                             tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, reg_mem_ref_ptr);
     /* Restore scratch registers */
     if (drreg_unreserve_register(drcontext, ilist, where, reg_mem_ref_ptr) !=
-            DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, ilist, where, reg_1) != DRREG_SUCCESS) {
+            DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("InstrumentMem drreg_unreserve_register != DRREG_SUCCESS");
     }
 }
@@ -396,38 +392,47 @@ BBMemRefNum(instrlist_t *instrlits)
 void
 InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
 {
-
+    
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
-    if (instr_is_call_direct(instr) || instr_is_call_indirect(instr) ||
-        instr_is_return(instr)) {
-        return;
-    }
+    int32_t slot = instrument_msg->slot;
     if (instrument_msg->interest_start) {
         int bb_num = BBMemRefNum(bb);
         dr_insert_clean_call(drcontext, bb, instr, (void *)BBStartInsertCleancall, false, 1,
                              OPND_CREATE_CCT_INT(bb_num));
     }
 
-    reg_id_t reg_ctxt_hndl_addr;
-    if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_ctxt_hndl_addr) != DRREG_SUCCESS) {
+#ifdef INTEL_CCTLIB
+    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS(
+            "instrument_before_every_instr_meta_instr drreg_reserve_aflags != DRREG_SUCCESS");
+    }
+#endif
+    reg_id_t reg_ctxt_hndl, reg_temp;
+    if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_ctxt_hndl) != DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, bb, instr, NULL, &reg_temp) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("InstrumentInsCallback drreg_reserve_register != DRREG_SUCCESS");
     }
-    drcctlib_get_context_handle_in_reg(drcontext, bb, instr, reg_ctxt_hndl_addr);
-    opnd_t ctxt_hndl_addr = OPND_CREATE_CTXT_HNDL_MEM(reg_ctxt_hndl_addr, 0);
+    drcctlib_get_context_handle_in_reg(drcontext, bb, instr, slot, reg_ctxt_hndl, reg_temp);
     for (int i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_is_memory_reference(instr_get_src(instr, i))){
-            InstrumentMem(drcontext, bb, instr, instr_get_src(instr, i), ctxt_hndl_addr);
+            InstrumentMem(drcontext, bb, instr, instr_get_src(instr, i), reg_ctxt_hndl, reg_temp);
         }     
     }
     for (int i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-            InstrumentMem(drcontext, bb, instr, instr_get_dst(instr, i), ctxt_hndl_addr);
+            InstrumentMem(drcontext, bb, instr, instr_get_dst(instr, i), reg_ctxt_hndl, reg_temp);
         }
     }
-    if (drreg_unreserve_register(drcontext, bb, instr, reg_ctxt_hndl_addr) != DRREG_SUCCESS) {
+    if (drreg_unreserve_register(drcontext, bb, instr, reg_ctxt_hndl) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, instr, reg_temp) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("InstrumentInsCallback drreg_unreserve_register != DRREG_SUCCESS");
     }
+#ifdef INTEL_CCTLIB
+    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
+    }
+#endif
 }
 
 
