@@ -132,7 +132,7 @@ typedef struct _per_thread_t{
 
 #define OUTPUT_SIZE 200
 #define REUSED_THRES 8912
-#define REUSED_PRINT_MIN_COUNT 100
+#define REUSED_PRINT_MIN_COUNT 1000
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 
 void
@@ -189,6 +189,9 @@ InitPrintFile()
 #else
     char name[MAXIMUM_PATH] = "x86.drcctlib_reuse_distance.topn.out.log";
 #endif
+    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
+    pid_t pid = getpid();
+    sprintf(name + strlen(name), "%d", pid);
     cerr << "Creating log file at:" << name << endl;
 
     gTraceFile = dr_open_file(name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
@@ -217,6 +220,9 @@ PrintTopN(per_thread_t *pt, uint32_t print_num)
         context_handle_t use_hndl = (context_handle_t)(it->first >> 32);
         context_handle_t reuse_hndl = (context_handle_t)(it->first);
         context_handle_t create_hndl = it->second.create_hndl;
+        if (create_hndl <= 0) {
+            continue;
+        }
         if (it->second.count > output_format_list[0].count) {
             uint64_t min_count = output_format_list[1].count;
             uint32_t min_idx = 1;
@@ -253,14 +259,14 @@ PrintTopN(per_thread_t *pt, uint32_t print_num)
         }
     }
     InitPrintFile();
-    dr_fprintf(gTraceFile, "max memory idx %lu\n", pt->cur_mem_idx);
+    dr_fprintf(gTraceFile, "max memory idx %llu\n", pt->cur_mem_idx);
     // output the selected reuse pairs
     uint32_t no = 0;
     for (uint32_t i = 0; i < print_num; i++) {
         if (output_format_list[i].count == 0)
             continue;
         no ++;
-        dr_fprintf(gTraceFile, "No.%u counts(%lu) avg distance(%lu)\n", no, output_format_list[i].count, output_format_list[i].distance);
+        dr_fprintf(gTraceFile, "No.%u counts(%llu) avg distance(%llu)\n", no, output_format_list[i].count, output_format_list[i].distance);
         dr_fprintf(gTraceFile, "====================================create=======================================\n");
         if(output_format_list[i].create_hndl > 0) {
             drcctlib_print_full_cct(gTraceFile, output_format_list[i].create_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);

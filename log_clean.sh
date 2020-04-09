@@ -14,3 +14,4 @@ rm -rf ${BUILD_LOG_PATH}/remake*
 rm -rf ${BUILD_LOG_PATH}/*.tt.log
 rm -rf ${BUILD_LOG_PATH}/*.hpcstruct
 rm -rf ${BUILD_LOG_PATH}/*.tar.bz2
+rm -rf ${BUILD_LOG_PATH}/runoutput*

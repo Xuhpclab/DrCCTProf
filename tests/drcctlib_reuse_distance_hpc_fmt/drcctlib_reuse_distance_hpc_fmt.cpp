@@ -132,7 +132,7 @@ typedef struct _per_thread_t{
 
 #define OUTPUT_SIZE 200
 #define REUSED_THRES 8912
-#define REUSED_PRINT_MIN_COUNT 100
+#define REUSED_PRINT_MIN_COUNT 1000
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 
 int ins_metric_id1 = 0;

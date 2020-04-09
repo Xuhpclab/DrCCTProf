@@ -7,6 +7,7 @@ HPCSTPROF=${HPCTOOLKIT}l/bin/hpcprof
 APP_NAME=$1
 BIN_DIR=$2
 SRC_DIR=$3
+LOG_DIR=$4
 
-./hpc_measurements_to_database.sh $HPCPROFTT $HPCSTRUCT $HPCSTPROF $APP_NAME $BIN_DIR $SRC_DIR
+./hpc_measurements_to_database.sh $HPCPROFTT $HPCSTRUCT $HPCSTPROF $APP_NAME $BIN_DIR $SRC_DIR $LOG_DIR
 
