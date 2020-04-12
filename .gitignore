@@ -1,6 +1,7 @@
 build/
 experiment/
 logs/
+log*
 .vscode/
 .clang-format
 appsamples/build
