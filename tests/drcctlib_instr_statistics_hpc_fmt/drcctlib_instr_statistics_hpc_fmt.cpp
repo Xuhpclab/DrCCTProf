@@ -16,29 +16,29 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                             \
-    do {                                                                             \
-        char name[MAXIMUM_PATH] = "";                                                \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));               \
-        pid_t pid = getpid();                                                        \
-        dr_printf("[(%s%d)drcctlib_instr_statistics_hpc_fmt msg]====" format "\n", name, pid, ##args); \
+#define DRCCTLIB_PRINTF(format, args...)                                                 \
+    do {                                                                                 \
+        char name[MAXIMUM_PATH] = "";                                                    \
+        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                   \
+        pid_t pid = getpid();                                                            \
+        dr_printf("[(%s%d)drcctlib_instr_statistics_hpc_fmt msg]====" format "\n", name, \
+                  pid, ##args);                                                          \
     } while (0)
 
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                      \
-    do {                                                                            \
-        char name[MAXIMUM_PATH] = "";                                               \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
-        pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib_instr_statistics_hpc_fmt(%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0);                                                                    \
+#define DRCCTLIB_EXIT_PROCESS(format, args...)                                           \
+    do {                                                                                 \
+        char name[MAXIMUM_PATH] = "";                                                    \
+        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                   \
+        pid_t pid = getpid();                                                            \
+        dr_printf("[(%s%d)drcctlib_instr_statistics_hpc_fmt(%s%d) msg]====" format "\n", \
+                  name, pid, ##args);                                                    \
+    } while (0);                                                                         \
     dr_exit_process(-1)
-
 
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 #define TOP_REACH__NUM_SHOW 200
 
 int64_t *gloabl_hndl_call_num;
-static file_t gTraceFile;
 static int tls_idx;
 
 enum {
@@ -109,9 +109,6 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
 {
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
-    // if (instrument_msg->interest_start) {
-    //     dr_insert_clean_call(drcontext, bb, instr, (void *)BBStartCleanCall, false, 0);
-    // }
     EveryInstrInstrument(drcontext, bb, instr, instrument_msg->slot);
 }
 
@@ -157,7 +154,6 @@ static inline void
 FreeGlobalBuff()
 {
     if (munmap(gloabl_hndl_call_num, CONTEXT_HANDLE_MAX * sizeof(int64_t)) != 0) {
-        // || munmap(global_string_pool, CONTEXT_HANDLE_MAX * sizeof(char)) != 0) {
         DRCCTLIB_PRINTF("free_global_buff munmap error");
     }
 }
@@ -165,35 +161,6 @@ FreeGlobalBuff()
 static void
 ClientInit(int argc, const char *argv[])
 {
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib.drcctlib_instr_statistics_hpc_fmt.out.";
-#else
-    char name[MAXIMUM_PATH] = "x86.drcctlib.drcctlib_instr_statistics_hpc_fmt.out.";
-#endif
-    char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
-
-    if (envPath) {
-        // assumes max of MAXIMUM_PATH
-        strcpy(name, envPath);
-    }
-
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    pid_t pid = getpid();
-    sprintf(name + strlen(name), "%d", pid);
-    cerr << "Creating log file at:" << name << endl;
-
-    gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
-    
-    DR_ASSERT(gTraceFile != INVALID_FILE);
-    // print the arguments passed
-    dr_fprintf(gTraceFile, "\n");
-
-    for (int i = 0; i < argc; i++) {
-        dr_fprintf(gTraceFile, "%d %s ", i, argv[i]);
-    }
-
-    dr_fprintf(gTraceFile, "\n");
-
     InitGlobalBuff();
 }
 
@@ -219,6 +186,7 @@ ClientExit(void)
     }
     build_progress_custom_cct_hpurun_format(hpcRunNodes);
     write_progress_custom_cct_hpurun_format();
+
     FreeGlobalBuff();
     drcctlib_exit();
 
@@ -232,6 +200,9 @@ ClientExit(void)
         DRCCTLIB_PRINTF("failed to unregister in ClientExit");
     }
     drmgr_exit();
+    if (drreg_exit() != DRREG_SUCCESS) {
+        DRCCTLIB_PRINTF("failed to exit drreg");
+    }
 }
 
 #ifdef __cplusplus
@@ -263,7 +234,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics_hpc_fmt dr_raw_tls_calloc fail");
     }
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL,
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
                      InstrumentBBStartInsertCallback, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
     init_hpcrun_format(dr_get_application_name(), false);
     ins_metric_id = hpcrun_create_metric("TOT_CALLS");

@@ -10,6 +10,10 @@ BUILD_PATH=${CUR_DIR}/build
 echo -e "Remove \033[34m${BUILD_PATH}\033[0m.."
 rm -rf ${BUILD_PATH}
 
+BUILD_DEBUG_PATH=${CUR_DIR}/build_debug
+echo -e "Remove \033[34m${BUILD_DEBUG_PATH}\033[0m.."
+rm -rf ${BUILD_DEBUG_PATH}
+
 APPSAMPLES_BUILD=${CUR_DIR}/appsamples/build
 echo -e "Remove \033[34m${APPSAMPLES_BUILD}\033[0m.."
 rm -rf ${APPSAMPLES_BUILD}
