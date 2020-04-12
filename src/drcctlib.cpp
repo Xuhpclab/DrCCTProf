@@ -191,9 +191,7 @@ static int tls_idx;
 static file_t log_file;
 static client_cb_t client_cb; 
 
-static void *flags_lock;
-static void *bb_shadow_lock;
-/* protected by flags_lock */
+
 static char global_flags = DRCCTLIB_DEFAULT;
 
 static bool (*global_instr_filter)(instr_t*) = DRCCTLIB_FILTER_ZERO_INSTR;
@@ -203,6 +201,7 @@ static context_handle_t global_ip_node_buff_idle_idx = CONTEXT_HANDLE_START;
 
 static int global_thread_id_max = 0;
 
+static void *bb_shadow_lock;
 static void *bb_node_cache_lock;
 static void *splay_node_cache_lock;
 static memory_cache_t<cct_bb_node_t> *global_bb_node_cache;
@@ -456,6 +455,8 @@ static inline void
 pt_cache_free(void *cache)
 {
     pt_cache_t *pt_cache = (pt_cache_t *)cache;
+    delete pt_cache->cache_data->bb_node_cache;
+    delete pt_cache->cache_data->splay_node_cache;
     dr_global_free(pt_cache->cache_data, sizeof(per_thread_t));
     dr_global_free(cache, sizeof(pt_cache_t));
 }
@@ -683,6 +684,14 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     instr_t *first_instr = instrlist_first_app(bb);
 #endif
 
+#ifdef ARM_CCTLIB
+    if(instr_is_exclusive_store(first_instr)) {
+        
+        *user_data = NULL;
+        return DR_EMIT_DEFAULT;
+    }
+#endif
+
     slot_t interest_instr_num = bb_get_num_interest_instr(first_instr);
     bool uninterested_bb = (interest_instr_num == 0) ? true : false;
 
@@ -767,14 +776,12 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
             }
         }
     }
-
-#ifdef ARM_CCTLIB
-    if(instr_is_exclusive_store(first_instr) || instr_is_exclusive_load(first_instr)) {
+    if (bb_msg->number == 0) {
+        bb_instrument_msg_delete(bb_msg);
         *user_data = NULL;
-        return DR_EMIT_DEFAULT;
+    } else {
+        *user_data = (void*)bb_msg;
     }
-#endif
-    *user_data = (void*)bb_msg;
     return DR_EMIT_DEFAULT;
 }
 
@@ -937,7 +944,7 @@ capture_free(void *wrapcxt, void **user_data)
 static void
 compute_static_var(const module_data_t *info)
 {   
-    file_t fd = dr_open_file(info->full_path, O_RDONLY);
+    file_t fd = dr_open_file(info->full_path, DR_FILE_READ);
     uint64 file_size;
     if (fd == INVALID_FILE) {
         DRCCTLIB_PRINTF("------ unable to open %s", info->full_path);
@@ -1134,7 +1141,6 @@ free_global_buff()
 static inline void
 create_global_locks()
 {
-    flags_lock = dr_recurlock_create();
     bb_shadow_lock = dr_mutex_create();
     module_data_lock = dr_mutex_create();
     bb_node_cache_lock = dr_mutex_create();
@@ -1144,8 +1150,8 @@ create_global_locks()
 static inline void
 destroy_global_locks()
 {
-    dr_recurlock_destroy(flags_lock);
     dr_mutex_destroy(bb_shadow_lock);
+    dr_mutex_destroy(module_data_lock);
     dr_mutex_destroy(bb_node_cache_lock);
     dr_mutex_destroy(splay_node_cache_lock);
 }
@@ -1161,9 +1167,11 @@ get_peak_rss()
 static void
 print_stats()
 {
-    dr_fprintf(log_file, "\nTotalCallPaths = %" PRIu32, global_ip_node_buff_idle_idx);
-    // Peak resource usage
-    dr_fprintf(log_file, "\nPeakRSS = %zu", get_peak_rss());
+    if(log_file != INVALID_FILE) {
+        dr_fprintf(log_file, "\nTotalCallPaths = %" PRIu32, global_ip_node_buff_idle_idx);
+        // Peak resource usage
+        dr_fprintf(log_file, "\nPeakRSS = %zu", get_peak_rss());
+    }
 }
 
 static per_thread_t *
@@ -1199,6 +1207,16 @@ ctxt_create(context_handle_t ctxt_hndl, int line_no, app_pc ip)
     ctxt->ip = ip;
     ctxt->pre_ctxt = NULL;
     return ctxt;
+}
+
+static inline void
+ctxt_free(context_t *ctxt)
+{
+    if (ctxt == NULL) {
+        return;
+    }
+    ctxt_free(ctxt->pre_ctxt);
+    dr_global_free(ctxt, sizeof(context_t));
 }
 
 static inline context_t *
@@ -1574,6 +1592,7 @@ drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print
         dr_fprintf(file, "%s(%d):\"(%p)\"\n", ctxt->func_name, ctxt->line_no,
                    (uint64_t)ctxt->ip);
     }
+    ctxt_free(ctxt);
 }
 
 DR_EXPORT
@@ -1816,7 +1835,7 @@ static void
 get_full_calling_ip_vector(context_handle_t ctxt_hndl, vector<app_pc> &list)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
-        DRCCTLIB_EXIT_PROCESS("drcctlib_get_full_cct !ctxt_hndl_is_valid");
+        DRCCTLIB_EXIT_PROCESS("get_full_calling_ip_vector !ctxt_hndl_is_valid");
     }
     context_handle_t cur_ctxt = ctxt_hndl;
     while (true) {
@@ -2138,7 +2157,7 @@ get_fmt_ip_node_new_id();
 
 // ****************Print merged splay tree*********************************************
 void IPNode_fwrite(hpcviewer_format_ip_node_t* node, FILE* fs);
-void tranverseNewCCT(vector<hpcviewer_format_ip_node_t*> nodes, FILE* fs);
+void tranverseNewCCT(vector<hpcviewer_format_ip_node_t*> *nodes, FILE* fs);
 // ************************************************************************************
 
 static int unsigned long
@@ -2650,6 +2669,7 @@ IPNode_fwrite(hpcviewer_format_ip_node_t *node, FILE *fs)
         hpcfmt_int2_fwrite(off_module_data->id, fs); // Set loadmodule id to 1
         // normalize the IP offset to the beginning of the load module and write out
         hpcfmt_int8_fwrite((uint64_t)(node->IPAddress - off_module_data->start), fs);
+        dr_free_module_data(info);
     }
 
     // this uses .metric field in the hpcviewer_format_ip_node_t, which means we have per
@@ -2661,20 +2681,20 @@ IPNode_fwrite(hpcviewer_format_ip_node_t *node, FILE *fs)
 
 // Tranverse and print the calling context tree (nodes first)
 void
-tranverseNewCCT(vector<hpcviewer_format_ip_node_t *> nodes, FILE *fs)
+tranverseNewCCT(vector<hpcviewer_format_ip_node_t *> *nodes, FILE *fs)
 {
 
-    if (nodes.size() == 0)
+    if ((*nodes).size() == 0)
         return;
     size_t i;
 
-    for (i = 0; i < nodes.size(); i++) {
-        IPNode_fwrite(nodes.at(i), fs);
+    for (i = 0; i < (*nodes).size(); i++) {
+        IPNode_fwrite((*nodes).at(i), fs);
     }
-    for (i = 0; i < nodes.size(); i++) {
+    for (i = 0; i < (*nodes).size(); i++) {
 
-        if (nodes.at(i)->childIPNodes.size() != 0) {
-            tranverseNewCCT(nodes.at(i)->childIPNodes, fs);
+        if ((*nodes).at(i)->childIPNodes.size() != 0) {
+            tranverseNewCCT(&((*nodes).at(i)->childIPNodes), fs);
         }
     }
     return;
@@ -2844,7 +2864,7 @@ write_thread_all_cct_hpcrun_format(void *drcontext)
         }
     }
     hpcfmt_int8_fwrite(pt->nodeCount, fs);
-    tranverseNewCCT(fmt_ip_node_vector, fs);
+    tranverseNewCCT(&fmt_ip_node_vector, fs);
     hpcio_fclose(fs);
     return 0;
 }
@@ -2899,7 +2919,7 @@ write_thread_custom_cct_hpurun_format(void *drcontext)
 
     hpcfmt_int8_fwrite(pt->nodeCount, fs);
     IPNode_fwrite(fmt_root_ip, fs);
-    tranverseNewCCT(fmt_ip_node_vector, fs);
+    tranverseNewCCT(&fmt_ip_node_vector, fs);
     hpcio_fclose(fs);
     return 0;
 }
@@ -2946,7 +2966,7 @@ write_progress_custom_cct_hpurun_format()
     
     hpcfmt_int8_fwrite(global_hpc_fmt_data.nodeCount, fs);
     IPNode_fwrite(fmt_root_ip, fs);
-    tranverseNewCCT(fmt_ip_node_vector, fs);
+    tranverseNewCCT(&fmt_ip_node_vector, fs);
     hpcio_fclose(fs);
     return 0;
 }

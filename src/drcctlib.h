@@ -14,8 +14,8 @@
 #define aligned_ctxt_hndl_t int64_t
 #endif
 
-// #define CONTEXT_HANDLE_MAX 7483647L
-#define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1
+#define CONTEXT_HANDLE_MAX 7483647L
+// #define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1
 #define DISASM_CACHE_SIZE 80
 #define MAXIMUM_SYMNAME 256
 

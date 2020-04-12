@@ -20,27 +20,26 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                             \
-    do {                                                                             \
-        char name[MAXIMUM_PATH] = "";                                                \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));               \
-        pid_t pid = getpid();                                                        \
-        dr_printf("[(%s%d)drcctlib_reuse_distance_hpc_fmt msg]====" format "\n", name, pid, ##args); \
+#define DRCCTLIB_PRINTF(format, args...)                                               \
+    do {                                                                               \
+        char name[MAXIMUM_PATH] = "";                                                  \
+        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                 \
+        pid_t pid = getpid();                                                          \
+        dr_printf("[(%s%d)drcctlib_reuse_distance_hpc_fmt msg]====" format "\n", name, \
+                  pid, ##args);                                                        \
     } while (0)
 
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                      \
-    do {                                                                            \
-        char name[MAXIMUM_PATH] = "";                                               \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
-        pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib_reuse_distance_hpc_fmt(%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0);                                                                    \
+#define DRCCTLIB_EXIT_PROCESS(format, args...)                                         \
+    do {                                                                               \
+        char name[MAXIMUM_PATH] = "";                                                  \
+        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                 \
+        pid_t pid = getpid();                                                          \
+        dr_printf("[(%s%d)drcctlib_reuse_distance_hpc_fmt(%s%d) msg]====" format "\n", \
+                  name, pid, ##args);                                                  \
+    } while (0);                                                                       \
     dr_exit_process(-1)
 
-
-static file_t gTraceFile;
 static int tls_idx;
-static char* app_name;
 
 enum {
     INSTRACE_TLS_OFFS_BUF_PTR,
@@ -479,33 +478,7 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib_reuse_distance_hpc_fmt.out.";
-#else
-    char name[MAXIMUM_PATH] = "x86.drcctlib_reuse_distance_hpc_fmt.out.";
-#endif
-    char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
 
-    if (envPath) {
-        // assumes max of MAXIMUM_PATH
-        strcpy(name, envPath);
-    }
-
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    pid_t pid = getpid();
-    sprintf(name + strlen(name), "%d", pid);
-    cerr << "Creating log file at:" << name << endl;
-
-    gTraceFile = dr_open_file(name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
-    DR_ASSERT(gTraceFile != INVALID_FILE);
-    // print the arguments passed
-    dr_fprintf(gTraceFile, "\n");
-
-    for (int i = 0; i < argc; i++) {
-        dr_fprintf(gTraceFile, "%d %s \n", i, argv[i]);
-    }
-
-    dr_fprintf(gTraceFile, "\n");
 }
 
 static void
@@ -518,10 +491,14 @@ ClientExit(void)
     } 
 
     if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
-        !drmgr_unregister_thread_exit_event(ClientThreadEnd)) {
+        !drmgr_unregister_thread_exit_event(ClientThreadEnd) ||
+        !drmgr_unregister_tls_field(tls_idx)) {
         DRCCTLIB_PRINTF("ERROR: drcctlib_reuse_distance_hpc_fmt failed to unregister in ClientExit");
     }
     drmgr_exit();
+    if (drreg_exit() != DRREG_SUCCESS) {
+        DRCCTLIB_PRINTF("failed to exit drreg");
+    }
     drutil_exit();
 }
 
@@ -535,9 +512,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_distance_hpc_fmt'",
                        "http://dynamorio.org/issues");
-    app_name = (char*)dr_global_alloc(MAXIMUM_PATH * sizeof(char));
-    const char *name = dr_get_application_name();
-    sprintf(app_name, "%s", name);
     ClientInit(argc, argv);
 
     if (!drmgr_init()) {
@@ -560,7 +534,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)) {
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt dr_raw_tls_calloc fail");
     }
-    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, gTraceFile, InstrumentInsCallback, NULL,
+    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
                     NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE | DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     init_hpcrun_format(dr_get_application_name(), false);
     ins_metric_id1 = hpcrun_create_metric("SUM_COUNT");

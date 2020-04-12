@@ -155,7 +155,6 @@ static inline void
 FreeGlobalBuff()
 {
     if (munmap(gloabl_hndl_call_num, CONTEXT_HANDLE_MAX * sizeof(int64_t)) != 0) {
-        // || munmap(global_string_pool, CONTEXT_HANDLE_MAX * sizeof(char)) != 0) {
         DRCCTLIB_PRINTF("free_global_buff munmap error");
     }
 }
@@ -164,9 +163,9 @@ static void
 ClientInit(int argc, const char *argv[])
 {
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib.drcctlib_instr_statistics.out.";
+    char name[MAXIMUM_PATH] = "arm.drcctlib_instr_statistics.out.";
 #else
-    char name[MAXIMUM_PATH] = "x86.drcctlib.drcctlib_instr_statistics.out.";
+    char name[MAXIMUM_PATH] = "x86.drcctlib_instr_statistics.out.";
 #endif
     char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
 
@@ -228,6 +227,10 @@ ClientExit(void)
         DRCCTLIB_PRINTF("failed to unregister in ClientExit");
     }
     drmgr_exit();
+    if (drreg_exit() != DRREG_SUCCESS) {
+        DRCCTLIB_PRINTF("failed to exit drreg");
+    }
+    dr_close_file(gTraceFile);
 }
 
 #ifdef __cplusplus
@@ -259,7 +262,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics dr_raw_tls_calloc fail");
     }
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, gTraceFile, InstrumentInsCallback, NULL,
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
                      InstrumentBBStartInsertCallback, NULL, DRCCTLIB_DEFAULT);
     dr_register_exit_event(ClientExit);
 }
