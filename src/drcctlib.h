@@ -58,6 +58,7 @@ enum {
     DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE = 0x02,
     DRCCTLIB_SAVE_CCTLIB_FILE = 0x04,
     DRCCTLIB_SAVE_HPCTOOLKIT_FILE = 0x08,
+    DRCCTLIB_CACHE_EXCEPTION = 0x10
 };
 
 DR_EXPORT
@@ -142,11 +143,11 @@ DR_EXPORT
 bool
 has_same_call_path(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2);
 
-enum{ 
+enum{
+    UNKNOWN_OBJECT,
     STACK_OBJECT, 
     DYNAMIC_OBJECT, 
-    STATIC_OBJECT, 
-    UNKNOWN_OBJECT
+    STATIC_OBJECT
 };
 // The handle representing a data object
 typedef struct data_handle_t {

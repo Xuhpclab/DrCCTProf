@@ -182,10 +182,11 @@ UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur
 }
 
 void
-PrintTopN(per_thread_t *pt, uint32_t print_num)
+PrintTopN(per_thread_t *pt, uint64_t print_num)
 {
+    // print_num = (*(pt->tls_reuse_map)).size();
     output_format_t* output_format_list = (output_format_t*)dr_global_alloc(print_num * sizeof(output_format_t));
-    for(uint32_t i = 0; i < print_num; i ++ ) {
+    for(uint64_t i = 0; i < print_num; i ++ ) {
         output_format_list[i].create_hndl = 0;
         output_format_list[i].use_hndl = 0;
         output_format_list[i].reuse_hndl = 0;
@@ -204,34 +205,32 @@ PrintTopN(per_thread_t *pt, uint32_t print_num)
         if (create_hndl <= 0) {
             continue;
         }
-        if (it->second.count > output_format_list[0].count) {
-            uint64_t min_count = output_format_list[1].count;
-            uint32_t min_idx = 1;
-            for (uint32_t i = 2; i < print_num; i++) {
+        if (count > output_format_list[0].count) {
+            output_format_list[0].count = count;
+            output_format_list[0].distance = distance;
+            output_format_list[0].reuse_hndl = reuse_hndl;
+            output_format_list[0].use_hndl = use_hndl;
+            output_format_list[0].create_hndl = create_hndl;
+
+            uint64_t min_count = output_format_list[0].count;
+            uint64_t min_idx = 0;
+            for (uint64_t i = 1; i < print_num; i++) {
                 if (output_format_list[i].count < min_count) {
                     min_count = output_format_list[i].count;
                     min_idx = i;
                 }
             }
-            if (it->second.count < min_count) {
-                output_format_list[0].count = count;
-                output_format_list[0].distance = distance;
-                output_format_list[0].reuse_hndl = reuse_hndl;
-                output_format_list[0].use_hndl = use_hndl;
-                output_format_list[0].create_hndl = create_hndl;
-            } else {
-                output_format_list[0] = output_format_list[min_idx];
-                output_format_list[min_idx].count = count;
-                output_format_list[min_idx].distance = distance;
-                output_format_list[min_idx].reuse_hndl = reuse_hndl;
-                output_format_list[min_idx].use_hndl = use_hndl;
-                output_format_list[min_idx].create_hndl = create_hndl;
-            }
+            output_format_list[0] = output_format_list[min_idx];
+            output_format_list[min_idx].count = count;
+            output_format_list[min_idx].distance = distance;
+            output_format_list[min_idx].reuse_hndl = reuse_hndl;
+            output_format_list[min_idx].use_hndl = use_hndl;
+            output_format_list[min_idx].create_hndl = create_hndl;
         }
     }
     output_format_t temp;
-    for (uint32_t i = 0; i < print_num; i++) {
-        for (uint32_t j = i; j < print_num; j++) {
+    for (uint64_t i = 0; i < print_num; i++) {
+        for (uint64_t j = i; j < print_num; j++) {
             if(output_format_list[i].count < output_format_list[j].count) {
                 temp = output_format_list[i];
                 output_format_list[i] = output_format_list[j];
@@ -241,8 +240,8 @@ PrintTopN(per_thread_t *pt, uint32_t print_num)
     }
     dr_fprintf(gTraceFile, "max memory idx %llu\n", pt->cur_mem_idx);
     // output the selected reuse pairs
-    uint32_t no = 0;
-    for (uint32_t i = 0; i < print_num; i++) {
+    uint64_t no = 0;
+    for (uint64_t i = 0; i < print_num; i++) {
         if (output_format_list[i].count == 0)
             continue;
         no ++;
@@ -402,6 +401,10 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
         int bb_num = BBMemRefNum(bb);
         dr_insert_clean_call(drcontext, bb, instr, (void *)BBStartInsertCleancall, false, 1,
                              OPND_CREATE_CCT_INT(bb_num));
+    }
+    if (instr_is_call_direct(instr) || instr_is_call_indirect(instr) ||
+        instr_is_return(instr)) {
+        return;
     }
 
 #ifdef INTEL_CCTLIB

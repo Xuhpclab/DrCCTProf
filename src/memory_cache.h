@@ -102,9 +102,10 @@ memory_cache_t<T>::init(int32_t sub_add_num, int32_t debris_size_min_size,
     cur_use_pool_id_ = 0;
     cur_use_pool_start_ = 0;
     cache_pool_vector_ = (T **)dr_global_alloc(max_add_times_ * sizeof(T *));
-    T *sub_cache = (T *)mmap(0, sub_add_num_ * sizeof(T), PROT_WRITE | PROT_READ,
-                                   MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    if (sub_cache == MAP_FAILED) {
+    T *sub_cache = (T *)dr_raw_mem_alloc(
+        sub_add_num_ * sizeof(T),
+        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    if (sub_cache == NULL) {
         dr_printf("memory_cache_t init_error \n");
         return false;
     }
@@ -121,10 +122,11 @@ memory_cache_t<T>::sub_add()
         dr_printf("memory_cache_t full_error \n");
         return false;
     }
-    T *sub_cache = (T *)mmap(0, sub_add_num_ * sizeof(T), PROT_WRITE | PROT_READ,
-                                   MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    if (sub_cache == MAP_FAILED) {
-        dr_printf("memory_cache_t sub_add_error \n");
+    T *sub_cache = (T *)dr_raw_mem_alloc(
+        sub_add_num_ * sizeof(T),
+        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    if (sub_cache == NULL) {
+        dr_printf("memory_cache_t init_error \n");
         return false;
     }
     cur_use_pool_id_++;
@@ -138,7 +140,7 @@ void
 memory_cache_t<T>::free_all()
 {
     for (int32_t i = 0; i <= cur_use_pool_id_; i++) {
-        munmap(cache_pool_vector_[i], sub_add_num_ * sizeof(T));
+        dr_raw_mem_free(cache_pool_vector_[i], sub_add_num_ * sizeof(T));
     }
     dr_global_free(cache_pool_vector_, max_add_times_ * sizeof(T *));
 }
