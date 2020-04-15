@@ -25,7 +25,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                               \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
         pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib_memory_with_data_centric msg]====" format "\n", name, pid, \
+        dr_printf("[(%s%d)drcctlib_memory_with_data_centric_with_search msg]====" format "\n", name, pid, \
                   ##args);                                                          \
     } while (0)
 
@@ -34,12 +34,12 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                                \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));               \
         pid_t pid = getpid();                                                        \
-        dr_printf("[(%s%d)drcctlib_memory_with_data_centric(%s%d) msg]====" format "\n", name, \
+        dr_printf("[(%s%d)drcctlib_memory_with_data_centric_with_search(%s%d) msg]====" format "\n", name, \
                   pid, ##args);                                                      \
     } while (0);                                                                     \
     dr_exit_process(-1)
 
-static file_t gTraceFile;
+
 static int tls_idx;
 
 enum {
@@ -72,6 +72,7 @@ static uint tls_offs;
 #define OPND_CREATE_MEM_IDX_MEM OPND_CREATE_MEM64
 
 typedef struct _mem_ref_t {
+    aligned_ctxt_hndl_t ctxt_hndl;
     app_pc addr;
 } mem_ref_t;
 
@@ -88,6 +89,7 @@ DoWhatClientWantTodo(void* drcontext, mem_ref_t * ref)
 {
     data_handle_t* data_hndl = drcctlib_get_date_hndl_runtime(drcontext, ref->addr);
     context_handle_t data_ctxt_hndl = 0;
+    context_handle_t cur_ctxt_hndl = 0;
     if(data_hndl != NULL) {
         if (data_hndl->object_type == DYNAMIC_OBJECT) {
             data_ctxt_hndl = data_hndl->path_handle;
@@ -95,7 +97,8 @@ DoWhatClientWantTodo(void* drcontext, mem_ref_t * ref)
             data_ctxt_hndl = - data_hndl->sym_name;
         }
     }
-    // use {data_ctxt_hndl}
+    cur_ctxt_hndl = ref->ctxt_hndl;
+    // use {cur_ctxt_hndl,data_ctxt_hndl}
 }
 // dr clean call
 void 
@@ -113,13 +116,12 @@ InsertCleancall(int num)
 
 // insert
 static void
-InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
+InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
+              reg_id_t reg_ctxt_hndl, reg_id_t free_reg)
 {
     /* We need two scratch registers */
-    reg_id_t reg_mem_ref_ptr, free_reg;
+    reg_id_t reg_mem_ref_ptr;
     if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_mem_ref_ptr) !=
-            DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, ilist, where, NULL, &free_reg) !=
             DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("InstrumentMem drreg_reserve_register != DRREG_SUCCESS");
     }
@@ -136,6 +138,12 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
                 drcontext,
                 OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(mem_ref_t, addr)),
                 opnd_create_reg(free_reg)));
+    // store mem_ref_t->ctxt_hndl
+    MINSERT(ilist, where,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(mem_ref_t, ctxt_hndl)),
+                opnd_create_reg(reg_ctxt_hndl)));
 
 #ifdef ARM_CCTLIB
     MINSERT(ilist, where,
@@ -153,8 +161,6 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
                             tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, reg_mem_ref_ptr);
     /* Restore scratch registers */
     if (drreg_unreserve_register(drcontext, ilist, where, reg_mem_ref_ptr) !=
-            DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, ilist, where, free_reg) !=
             DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("InstrumentMem drreg_unreserve_register != DRREG_SUCCESS");
     }
@@ -169,18 +175,39 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
     instr_t *instr = instrument_msg->instr;
     int32_t slot = instrument_msg->slot;
     int num = 0;
+#ifdef INTEL_CCTLIB
+    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS(
+            "instrument_before_every_instr_meta_instr drreg_reserve_aflags != DRREG_SUCCESS");
+    }
+#endif
+    reg_id_t reg_ctxt_hndl, reg_temp;
+    if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_ctxt_hndl) != DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, bb, instr, NULL, &reg_temp) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("InstrumentInsCallback drreg_reserve_register != DRREG_SUCCESS");
+    }
+    drcctlib_get_context_handle_in_reg(drcontext, bb, instr, slot, reg_ctxt_hndl, reg_temp);
     for (int i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_is_memory_reference(instr_get_src(instr, i))){
             num++;
-            InstrumentMem(drcontext, bb, instr, instr_get_src(instr, i));
+            InstrumentMem(drcontext, bb, instr, instr_get_src(instr, i), reg_ctxt_hndl, reg_temp);
         }     
     }
     for (int i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
             num++;
-            InstrumentMem(drcontext, bb, instr, instr_get_dst(instr, i));
+            InstrumentMem(drcontext, bb, instr, instr_get_dst(instr, i), reg_ctxt_hndl, reg_temp);
         }
     }
+    if (drreg_unreserve_register(drcontext, bb, instr, reg_ctxt_hndl) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, instr, reg_temp) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("InstrumentInsCallback drreg_unreserve_register != DRREG_SUCCESS");
+    }
+#ifdef INTEL_CCTLIB
+    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
+    }
+#endif
     dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 1,
                              OPND_CREATE_CCT_INT(num));
 }
@@ -223,13 +250,13 @@ ClientExit(void)
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric dr_raw_tls_calloc fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric_with_search dr_raw_tls_calloc fail");
     } 
 
     if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
         !drmgr_unregister_thread_exit_event(ClientThreadEnd) ||
         !drmgr_unregister_tls_field(tls_idx)) {
-        DRCCTLIB_PRINTF("ERROR: drcctlib_memory_with_data_centric failed to unregister in ClientExit");
+        DRCCTLIB_PRINTF("ERROR: drcctlib_memory_with_data_centric_with_search failed to unregister in ClientExit");
     }
     drmgr_exit();
     if (drreg_exit() != DRREG_SUCCESS) {
@@ -246,29 +273,29 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_memory_with_data_centric'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_memory_with_data_centric_with_search'",
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
     if (!drmgr_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric unable to initialize drmgr");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric_with_search unable to initialize drmgr");
     }
     drreg_options_t ops = { sizeof(ops), 4 /*max slots needed*/, false };
     if (drreg_init(&ops) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric unable to initialize drreg");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric_with_search unable to initialize drreg");
     }
     if (!drutil_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric unable to initialize drutil");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric_with_search unable to initialize drutil");
     }
     drmgr_register_thread_init_event(ClientThreadStart);
     drmgr_register_thread_exit_event(ClientThreadEnd);
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric drmgr_register_tls_field fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric_with_search drmgr_register_tls_field fail");
     }
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric dr_raw_tls_calloc fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric_with_search dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
                     NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);

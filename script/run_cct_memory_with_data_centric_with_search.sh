@@ -23,5 +23,5 @@ APP_ARG6=$7
 APP_ARG7=$8
 APP_ARG8=$9
 
-echo "${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct_with_data_centric -- ${APP_FULL_PATH} $APP_ARG1 $APP_ARG2 $APP_ARG3 $APP_ARG4 $APP_ARG5 $APP_ARG6 $APP_ARG7 $APP_ARG8"
-${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct_with_data_centric -- ${APP_FULL_PATH} $APP_ARG1 $APP_ARG2 $APP_ARG3 $APP_ARG4 $APP_ARG5 $APP_ARG6 $APP_ARG7 $APP_ARG8
+echo "${RUN_DIRECTORY}/drrun -t drcctlib_memory_with_data_centric_with_search -- ${APP_FULL_PATH} $APP_ARG1 $APP_ARG2 $APP_ARG3 $APP_ARG4 $APP_ARG5 $APP_ARG6 $APP_ARG7 $APP_ARG8"
+${RUN_DIRECTORY}/drrun -t drcctlib_memory_with_data_centric_with_search -- ${APP_FULL_PATH} $APP_ARG1 $APP_ARG2 $APP_ARG3 $APP_ARG4 $APP_ARG5 $APP_ARG6 $APP_ARG7 $APP_ARG8

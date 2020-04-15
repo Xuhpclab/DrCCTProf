@@ -22,40 +22,40 @@ endif (UNIX)
 
 # add third-party libraries
 
-add_library(drcctlib_null_tool SHARED
-  drcctlib_null_tool.cpp
+add_library(drcctlib_memory_with_data_centric_with_search SHARED
+  drcctlib_memory_with_data_centric_with_search.cpp
   )
 
-configure_DynamoRIO_client(drcctlib_null_tool)
-use_DynamoRIO_extension(drcctlib_null_tool drcctlib)
-place_shared_lib_in_lib_dir(drcctlib_null_tool)
+configure_DynamoRIO_client(drcctlib_memory_with_data_centric_with_search)
+use_DynamoRIO_extension(drcctlib_memory_with_data_centric_with_search drcctlib)
+place_shared_lib_in_lib_dir(drcctlib_memory_with_data_centric_with_search)
 
-add_dependencies(drcctlib_null_tool api_headers)
+add_dependencies(drcctlib_memory_with_data_centric_with_search api_headers)
 
 # Provide a hint for how to use the client
 if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-  add_custom_command(TARGET drcctlib_null_tool
+  add_custom_command(TARGET drcctlib_memory_with_data_centric_with_search
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
-    ARGS -E echo "Usage: pass to drconfig or drrun: -t drcctlib_null_tool"
+    ARGS -E echo "Usage: pass to drconfig or drrun: -t drcctlib_memory_with_data_centric_with_search"
     VERBATIM)
 endif ()
 
-install_target(drcctlib_null_tool ${INSTALL_CLIENTS_LIB})
+install_target(drcctlib_memory_with_data_centric_with_search ${INSTALL_CLIENTS_LIB})
 
 set(INSTALL_CCTTEST_CONFIG ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
-  file(WRITE  ${dst} "# drcctlib_null_tool tool config file\n")
-  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcctlib_null_tool${LIB_EXT}\n")
+  file(WRITE  ${dst} "# drcctlib_memory_with_data_centric_with_search tool config file\n")
+  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcctlib_memory_with_data_centric_with_search${LIB_EXT}\n")
 endfunction ()
 
 if (X64)
-  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_null_tool.drrun64)
-  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_null_tool.drrun64)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_memory_with_data_centric_with_search.drrun64)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_memory_with_data_centric_with_search.drrun64)
 else (X64)
-  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_null_tool.drrun32)
-  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_null_tool.drrun32)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_memory_with_data_centric_with_search.drrun32)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_memory_with_data_centric_with_search.drrun32)
 endif (X64)
 
 set(BUILD_CLIENTS_BIN clients/${INSTALL_BIN})
@@ -65,7 +65,7 @@ write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB
 write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_CCTTEST_CONFIG})
-register_tool_file("drcctlib_null_tool")
+register_tool_file("drcctlib_memory_with_data_centric_with_search")
 
 ##################################################
 # Documentation

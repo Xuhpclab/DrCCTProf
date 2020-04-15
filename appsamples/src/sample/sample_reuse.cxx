@@ -8,7 +8,7 @@ int g;
 #define ARRAY_NUM 10000
 
 void test_fun1() {
-    array = (int*)calloc(ARRAY_NUM, sizeof(int));
+    array = (int*)malloc(ARRAY_NUM * sizeof(int));
     for(int i = 0; i < ARRAY_NUM; i++) {
         array[i] = i;
     }
