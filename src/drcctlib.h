@@ -6,16 +6,23 @@
 #include "drcctlib_filter_func_list.h"
 
 #include <vector>
-
+#define FOR_SPEC_TEST
+#ifdef FOR_SPEC_TEST
+#define context_handle_t int64_t
+#define CONTEXT_HANDLE_MAX (1L << 32)
+#else
 #define context_handle_t int32_t
+#define CONTEXT_HANDLE_MAX 7483647L
+#endif
+
 #ifdef CCTLIB_32
 #define aligned_ctxt_hndl_t int32_t
 #else 
 #define aligned_ctxt_hndl_t int64_t
 #endif
 
-#define CONTEXT_HANDLE_MAX 7483647L
-// #define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1
+
+
 #define DISASM_CACHE_SIZE 80
 #define MAXIMUM_SYMNAME 256
 

@@ -51,7 +51,11 @@
 #define THREAD_ROOT_SHARDED_CALLEE_INDEX 0
 
 #define ATOM_ADD_NEXT_BB_KEY(origin) dr_atomic_add32_return_sum(&origin, 1)
+#ifdef FOR_SPEC_TEST
+#define ATOM_ADD_CTXT_HNDL(origin, val) dr_atomic_add64_return_sum(&origin, val)
+#else
 #define ATOM_ADD_CTXT_HNDL(origin, val) dr_atomic_add32_return_sum(&origin, val)
+#endif
 #define ATOM_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
 
 #ifdef INTEL_CCTLIB
