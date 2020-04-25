@@ -99,7 +99,7 @@ drcctlib_get_log_file();
 
 DR_EXPORT
 int
-drcctlib_get_per_thread_date_id();
+drcctlib_get_per_thread_data_id();
 
 DR_EXPORT
 void
@@ -167,11 +167,11 @@ typedef struct data_handle_t {
 
 DR_EXPORT
 data_handle_t
-drcctlib_get_date_hndl(void *drcontext, void *address);
+drcctlib_get_data_hndl(void *drcontext, void *address);
 
 DR_EXPORT
 data_handle_t*
-drcctlib_get_date_hndl_runtime(void *drcontext, void *address);
+drcctlib_get_data_hndl_runtime(void *drcontext, void *address);
 
 DR_EXPORT
 char *

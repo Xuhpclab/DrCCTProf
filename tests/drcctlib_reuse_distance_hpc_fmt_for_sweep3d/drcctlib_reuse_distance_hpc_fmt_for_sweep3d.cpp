@@ -140,10 +140,10 @@ int ins_metric_id2 = 0;
 void
 UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur_mem_idx)
 {
-    uint64_t real_date_addr = (uint64_t)ref->addr;
-    real_date_addr = (real_date_addr >> 6) << 6;
+    uint64_t real_data_addr = (uint64_t)ref->addr;
+    real_data_addr = (real_data_addr >> 6) << 6;
     map<uint64_t, use_node_t> *use_map = pt->tls_use_map;
-    map<uint64_t, use_node_t>::iterator it = (*use_map).find(real_date_addr);
+    map<uint64_t, use_node_t>::iterator it = (*use_map).find(real_data_addr);
     
     if (it != (*use_map).end()) {
         uint64_t reuse_distance = cur_mem_idx - it->second.last_reuse_mem_idx;
@@ -171,7 +171,7 @@ UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur
         it->second.use_hndl = ref->ctxt_hndl;
         it->second.last_reuse_mem_idx = cur_mem_idx;
     } else {
-        data_handle_t* data_hndl = drcctlib_get_date_hndl_runtime(drcontext, (app_pc)real_date_addr);
+        data_handle_t* data_hndl = drcctlib_get_data_hndl_runtime(drcontext, (app_pc)real_data_addr);
         context_handle_t create_hndl = 0;
         if(data_hndl != NULL) {
             if (data_hndl->object_type == DYNAMIC_OBJECT) {
@@ -181,7 +181,7 @@ UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur
             }
         }
         use_node_t new_entry(create_hndl, ref->ctxt_hndl, cur_mem_idx);
-        (*use_map).insert(pair<uint64_t, use_node_t>(real_date_addr, new_entry));
+        (*use_map).insert(pair<uint64_t, use_node_t>(real_data_addr, new_entry));
     }
 }
 
