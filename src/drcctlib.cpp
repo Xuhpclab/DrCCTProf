@@ -215,7 +215,7 @@ static memory_cache_t<cct_bb_node_t> *global_bb_node_cache;
 static memory_cache_t<splay_node_t> *global_splay_node_cache;
 
 
-
+#define FUNC_NAME_MMAP "mmap"
 #define FUNC_NAME_MALLOC "malloc"
 #define FUNC_NAME_CALLOC "calloc"
 #define FUNC_NAME_REALLOC "realloc"
@@ -906,7 +906,7 @@ drcctlib_event_thread_start(void *drcontext)
     pt_cache->cache_data = NULL;
     pt_cache->dead = false;
     hashtable_add(&global_pt_cache_table, (void *)(ptr_int_t)id, pt_cache);
-    DRCCTLIB_PRINTF("thread %d init", id);
+    // DRCCTLIB_PRINTF("thread %d init", id);
 }
 
 static void
@@ -920,7 +920,7 @@ drcctlib_event_thread_end(void *drcontext)
     memcpy(pt_cache->cache_data, pt_cache->active_data, sizeof(per_thread_t));
     pt_cache->dead = true;
     dr_thread_free(drcontext, pt, sizeof(per_thread_t));
-    DRCCTLIB_PRINTF("thread %d end", pt_cache->cache_data->id);
+    // DRCCTLIB_PRINTF("thread %d end", pt_cache->cache_data->id);
 }
 
 static inline int32_t
@@ -952,6 +952,18 @@ init_shadow_memory_space(void *addr, uint32_t accessLen, data_handle_t *initiali
         }
     }
 }
+
+// static void
+// capture_mmap_size(void *wrapcxt, void **user_data)
+// {
+//     // Remember the CCT node and the allocation size
+//     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+//         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+//     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
+//     // DRCCTLIB_PRINTF("capture_mmap_size %lu", pt->dmem_alloc_size);
+//     pt->dmem_alloc_ctxt_hndl =
+//         pt->cur_bb_node->child_ctxt_start_idx;
+// }
 
 static void
 capture_malloc_size(void *wrapcxt, void **user_data)
@@ -1123,6 +1135,8 @@ drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info, 
         // static analysis
         compute_static_var(info);
         // dynamic analysis
+        // insert_func_instrument_by_drwap(info, FUNC_NAME_MMAP, capture_mmap_size,
+        //                                             capture_malloc_pointer);
         insert_func_instrument_by_drwap(info, FUNC_NAME_MALLOC, capture_malloc_size,
                                                     capture_malloc_pointer);
         insert_func_instrument_by_drwap(info, FUNC_NAME_CALLOC, capture_calloc_size,
