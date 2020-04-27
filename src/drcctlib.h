@@ -6,10 +6,10 @@
 #include "drcctlib_filter_func_list.h"
 
 #include <vector>
-#define FOR_SPEC_TEST
+// #define FOR_SPEC_TEST
 #ifdef FOR_SPEC_TEST
-#define context_handle_t int64_t
-#define CONTEXT_HANDLE_MAX (1L << 32)
+#define context_handle_t int32_t
+#define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1vim 
 #else
 #define context_handle_t int32_t
 #define CONTEXT_HANDLE_MAX 7483647L

@@ -74,6 +74,8 @@
 #define UNINTERESTED_BB_SHARED_BB_KEY 1
 #define UNSHARED_BB_KEY_START 2
 
+// #define TEST_TREE_SIZE
+
 #define DRCCTLIB_PRINTF(format, args...)                                      \
     do {                                                                      \
         char name[MAXIMUM_PATH] = "";                                         \
@@ -120,6 +122,10 @@ typedef struct _cct_bb_node_t {
 typedef struct _cct_ip_node_t {
     cct_bb_node_t *parent_bb_node;
     splay_node_t *callee_splay_tree_root;
+#ifdef TEST_TREE_SIZE
+    int32_t children_number;
+    uint64_t global_search_times;
+#endif
 } cct_ip_node_t;
 
 
@@ -132,6 +138,12 @@ typedef struct _bb_instrument_msg_t {
     bb_key_t bb_key;
     state_t bb_end_state;
 } bb_instrument_msg_t;
+
+#ifdef TEST_TREE_SIZE
+void* test_lock;
+static uint64_t real_node_number = 0;
+#endif
+
 
 struct hpcviewer_format_ip_node_t;
 // TLS(thread local storage)
@@ -165,7 +177,10 @@ typedef struct _per_thread_t {
     uint64_t nodeCount;
 
     IF_DRCCTLIB_DEBUG(file_t log_file;)
-
+    
+#ifdef TEST_TREE_SIZE
+    uint64_t real_node_number;
+#endif
 } per_thread_t;
 
 typedef struct _pt_cache_t {
@@ -458,6 +473,10 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->log_file = dr_open_file(name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file != INVALID_FILE);
 #endif
+
+#ifdef TEST_TREE_SIZE
+        pt->real_node_number = 0;
+#endif
 }
 
 static inline void
@@ -593,13 +612,26 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state
     } else {
         new_caller_ctxt = pt->cur_bb_node->caller_ctxt_hndl;
     }
+    
+#ifdef TEST_TREE_SIZE
+    int32_t o_num = 0;
+    splay_node_t *new_root = splay_tree_update_test(
+        ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree_root,
+        (splay_node_key_t)new_key, pt->dummy_splay_node, pt->next_splay_node, &o_num);
+    ctxt_hndl_to_ip_node(new_caller_ctxt)->global_search_times += o_num;
+#else
     splay_node_t *new_root = splay_tree_update(
         ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree_root,
         (splay_node_key_t)new_key, pt->dummy_splay_node, pt->next_splay_node);
+#endif
     if (new_root->payload == NULL) {
         new_root->payload =
             (void *)bb_node_create(pt->bb_node_cache, new_key, new_caller_ctxt, num);
         pt->next_splay_node = pt->splay_node_cache->get_next_object();
+#ifdef TEST_TREE_SIZE
+        pt->real_node_number ++;
+        ctxt_hndl_to_ip_node(new_caller_ctxt)->children_number ++;
+#endif
     }
     ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree_root = new_root;
     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
@@ -914,6 +946,11 @@ drcctlib_event_thread_end(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     IF_DRCCTLIB_DEBUG(dr_close_file(pt->log_file);)
+#ifdef TEST_TREE_SIZE
+    dr_mutex_lock(test_lock);
+    real_node_number += pt->real_node_number;
+    dr_mutex_unlock(test_lock);
+#endif
     pt_cache_t *pt_cache = (pt_cache_t *)hashtable_lookup(&global_pt_cache_table,
                                                           (void *)(ptr_int_t)(pt->id));
     pt_cache->cache_data = (per_thread_t *)dr_global_alloc(sizeof(per_thread_t));
@@ -1239,6 +1276,9 @@ create_global_locks()
     module_data_lock = dr_mutex_create();
     bb_node_cache_lock = dr_mutex_create();
     splay_node_cache_lock = dr_mutex_create();
+#ifdef TEST_TREE_SIZE
+    test_lock = dr_mutex_create();
+#endif    
 }
 
 static inline void
@@ -1248,6 +1288,9 @@ destroy_global_locks()
     dr_mutex_destroy(module_data_lock);
     dr_mutex_destroy(bb_node_cache_lock);
     dr_mutex_destroy(splay_node_cache_lock);
+#ifdef TEST_TREE_SIZE
+    dr_mutex_destroy(test_lock);
+#endif
 }
 
 static size_t
@@ -1494,6 +1537,14 @@ drcctlib_exit(void)
     int count = dr_atomic_add32_return_sum(&init_count, -1);
     if (count != 0)
         return;
+#ifdef TEST_TREE_SIZE
+    uint64_t global_search_time = 0;
+    for(int32_t i = 0; i < global_ip_node_buff_idle_idx; i++) {
+        global_search_time += ctxt_hndl_to_ip_node(i)->global_search_times;
+    }
+    DRCCTLIB_PRINTF("+++++++++++++++real_node_number %llu global_search_time %llu", real_node_number, global_search_time);
+#endif
+    
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
         DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_cfree fail");
     }
