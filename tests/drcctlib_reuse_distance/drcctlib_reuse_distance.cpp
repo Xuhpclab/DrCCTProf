@@ -167,7 +167,7 @@ UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur
         it->second.use_hndl = ref->ctxt_hndl;
         it->second.last_reuse_mem_idx = cur_mem_idx;
     } else {
-        data_handle_t* data_hndl = drcctlib_get_date_hndl_runtime(drcontext, ref->addr);
+        data_handle_t* data_hndl = drcctlib_get_data_hndl_runtime(drcontext, ref->addr);
         context_handle_t create_hndl = 0;
         if(data_hndl != NULL) {
             if (data_hndl->object_type == DYNAMIC_OBJECT) {

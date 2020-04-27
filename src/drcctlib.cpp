@@ -252,14 +252,14 @@ typedef struct _offline_module_data_t{
     app_pc end;
 }offline_module_data_t;
 #define OFFLINE_MODULE_DATA_TABLE_HASH_BITS 6
-static hashtable_t global_module_date_table;
+static hashtable_t global_module_data_table;
 static void *module_data_lock;
 
 static inline offline_module_data_t *
-offline_module_date_create(const module_data_t *info);
+offline_module_data_create(const module_data_t *info);
 
 static inline void
-offline_module_date_free(void *date);
+offline_module_data_free(void *data);
 
 
 // ctxt to ipnode
@@ -1184,10 +1184,10 @@ drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info, 
     }
     if((global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
         dr_mutex_lock(module_data_lock);
-        void* offline_data = hashtable_lookup(&global_module_date_table, (void *)info->start);
+        void* offline_data = hashtable_lookup(&global_module_data_table, (void *)info->start);
         if (offline_data == NULL) {
-            offline_data = (void *)offline_module_date_create(info);
-            hashtable_add(&global_module_date_table, (void *)(ptr_int_t)info->start, offline_data);
+            offline_data = (void *)offline_module_data_create(info);
+            hashtable_add(&global_module_data_table, (void *)(ptr_int_t)info->start, offline_data);
         }
         dr_mutex_unlock(module_data_lock);
     }
@@ -1490,8 +1490,8 @@ drcctlib_init(char flag)
         }
     }
     if((global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
-        hashtable_init_ex(&global_module_date_table, OFFLINE_MODULE_DATA_TABLE_HASH_BITS, HASH_INTPTR,
-                      false /*!strdup*/, false /*!synch*/, offline_module_date_free, NULL, NULL);
+        hashtable_init_ex(&global_module_data_table, OFFLINE_MODULE_DATA_TABLE_HASH_BITS, HASH_INTPTR,
+                      false /*!strdup*/, false /*!synch*/, offline_module_data_free, NULL, NULL);
     }
     if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0 ||
         (global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
@@ -1567,7 +1567,7 @@ drcctlib_exit(void)
         delete global_shadow_memory;
     }
     if ((global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
-        hashtable_delete(&global_module_date_table);
+        hashtable_delete(&global_module_data_table);
     }
 
     hashtable_delete(&global_bb_key_table);
@@ -1641,7 +1641,7 @@ drcctlib_get_log_file()
 
 DR_EXPORT
 int
-drcctlib_get_per_thread_date_id()
+drcctlib_get_per_thread_data_id()
 {
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
@@ -1918,7 +1918,7 @@ has_same_call_path(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2)
 // API to get the handle for a data object
 DR_EXPORT
 data_handle_t
-drcctlib_get_date_hndl(void *drcontext, void *address)
+drcctlib_get_data_hndl(void *drcontext, void *address)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     // if it is a stack location, set so and return
@@ -1940,7 +1940,7 @@ drcctlib_get_date_hndl(void *drcontext, void *address)
 
 DR_EXPORT
 data_handle_t*
-drcctlib_get_date_hndl_runtime(void *drcontext, void *address)
+drcctlib_get_data_hndl_runtime(void *drcontext, void *address)
 {
     data_handle_t *ptr = 
         global_shadow_memory->GetOrCreateShadowAddress((size_t)(uint64_t)address);
@@ -2076,28 +2076,28 @@ static hpc_format_global_t global_hpc_fmt_data;
 
 
 static inline offline_module_data_t *
-offline_module_date_create(const module_data_t *info){
-    offline_module_data_t *off_module_date = (offline_module_data_t *)dr_global_alloc(sizeof(offline_module_data_t));
-    sprintf(off_module_date->path, "%s", info->full_path);
-    off_module_date->start = info->start;
-    off_module_date->end = info->end;
+offline_module_data_create(const module_data_t *info){
+    offline_module_data_t *off_module_data = (offline_module_data_t *)dr_global_alloc(sizeof(offline_module_data_t));
+    sprintf(off_module_data->path, "%s", info->full_path);
+    off_module_data->start = info->start;
+    off_module_data->end = info->end;
     if(strcmp(dr_module_preferred_name(info), global_hpc_fmt_data.filename.c_str())== 0){
 #ifdef ARM_CCTLIB
-        off_module_date->start = 0;
+        off_module_data->start = 0;
 #endif
-        off_module_date->app = true;
-        off_module_date->id = 1;
+        off_module_data->app = true;
+        off_module_data->id = 1;
     } else {
-        off_module_date->app = false;
-        off_module_date->id = bb_get_module_key();
+        off_module_data->app = false;
+        off_module_data->id = bb_get_module_key();
     }
-    return off_module_date;
+    return off_module_data;
 }
 
 static inline void
-offline_module_date_free(void *date){
-    offline_module_data_t *mdate = (offline_module_data_t *)date;
-    dr_global_free(mdate, sizeof(offline_module_data_t));
+offline_module_data_free(void *data){
+    offline_module_data_t *mdata = (offline_module_data_t *)data;
+    dr_global_free(mdata, sizeof(offline_module_data_t));
 }
 
 
@@ -2624,7 +2624,7 @@ hpcrun_set_metric_info_w_fn(int metric_id, const char* name, size_t period, FILE
 }
 
 void 
-hpcrun_fmt_module_date_fwrite(void *payload, void *user_data)
+hpcrun_fmt_module_data_fwrite(void *payload, void *user_data)
 {
     offline_module_data_t** print_vector = (offline_module_data_t**)user_data;
     offline_module_data_t* module_data = (offline_module_data_t *)payload;
@@ -2635,16 +2635,16 @@ int
 hpcrun_fmt_loadmap_fwrite(FILE *fs)
 {
     // Write loadmap size
-    hpcfmt_int4_fwrite((uint32_t)global_module_date_table.entries, fs); // Write loadmap size
-    offline_module_data_t** print_vector = (offline_module_data_t **)dr_global_alloc(global_module_date_table.entries * sizeof(offline_module_data_t*));
-    hashtable_apply_to_all_payloads_user_data(&global_module_date_table, hpcrun_fmt_module_date_fwrite, (void *)print_vector);
+    hpcfmt_int4_fwrite((uint32_t)global_module_data_table.entries, fs); // Write loadmap size
+    offline_module_data_t** print_vector = (offline_module_data_t **)dr_global_alloc(global_module_data_table.entries * sizeof(offline_module_data_t*));
+    hashtable_apply_to_all_payloads_user_data(&global_module_data_table, hpcrun_fmt_module_data_fwrite, (void *)print_vector);
 
-    for(uint32_t i = 0; i < global_module_date_table.entries; i ++) {
+    for(uint32_t i = 0; i < global_module_data_table.entries; i ++) {
         hpcfmt_int2_fwrite(print_vector[i]->id, fs); // Write loadmap id
         hpcfmt_str_fwrite(print_vector[i]->path, fs); // Write loadmap name
         hpcfmt_int8_fwrite((uint64_t)0, fs);
     }
-    dr_global_free(print_vector, global_module_date_table.entries * sizeof(offline_module_data_t*));
+    dr_global_free(print_vector, global_module_data_table.entries * sizeof(offline_module_data_t*));
     return 0;
 }
 
@@ -2810,7 +2810,7 @@ IPNode_fwrite(hpcviewer_format_ip_node_t *node, FILE *fs)
             node->IPAddress++;
         module_data_t *info = dr_lookup_module(node->IPAddress);
         offline_module_data_t *off_module_data = (offline_module_data_t *)hashtable_lookup(
-            &global_module_date_table, (void *)info->start);
+            &global_module_data_table, (void *)info->start);
         hpcfmt_int2_fwrite(off_module_data->id, fs); // Set loadmodule id to 1
         // normalize the IP offset to the beginning of the load module and write out
         hpcfmt_int8_fwrite((uint64_t)(node->IPAddress - off_module_data->start), fs);
