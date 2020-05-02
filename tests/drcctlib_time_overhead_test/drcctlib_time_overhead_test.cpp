@@ -31,6 +31,13 @@ using namespace std;
     } while (0);                                                                    \
     dr_exit_process(-1)
 
+
+#ifdef INTEL_CCTLIB
+#    define OPND_CREATE_INT64 OPND_CREATE_INT64
+#elif defined(ARM_CCTLIB)
+#    define OPND_CREATE_INT64 OPND_CREATE_INT
+#endif
+
 static uint64 ins_number = 0;
 static uint64 bb_number = 0;
 static uint64 call_bb_number = 0;
@@ -86,7 +93,7 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
 
     dr_insert_clean_call(drcontext, bb, first_instr,
                                  (void *)BBStartInsertCleancall,
-                                 false, 4, OPND_CREATE_INT(num_instructions), OPND_CREATE_INT(call), OPND_CREATE_INT(dcall), OPND_CREATE_INT(ret));
+                                 false, 4, OPND_CREATE_INT64(num_instructions), OPND_CREATE_INT64(call), OPND_CREATE_INT64(dcall), OPND_CREATE_INT64(ret));
     return DR_EMIT_DEFAULT;
 }
 

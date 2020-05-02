@@ -207,6 +207,7 @@ ClientExit(void)
              return a.second > b.second;
              });
     for(uint i = 0; i < TOP_REACH__NUM_SHOW; i++) {
+    // for(size_t i = 0; i < tmp.size(); i++) {
         dr_fprintf(gTraceFile, "NO. %d ins call number %d ====", i+1, tmp[i].second);
         drcctlib_print_ctxt_hndl_msg(gTraceFile, tmp[i].first, false, false);
         dr_fprintf(gTraceFile, "================================================================================\n");

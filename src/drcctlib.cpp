@@ -165,6 +165,11 @@ typedef struct _per_thread_t {
     slot_t cur_slot;
     state_t cur_state;
 
+    // Signal
+    cct_bb_node_t *signal_raise_bb_node;
+    slot_t signal_raise_slot;
+    state_t signal_raise_state;
+
     // DO_DATA_CENTRIC
     void *stack_base;
     void *stack_end;
@@ -437,6 +442,10 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     BUF_PTR(pt->cur_buf, INSTRACE_TLS_OFFS_BUF_PTR) =
         &(pt->cur_bb_child_ctxt_start_idx);
 
+    pt->signal_raise_bb_node = NULL;
+    pt->signal_raise_slot = 0;
+    pt->signal_raise_state = INSTR_STATE_CLIENT_INTEREST;
+    
     if((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0){
         // Set stack sizes if data-centric is needed
         struct rlimit rlim;
@@ -909,6 +918,24 @@ drcctlib_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_
     instrlist_preinsert(bb, first_instr, pre_first_nop_instr);
 #endif
     return DR_EMIT_DEFAULT;
+}
+
+static void
+drcctlib_event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if(info->type == DR_XFER_SIGNAL_DELIVERY) {
+        pt->signal_raise_bb_node = pt->cur_bb_node;
+        pt->signal_raise_slot = pt->cur_slot;
+        pt->signal_raise_state = pt->cur_state;
+        DRCCTLIB_PRINTF("drcctlib_event_kernel_xfer DR_XFER_SIGNAL_DELIVERY %d(thread %d)\n", info->sig, pt->id);
+    }
+    if(info->type == DR_XFER_SIGNAL_RETURN) {
+        pt->cur_bb_node = pt->signal_raise_bb_node;
+        pt->cur_slot = pt->signal_raise_slot;
+        pt->cur_state = pt->signal_raise_state;
+        DRCCTLIB_PRINTF("drcctlib_event_kernel_xfer DR_XFER_SIGNAL_RETURN %d(thread %d)\n", info->sig, pt->id);
+    }
 }
 
 static dr_signal_action_t
@@ -1470,7 +1497,7 @@ drcctlib_init(char flag)
 
     disassemble_set_syntax(DR_DISASM_DRCCTLIB);
 
-    
+    drmgr_register_kernel_xfer_event(drcctlib_event_kernel_xfer);
     drmgr_register_signal_event(drcctlib_event_signal);
     if (!drmgr_register_bb_app2app_event(drcctlib_event_bb_app2app, NULL)) {
         DRCCTLIB_PRINTF("WARNING: drcctlib fail to register bb app2app event");
@@ -1552,6 +1579,7 @@ drcctlib_exit(void)
     if (!drmgr_unregister_bb_app2app_event(drcctlib_event_bb_app2app) ||
         !drmgr_unregister_bb_instrumentation_event(drcctlib_event_bb_analysis) ||
         // !drmgr_unregister_bb_insertion_event(drcctlib_event_bb_insert) ||
+        !drmgr_unregister_kernel_xfer_event(drcctlib_event_kernel_xfer) ||
         !drmgr_unregister_signal_event(drcctlib_event_signal) ||
         !drmgr_unregister_thread_init_event(drcctlib_event_thread_start) ||
         !drmgr_unregister_thread_exit_event(drcctlib_event_thread_end) ||
