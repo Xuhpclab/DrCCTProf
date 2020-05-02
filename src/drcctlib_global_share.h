@@ -35,7 +35,7 @@
 #endif
 
 
-// #define DRCCTLIB_DEBUG
+#define DRCCTLIB_DEBUG
 #ifdef DRCCTLIB_DEBUG
 #   define IF_DRCCTLIB_DEBUG(value) value
 #else
