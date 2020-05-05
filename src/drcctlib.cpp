@@ -70,8 +70,7 @@
 #define OPND_CREATE_PT_CUR_SLOT OPND_CREATE_MEM32
 #define OPND_CREATE_PT_CUR_STATE OPND_CREATE_MEM32
 
-#define THREAD_ROOT_BB_SHARED_BB_KEY 0
-#define UNINTERESTED_BB_SHARED_BB_KEY 1
+#define THREAD_ROOT_BB_SHARED_BB_KEY 1
 #define UNSHARED_BB_KEY_START 2
 
 // #define TEST_TREE_SIZE
@@ -181,6 +180,8 @@ typedef struct _per_thread_t {
     hpcviewer_format_ip_node_t *tlsHPCRunCCTRoot;
     uint64_t nodeCount;
 
+    IF_DRCCTLIB_DEBUG(uint64_t call_num;)
+    IF_DRCCTLIB_DEBUG(uint64_t return_num;)
     IF_DRCCTLIB_DEBUG(file_t log_file_bb;)
     IF_DRCCTLIB_DEBUG(file_t log_file_instr;)
 #ifdef TEST_TREE_SIZE
@@ -266,6 +267,23 @@ offline_module_data_create(const module_data_t *info);
 static inline void
 offline_module_data_free(void *data);
 
+#ifdef ARM_CCTLIB
+static bool
+instr_is_exclusive_load(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    case OP_ldaxp:
+    case OP_ldaxr:
+    case OP_ldaxrb:
+    case OP_ldaxrh:
+    case OP_ldxp:
+    case OP_ldxr:
+    case OP_ldxrb:
+    case OP_ldxrh: return true;
+    }
+    return false;
+}
+#endif
 
 // ctxt to ipnode
 static inline context_handle_t
@@ -333,30 +351,50 @@ instr_need_instrument(instr_t *instr)
     return false;
 }
 
-static inline void
-instr_state_init(instr_t *instr, state_t *instr_state_flag_ptr)
+static inline state_t
+instr_get_state(instr_t *instr)
 {
+    state_t flag = 0;
     if (global_instr_filter(instr)) {
-        *instr_state_flag_ptr = *instr_state_flag_ptr | INSTR_STATE_CLIENT_INTEREST;
+        flag = flag | INSTR_STATE_CLIENT_INTEREST;
     }
     if (instr_is_call_direct(instr)) {
-        *instr_state_flag_ptr = *instr_state_flag_ptr | INSTR_STATE_CALL_DIRECT;
+        flag = flag | INSTR_STATE_CALL_DIRECT;
     } else if (instr_is_call_indirect(instr)) {
-        *instr_state_flag_ptr = *instr_state_flag_ptr | INSTR_STATE_CALL_IN_DIRECT;
+        flag = flag | INSTR_STATE_CALL_IN_DIRECT;
     } else if (instr_is_return(instr)) {
-        *instr_state_flag_ptr = *instr_state_flag_ptr | INSTR_STATE_RETURN;
+        flag = flag | INSTR_STATE_RETURN;
     }
+    return flag;
 }
 
 static inline slot_t
 bb_get_num_interest_instr(instr_t *bb_first)
 {
     slot_t num = 0;
-    for (instr_t *instr = bb_first; instr != NULL;
-         instr = instr_get_next_app(instr)) {
-        if (instr_need_instrument(instr)) {
-            num++;
+#ifdef ARM_CCTLIB
+    if (instr_is_exclusive_store(bb_first)) {
+        return num;
+    }
+    bool skip = false;
+#endif
+    for (instr_t *instr = bb_first; 
+         instr != NULL; instr = instr_get_next_app(instr)) {
+#ifdef ARM_CCTLIB
+        if (!skip && instr_is_exclusive_load(instr)) {
+            skip = true;
         }
+        if (!skip) {
+#endif    
+            if (instr_need_instrument(instr)) {
+                num++;
+            }
+#ifdef ARM_CCTLIB
+        }
+        if (skip && instr_is_exclusive_store(instr)) {
+            skip = false;
+        }
+#endif
     }
     return num;
 }
@@ -489,6 +527,9 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     sprintf(instr_file_name + strlen(instr_file_name), "%d.instr.thread%d.log", pid, id);
     pt->log_file_instr = dr_open_file(instr_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file_instr != INVALID_FILE);
+
+    pt->call_num = 0;
+    pt->return_num = 0;
 #endif
 
 #ifdef TEST_TREE_SIZE
@@ -618,8 +659,10 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state
             pt->root_bb_node->child_ctxt_start_idx + THREAD_ROOT_SHARDED_CALLEE_INDEX;
     } else if (instr_state_contain(pt->pre_instr_state, INSTR_STATE_CALL_DIRECT) ||
                instr_state_contain(pt->pre_instr_state, INSTR_STATE_CALL_IN_DIRECT)) {
+        IF_DRCCTLIB_DEBUG(pt->call_num ++;)
         new_caller_ctxt = pt->cur_bb_node->child_ctxt_start_idx + pt->cur_bb_node->max_slots - 1;
     } else if (instr_state_contain(pt->pre_instr_state, INSTR_STATE_RETURN)) {
+        IF_DRCCTLIB_DEBUG(pt->return_num ++;)
         if (pt->cur_bb_node->caller_ctxt_hndl !=
             pt->root_bb_node->child_ctxt_start_idx + THREAD_ROOT_SHARDED_CALLEE_INDEX) {
             new_caller_ctxt = ctxt_hndl_to_ip_node(pt->cur_bb_node->caller_ctxt_hndl)
@@ -727,34 +770,7 @@ instrument_before_every_instr_meta_instr(void *drcontext, instr_instrument_msg_t
     }
 }
 
-#ifdef ARM_CCTLIB
-static bool
-instr_is_exclusive_load(instr_t *instr)
-{
-    switch (instr_get_opcode(instr)) {
-    case OP_ldaxp:
-    case OP_ldaxr:
-    case OP_ldaxrb:
-    case OP_ldaxrh:
-    case OP_ldxp:
-    case OP_ldxr:
-    case OP_ldxrb:
-    case OP_ldxrh: return true;
-    }
-    return false;
-}
-#endif
-
 #ifdef DRCCTLIB_DEBUG
-// static void
-// instrument_before_every_instr_debug_clean_call(slot_t slot, state_t state)
-// {
-//     per_thread_t *pt =
-//         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-//     pt->cur_slot = slot;
-//     pt->cur_state = state;
-// }
-
 static void
 instr_exlusive_check(void *drcontext, bb_key_t bb_key, instr_instrument_msg_t *instrument_msg) 
 {
@@ -777,7 +793,6 @@ instr_exlusive_check(void *drcontext, bb_key_t bb_key, instr_instrument_msg_t *i
         dr_fprintf(pt->log_file_instr, "!%d/%d/%s\n", bb_key, slot, code);
     }
 }
-
 #endif
 
 
@@ -802,10 +817,6 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
             if((global_flags & DRCCTLIB_CACHE_EXCEPTION) != 0) {
                 instrument_before_every_instr_meta_instr(drcontext, instrument_msg);
             }
-            // IF_DRCCTLIB_DEBUG(dr_insert_clean_call(
-            //                       drcontext, bb, instr,
-            //                       (void *)instrument_before_every_instr_debug_clean_call,
-            //                       false, 2, OPND_CREATE_SLOT(instrument_msg->slot), OPND_CREATE_STATE(instrument_msg->state));)
             instr_instrument_client_cb(drcontext, instrument_msg);
         }
 #else
@@ -819,10 +830,6 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
             instrument_before_every_instr_meta_instr(drcontext, instrument_msg);
         }
         IF_DRCCTLIB_DEBUG(instr_exlusive_check(drcontext, bb_msg->bb_key, instrument_msg);)
-        // IF_DRCCTLIB_DEBUG(
-        //     dr_insert_clean_call(drcontext, bb, instr,
-        //                          (void *)instrument_before_every_instr_debug_clean_call,
-        //                          false, 2, OPND_CREATE_SLOT(instrument_msg->slot), OPND_CREATE_STATE(instrument_msg->state));)
         instr_instrument_client_cb(drcontext, instrument_msg);
 #endif
         instr_instrument_msg_delete(instrument_msg);
@@ -846,108 +853,87 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
 #else
     instr_t *first_instr = instrlist_first_app(bb);
 #endif
-
-#ifdef ARM_CCTLIB
-    if(instr_is_exclusive_store(first_instr)) {
-        
+    slot_t interest_instr_num = bb_get_num_interest_instr(first_instr);
+    if(interest_instr_num == 0) {
         *user_data = NULL;
         return DR_EMIT_DEFAULT;
     }
-#endif
-
-    slot_t interest_instr_num = bb_get_num_interest_instr(first_instr);
-    bool uninterested_bb = (interest_instr_num == 0) ? true : false;
 
     bb_key_t bb_key = 0;
     bb_shadow_t *bb_shadow = NULL;
     bool uninit_shadow = false;
     app_pc tag_pc = instr_get_app_pc(first_instr);
-
-    if (uninterested_bb) {
-        bb_key = UNINTERESTED_BB_SHARED_BB_KEY;
+    dr_mutex_lock(bb_shadow_lock);
+    void *stored_key = hashtable_lookup(&global_bb_key_table, (void *)tag_pc);
+    if (stored_key != NULL) {
+        bb_key = (bb_key_t)(ptr_int_t)stored_key;
     } else {
-        dr_mutex_lock(bb_shadow_lock);
-        void *stored_key = hashtable_lookup(&global_bb_key_table, (void *)tag_pc);
-        if (stored_key != NULL) {
-            bb_key = (bb_key_t)(ptr_int_t)stored_key;
-        } else {
-            bb_key = bb_get_new_key();
-            hashtable_add(&global_bb_key_table, (void *)tag_pc,
-                          (void *)(ptr_int_t)bb_key);
-            bb_shadow = bb_shadow_create(interest_instr_num);
-            hashtable_add(&global_bb_shadow_table, (void *)(ptr_int_t)bb_key,
-                          (void *)bb_shadow);
-            uninit_shadow = true;
-        }
-        dr_mutex_unlock(bb_shadow_lock);
+        bb_key = bb_get_new_key();
+        hashtable_add(&global_bb_key_table, (void *)tag_pc,
+                        (void *)(ptr_int_t)bb_key);
+        bb_shadow = bb_shadow_create(interest_instr_num);
+        hashtable_add(&global_bb_shadow_table, (void *)(ptr_int_t)bb_key,
+                        (void *)bb_shadow);
+        uninit_shadow = true;
     }
-    state_t bb_end_state = 0;
-    instr_state_init(instrlist_last_app(bb), &bb_end_state);
+    dr_mutex_unlock(bb_shadow_lock);
+
+    
     bb_instrument_msg_t *bb_msg =
-        bb_instrument_msg_create(bb_key, uninterested_bb ? 1 : interest_instr_num, bb_end_state);
-
-    if(!uninterested_bb) {
-        IF_ARM32_CCTLIB(bb_instrument_msg_add(bb_msg,
-                              instr_instrument_msg_create(bb, first_nop_instr, false, 0,
-                                                          INSTR_STATE_BB_START_NOP));)
-        slot_t slot = 0;
-        bool init_interest_start = false;
-        IF_ARM_CCTLIB(bool keep_insert_instrument = true;)
+        bb_instrument_msg_create(bb_key, interest_instr_num, 
+            instr_get_state(instrlist_last_app(bb)));
+    IF_ARM32_CCTLIB(
+        bb_instrument_msg_add(bb_msg,
+            instr_instrument_msg_create(
+                bb, first_nop_instr, false, 0, INSTR_STATE_BB_START_NOP));)
+    
 #ifdef DRCCTLIB_DEBUG
-        if(uninit_shadow) {
-            dr_fprintf(pt->log_file_instr, "\n\n-%d/%d\n", bb_key, interest_instr_num);
+    if(uninit_shadow) {
+        dr_fprintf(pt->log_file_instr, "\n\n-%d/%d\n", bb_key, interest_instr_num);
+    }
+#endif
+    IF_ARM_CCTLIB(bool skip = false;)
+    bool interest_start = false;
+    slot_t slot = 0;
+    for (instr_t *instr = first_instr;
+            instr != NULL; instr = instr_get_next_app(instr)) {
+#ifdef ARM_CCTLIB
+        if (!skip && instr_is_exclusive_load(instr)) {
+            skip = true;
         }
+        if (!skip) {
 #endif
-        for (instr_t *instr = first_instr; instr != NULL;
-             instr = instr_get_next_app(instr)) {
-            state_t instr_state_flag = 0;
-            instr_state_init(instr, &instr_state_flag);
-            if (instr_need_instrument_check_f(instr_state_flag)) {
-#ifdef ARM_CCTLIB
-                if (keep_insert_instrument) {
-#endif
-                    if(uninit_shadow) {
-                        bb_shadow->ip_shadow[slot] = instr_get_app_pc(instr);
-                        bb_shadow->state_shadow[slot] = instr_state_flag;
-                        instr_disassemble_to_buffer(drcontext, instr,
-                                                    bb_shadow->disasm_shadow +
-                                                        slot * DISASM_CACHE_SIZE,
-                                                    DISASM_CACHE_SIZE);
-                        
-                        IF_DRCCTLIB_DEBUG(
-                            dr_fprintf(pt->log_file_instr, "+%d/%d/%s\n",
-                                bb_key, slot, bb_shadow->disasm_shadow + slot * DISASM_CACHE_SIZE);)
-                    }
-                    bool interest_start = false;
-                    if (!init_interest_start &&
-                        instr_state_contain(instr_state_flag, INSTR_STATE_CLIENT_INTEREST)) {
-                        init_interest_start = true;
-                        interest_start = true;
-                    }
-                    bb_instrument_msg_add(
-                        bb_msg,
-                        instr_instrument_msg_create(bb, instr, interest_start, slot,
-                                                    instr_state_flag));
-                    slot++;
-#ifdef ARM_CCTLIB
-                    bb_msg->slot_max = slot;
+            state_t state_flag = instr_get_state(instr);
+            if (instr_need_instrument_check_f(state_flag)) {
+                if(uninit_shadow) {
+                    bb_shadow->ip_shadow[slot] = instr_get_app_pc(instr);
+                    bb_shadow->state_shadow[slot] = state_flag;
+                    instr_disassemble_to_buffer(drcontext, instr,
+                                                bb_shadow->disasm_shadow +
+                                                    slot * DISASM_CACHE_SIZE,
+                                                DISASM_CACHE_SIZE);
+                    
+                    IF_DRCCTLIB_DEBUG(
+                        dr_fprintf(pt->log_file_instr, "+%d/%d/%s\n",
+                            bb_key, slot, bb_shadow->disasm_shadow + slot * DISASM_CACHE_SIZE);)
                 }
-                if (instr_is_exclusive_load(instr)) {
-                    keep_insert_instrument = false;
+                if (!interest_start &&
+                    instr_state_contain(state_flag, INSTR_STATE_CLIENT_INTEREST)) {
+                    interest_start = true;
                 }
-                if (instr_is_exclusive_store(instr)) {
-                    keep_insert_instrument = true;
-                }
-#endif          
+                bb_instrument_msg_add(
+                    bb_msg, instr_instrument_msg_create(bb, instr, interest_start, slot,
+                                                state_flag));
+                slot++;        
             }
+#ifdef ARM_CCTLIB
         }
+        if (skip && instr_is_exclusive_store(instr)) {
+            skip = false;
+        }
+#endif  
     }
-    if (bb_msg->number == 0) {
-        bb_instrument_msg_delete(bb_msg);
-        *user_data = NULL;
-    } else {
-        *user_data = (void*)bb_msg;
-    }
+    *user_data = (void*)bb_msg;
     return DR_EMIT_DEFAULT;
 }
 
@@ -1016,8 +1002,13 @@ static void
 drcctlib_event_thread_end(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    IF_DRCCTLIB_DEBUG(dr_close_file(pt->log_file_bb);)
-    IF_DRCCTLIB_DEBUG(dr_close_file(pt->log_file_instr);)
+
+#ifdef DRCCTLIB_DEBUG
+    dr_fprintf(pt->log_file_bb, "call:%llu/return%llu\n", pt->call_num, pt->return_num);
+    dr_close_file(pt->log_file_bb);
+    dr_close_file(pt->log_file_instr);
+#endif
+
 #ifdef TEST_TREE_SIZE
     dr_mutex_lock(test_lock);
     real_node_number += pt->real_node_number;
@@ -1045,7 +1036,7 @@ next_string_pool_idx(char *name)
     return next_idx - len;
 }
 static void
-init_shadow_memory_space(void *addr, uint32_t accessLen, data_handle_t *initializer)
+init_shadow_memory_space(void *addr, uint32_t accessLen, data_handle_t initializer)
 {
     uint64_t endAddr = (uint64_t)addr + accessLen;
 
@@ -1057,22 +1048,22 @@ init_shadow_memory_space(void *addr, uint32_t accessLen, data_handle_t *initiali
 
         for (int i = 0; (i < maxBytesInThisPage) && curAddr < endAddr;
              i++, curAddr ++) {
-            status[i] = *initializer;
+            status[i] = initializer;
         }
     }
 }
 
-// static void
-// capture_mmap_size(void *wrapcxt, void **user_data)
-// {
-//     // Remember the CCT node and the allocation size
-//     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
-//         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
-//     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
-//     // DRCCTLIB_PRINTF("capture_mmap_size %lu", pt->dmem_alloc_size);
-//     pt->dmem_alloc_ctxt_hndl =
-//         pt->cur_bb_node->child_ctxt_start_idx;
-// }
+static void
+capture_mmap_size(void *wrapcxt, void **user_data)
+{
+    // Remember the CCT node and the allocation size
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
+    // DRCCTLIB_PRINTF("capture_mmap_size %lu", pt->dmem_alloc_size);
+    pt->dmem_alloc_ctxt_hndl =
+        pt->cur_bb_node->child_ctxt_start_idx;
+}
 
 static void
 capture_malloc_size(void *wrapcxt, void **user_data)
@@ -1084,20 +1075,6 @@ capture_malloc_size(void *wrapcxt, void **user_data)
     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 0);
     pt->dmem_alloc_ctxt_hndl =
         pt->cur_bb_node->child_ctxt_start_idx;
-}
-
-static void
-capture_malloc_pointer(void *wrapcxt, void *user_data)
-{
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
-        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
-    void *ptr = drwrap_get_retval(wrapcxt);
-    data_handle_t data_hndl;
-    data_hndl.object_type = DYNAMIC_OBJECT;
-    data_hndl.path_handle = pt->dmem_alloc_ctxt_hndl;
-    // DRCCTLIB_PRINTF("DYNAMIC_OBJECT %d %lu", data_hndl.path_handle, pt->dmem_alloc_size);
-    init_shadow_memory_space(ptr, pt->dmem_alloc_size,
-                                  &data_hndl);
 }
 
 static void
@@ -1126,9 +1103,17 @@ capture_realloc_size(void *wrapcxt, void **user_data)
 }
 
 static void
-capture_free(void *wrapcxt, void **user_data)
+datacentric_dynamic_alloc(void *wrapcxt, void *user_data)
 {
-
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    void *ptr = drwrap_get_retval(wrapcxt);
+    data_handle_t data_hndl;
+    data_hndl.object_type = DYNAMIC_OBJECT;
+    data_hndl.path_handle = pt->dmem_alloc_ctxt_hndl;
+    // DRCCTLIB_PRINTF("DYNAMIC_OBJECT %d %lu", data_hndl.path_handle, pt->dmem_alloc_size);
+    init_shadow_memory_space(ptr, pt->dmem_alloc_size,
+                                  data_hndl);
 }
 
 // compute static variables
@@ -1144,9 +1129,9 @@ capture_free(void *wrapcxt, void **user_data)
 #    define ELF_ST_TYPE ELF32_ST_TYPE
 #endif
 static void
-compute_static_var(const module_data_t *info)
+datacentric_static_alloc(const module_data_t *info)
 {   
-    // DRCCTLIB_PRINTF("compute_static_var %s", info->full_path);
+    // DRCCTLIB_PRINTF("datacentric_static_alloc %s", info->full_path);
     file_t fd = dr_open_file(info->full_path, DR_FILE_READ);
     uint64 file_size;
     if (fd == INVALID_FILE) {
@@ -1185,12 +1170,12 @@ compute_static_var(const module_data_t *info)
             data_hndl.sym_name = sym_name ? next_string_pool_idx(sym_name) : 0;
             // DRCCTLIB_PRINTF("STATIC_OBJECT %s %d", sym_name, (uint32_t)syms[i].st_size);
             init_shadow_memory_space((void *)((uint64_t)(info->start) + syms[i].st_value),
-                                        (uint32_t)syms[i].st_size, &data_hndl);
+                                        (uint32_t)syms[i].st_size, data_hndl);
         }
     }
     dr_unmap_file(map_base, map_size);
     dr_close_file(fd);
-    // DRCCTLIB_PRINTF("finish compute_static_var %s", info->full_path);
+    // DRCCTLIB_PRINTF("finish datacentric_static_alloc %s", info->full_path);
 }
 
 static inline app_pc
@@ -1242,17 +1227,16 @@ drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info, 
 {
     if((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
         // static analysis
-        compute_static_var(info);
+        datacentric_static_alloc(info);
         // dynamic analysis
-        // insert_func_instrument_by_drwap(info, FUNC_NAME_MMAP, capture_mmap_size,
-        //                                             capture_malloc_pointer);
+        insert_func_instrument_by_drwap(info, FUNC_NAME_MMAP, capture_mmap_size,
+                                                    datacentric_dynamic_alloc);
         insert_func_instrument_by_drwap(info, FUNC_NAME_MALLOC, capture_malloc_size,
-                                                    capture_malloc_pointer);
+                                                    datacentric_dynamic_alloc);
         insert_func_instrument_by_drwap(info, FUNC_NAME_CALLOC, capture_calloc_size,
-                                                    capture_malloc_pointer);
+                                                    datacentric_dynamic_alloc);
         insert_func_instrument_by_drwap(info, FUNC_NAME_REALLOC, capture_realloc_size,
-                                                    capture_malloc_pointer);
-        insert_func_instrument_by_drwap(info, FUNC_NAME_FREE, capture_free, NULL);
+                                                    datacentric_dynamic_alloc);
     }
     if((global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
         dr_mutex_lock(module_data_lock);
@@ -1280,14 +1264,6 @@ init_global_bb_shadow_table()
     hashtable_add(&global_bb_shadow_table,
                   (void *)(ptr_int_t)THREAD_ROOT_BB_SHARED_BB_KEY,
                   (void *)thread_root_bb_shared_shadow);
-
-    bb_shadow_t *uninterest_bb_share_shadow = bb_shadow_create(1);
-    uninterest_bb_share_shadow->ip_shadow[0] = 0;
-    strcpy(uninterest_bb_share_shadow->disasm_shadow, "uninterested bb");
-    uninterest_bb_share_shadow->state_shadow[0] = INSTR_STATE_UNINTEREST_FIRST;
-    hashtable_add(&global_bb_shadow_table,
-                  (void *)(ptr_int_t)UNINTERESTED_BB_SHARED_BB_KEY,
-                  (void *)uninterest_bb_share_shadow);
 }
 
 static inline void
@@ -1447,13 +1423,6 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
         }
         context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
         sprintf(ctxt->func_name, "THREAD[%d]_ROOT_CTXT", id);
-        sprintf(ctxt->file_path, " ");
-        sprintf(ctxt->code_asm, " ");
-        return ctxt;
-    }
-    if (bb->key == UNINTERESTED_BB_SHARED_BB_KEY) {
-        context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
-        sprintf(ctxt->func_name, "INSTRUCTION ARE NOT INSTRUMENTED.");
         sprintf(ctxt->file_path, " ");
         sprintf(ctxt->code_asm, " ");
         return ctxt;
@@ -1916,10 +1885,6 @@ drcctlib_get_pc(context_handle_t ctxt_hndl)
     cct_bb_node_t *bb_node = ctxt_hndl_to_ip_node(ctxt_hndl)->parent_bb_node;
     if (bb_node->key == THREAD_ROOT_BB_SHARED_BB_KEY) {
         DRCCTLIB_PRINTF("drcctlib_get_pc: THREAD_ROOT_BB_SHARED_BB_KEY");
-        return 0;
-    }
-    if (bb_node->key == UNINTERESTED_BB_SHARED_BB_KEY) {
-        DRCCTLIB_PRINTF("drcctlib_get_pc: THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE");
         return 0;
     }
     slot_t slot = ctxt_hndl - bb_node->child_ctxt_start_idx;

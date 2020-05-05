@@ -19,22 +19,24 @@
 
 #define SHADOW_MEMORY_TEST 0
 
-// 64KB shadow pages
+
+
+// unit size
+#define PTR_SIZE (sizeof(void *))
+// 2 level page table
+// 1MB
+#define LEVEL_1_PAGE_TABLE_BITS (20)
+#define LEVEL_1_PAGE_TABLE_ENTRIES (1 << LEVEL_1_PAGE_TABLE_BITS)
+#define LEVEL_1_PAGE_TABLE_SIZE (LEVEL_1_PAGE_TABLE_ENTRIES * PTR_SIZE)
+// 1KB  (page2 global max 1GB) 
+#define LEVEL_2_PAGE_TABLE_BITS (10)
+#define LEVEL_2_PAGE_TABLE_ENTRIES (1 << LEVEL_2_PAGE_TABLE_BITS)
+#define LEVEL_2_PAGE_TABLE_SIZE (LEVEL_2_PAGE_TABLE_ENTRIES * PTR_SIZE)
+// 64KB (shadow pages global max 64TB)
 #define PAGE_OFFSET_BITS (16LL)
 #define PAGE_OFFSET(addr) (addr & 0xFFFF)
 #define PAGE_OFFSET_MASK (0xFFFF)
 #define SHADOW_PAGE_SIZE (1 << PAGE_OFFSET_BITS)
-
-// 2 level page table
-#define PTR_SIZE (sizeof(void *))
-
-#define LEVEL_1_PAGE_TABLE_BITS (20)
-#define LEVEL_1_PAGE_TABLE_ENTRIES (1 << LEVEL_1_PAGE_TABLE_BITS)
-#define LEVEL_1_PAGE_TABLE_SIZE (LEVEL_1_PAGE_TABLE_ENTRIES * PTR_SIZE)
-
-#define LEVEL_2_PAGE_TABLE_BITS (12)
-#define LEVEL_2_PAGE_TABLE_ENTRIES (1 << LEVEL_2_PAGE_TABLE_BITS)
-#define LEVEL_2_PAGE_TABLE_SIZE (LEVEL_2_PAGE_TABLE_ENTRIES * PTR_SIZE)
 
 #define LEVEL_1_PAGE_TABLE_SLOT(addr) \
     ((((uint64_t)addr) >> (LEVEL_2_PAGE_TABLE_BITS + PAGE_OFFSET_BITS)) & 0xfffff)
