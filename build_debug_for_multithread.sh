@@ -100,17 +100,32 @@ set +euo pipefail
 cd ${BUILD_LOG_PATH}
 
 echo -e "\033[32m-----Testing Dynamorio---------\033[0m" && \
-    ${RUN_DIRECTORY}/drrun echo hi > /dev/null && \
+    ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -- echo hi > /dev/null && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 1---------\033[0m" && \
-    ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -t drcctlib_all_instr_cct -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_all_instr_cct.log && \
+    ${RUN_DIRECTORY}/drrun -debug -unsafe_build_ldstex -loglevel 4 -t drcctlib_all_instr_cct -- ${APP_EXE} > /dev/null && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 2---------\033[0m" && \
-    ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -t drcctlib_instr_statistics -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_instr_statistics.log && \
+    ${RUN_DIRECTORY}/drrun -debug -unsafe_build_ldstex -loglevel 4 -t drcctlib_instr_statistics -- ${APP_EXE} > /dev/null && \
+        echo -e "\033[32m----------PASSED---------\033[0m" || \
+            (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+
+echo -e "\033[32m-----Testing Multithread 1---------\033[0m" && \
+    ${RUN_DIRECTORY}/drrun -debug -unsafe_build_ldstex -loglevel 4 -- ${APP_EXE} > /dev/null && \
+        echo -e "\033[32m----------PASSED---------\033[0m" || \
+            (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+
+echo -e "\033[32m-----Testing Multithread 2---------\033[0m" && \
+     timeout 120 ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -- ${APP_EXE} > /dev/null && \
+        echo -e "\033[32m----------PASSED---------\033[0m" || \
+            (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+
+echo -e "\033[32m-----Testing Multithread 3---------\033[0m" && \
+     ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -- ${APP_EXE} > /dev/null && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 

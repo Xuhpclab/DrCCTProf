@@ -283,6 +283,15 @@ instr_is_exclusive_load(instr_t *instr)
     }
     return false;
 }
+
+static bool
+instr_is_ldstex(instr_t *instr) {
+    if(instr_get_opcode(instr) == OP_ldstex) {
+        return true;
+    }
+    return false;
+}
+
 #endif
 
 // ctxt to ipnode
@@ -381,7 +390,7 @@ bb_get_num_interest_instr(instr_t *bb_first)
     for (instr_t *instr = bb_first; 
          instr != NULL; instr = instr_get_next_app(instr)) {
 #ifdef ARM_CCTLIB
-        if (!skip && instr_is_exclusive_load(instr)) {
+        if (!skip && (instr_is_exclusive_load(instr) || instr_is_ldstex(instr))) {
             skip = true;
         }
         if (!skip) {
@@ -391,7 +400,7 @@ bb_get_num_interest_instr(instr_t *bb_first)
             }
 #ifdef ARM_CCTLIB
         }
-        if (skip && instr_is_exclusive_store(instr)) {
+        if (skip && (instr_is_exclusive_store(instr) || instr_is_ldstex(instr))) {
             skip = false;
         }
 #endif
@@ -898,7 +907,7 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     for (instr_t *instr = first_instr;
             instr != NULL; instr = instr_get_next_app(instr)) {
 #ifdef ARM_CCTLIB
-        if (!skip && instr_is_exclusive_load(instr)) {
+        if (!skip && (instr_is_exclusive_load(instr) || instr_is_ldstex(instr))) {
             skip = true;
         }
         if (!skip) {
@@ -928,7 +937,7 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
             }
 #ifdef ARM_CCTLIB
         }
-        if (skip && instr_is_exclusive_store(instr)) {
+        if (skip && (instr_is_exclusive_store(instr) || instr_is_ldstex(instr))) {
             skip = false;
         }
 #endif  

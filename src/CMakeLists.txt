@@ -12,6 +12,7 @@ set(DynamoRIO_USE_LIBC OFF)
 
 set(srcs
   splay_tree.c
+  util_c.c
   drcctlib.cpp
   # add more here
   )
@@ -48,5 +49,6 @@ install_ext_header(drcctlib_filter_func_list.h)
 install_ext_header(drcctlib_global_share.h)
 install_ext_header(drcctlib.h)
 install_ext_header(splay_tree.h)
+install_ext_header(util_c.h)
 install_ext_header(shadow_memory.h)
 install_ext_header(memory_cache.h)
