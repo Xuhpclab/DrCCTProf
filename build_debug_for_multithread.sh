@@ -124,11 +124,6 @@ echo -e "\033[32m-----Testing Multithread 2---------\033[0m" && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
-echo -e "\033[32m-----Testing Multithread 3---------\033[0m" && \
-     ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -- ${APP_EXE} > /dev/null && \
-        echo -e "\033[32m----------PASSED---------\033[0m" || \
-            (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-
 # echo -e "\033[32m----------Test 3---------\033[0m" && \
 #     ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -t drcctlib_cct_only -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_cct_only.log && \
 #         echo -e "\033[32m----------PASSED---------\033[0m" || \
