@@ -2,7 +2,7 @@
 
 # set -euo pipefail
 
-CUR_DIR=$(pwd)
+CUR_DIR=$(cd "$(dirname "$0")";pwd)
 BUILD_PATH=${CUR_DIR}/../build
 RUN_DIRECTORY_64=${BUILD_PATH}/bin64
 RUN_DIRECTORY_32=${BUILD_PATH}/bin32
