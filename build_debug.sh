@@ -71,16 +71,28 @@ APPSAMPLES_SRC=${APPSAMPLES}/src
 APPSAMPLES_BUILD=${APPSAMPLES}/build
 rm -rf ${APPSAMPLES_BUILD}
 mkdir ${APPSAMPLES_BUILD}
+APP1_SRC=${APPSAMPLES_SRC}/sample/sample_cct.cxx
+APP2_SRC=${APPSAMPLES_SRC}/sample/sample_multithread.cxx
+APP3_SRC=${APPSAMPLES_SRC}/sample/sample_reuse.cxx
+APP4_SRC=${APPSAMPLES_SRC}/sample/sample_signal.cxx
+APP1_FULL_PATH=${APPSAMPLES_BUILD}/sample_cct
+APP2_FULL_PATH=${APPSAMPLES_BUILD}/sample_multithread
+APP3_FULL_PATH=${APPSAMPLES_BUILD}/sample_reuse
+APP4_FULL_PATH=${APPSAMPLES_BUILD}/sample_signal
+APP1=sample_cct
+APP2=sample_multithread
+APP3=sample_reuse
+APP4=sample_signal
 
-echo -e "Enter \033[34m${APPSAMPLES}\033[0m.."
-cd ${APPSAMPLES}
 echo -e "\033[32mStart build app... \033[0m"
 # build sample1
-g++ -g ${APPSAMPLES_SRC}/sample/sample_cct.cxx -o ${APPSAMPLES_BUILD}/sample_cct
-g++ -g ${APPSAMPLES_SRC}/sample/sample_multithread.cxx -o ${APPSAMPLES_BUILD}/sample_multithread -pthread
-g++ -g ${APPSAMPLES_SRC}/sample/sample_reuse.cxx -o ${APPSAMPLES_BUILD}/sample_reuse
+g++ -g ${APP1_SRC} -o ${APP1_FULL_PATH}
+g++ -g ${APP2_SRC} -o ${APP2_FULL_PATH} -pthread
+g++ -g ${APP3_SRC} -o ${APP3_FULL_PATH}
+g++ -g ${APP4_SRC} -o ${APP4_FULL_PATH}
 echo -e "\033[32m Build app successfully! \033[0m"
-echo -e "Leave \033[34m${APPSAMPLES}\033[0m.."
+
+
 cd ${CUR_DIR}
 
 RUN_DIRECTORY_64=${BUILD_PATH}/bin64
@@ -95,12 +107,12 @@ echo -e "\033[32mStart test... \033[0m"
 set +euo pipefail
 cd ${BUILD_LOG_PATH}
 
-echo -e "\033[32m-----Testing Dynamorio---------\033[0m" && ${RUN_DIRECTORY}/drrun echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo -e "\033[32m----------Test 1---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APPSAMPLES}/build/sample_cct > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo -e "\033[32m----------Test 2---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APPSAMPLES}/build/sample_multithread > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo -e "\033[32m----------Test 3---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APPSAMPLES}/build/sample_cct > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo -e "\033[32m----------Test 4---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APPSAMPLES}/build/sample_multithread > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
-echo -e "\033[32m----------Test 5---------\033[0m" && ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APPSAMPLES}/build/sample_reuse > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m-----Testing Dynamorio---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 1---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -unsafe_build_ldstex -t drcctlib_all_instr_cct -- ${APP1_FULL_PATH} > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 2---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -unsafe_build_ldstex -t drcctlib_all_instr_cct -- ${APP2_FULL_PATH} > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 3---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -unsafe_build_ldstex -t drcctlib_instr_statistics -- ${APP1_FULL_PATH} > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 4---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -unsafe_build_ldstex -t drcctlib_instr_statistics -- ${APP2_FULL_PATH} > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m----------Test 5---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -unsafe_build_ldstex -t drcctlib_reuse_distance -- ${APP3_FULL_PATH} > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m*************************************************\033[0m"
 echo -e "\033[32m************* ALL TESTS Finished ****************\033[0m"

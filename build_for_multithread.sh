@@ -100,32 +100,37 @@ set +euo pipefail
 cd ${BUILD_LOG_PATH}
 
 echo -e "\033[32m-----Testing Dynamorio---------\033[0m" && \
-    ${RUN_DIRECTORY}/drrun echo hi > /dev/null && \
+    ${RUN_DIRECTORY}/drrun -- echo hi > /dev/null && \
+        echo -e "\033[32m----------PASSED---------\033[0m" || \
+            (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+
+echo -e "\033[32m-----Testing Multithread---------\033[0m" && \
+    ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -- ${APP_EXE} > /dev/null && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 1---------\033[0m" && \
-    ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_all_instr_cct.log && \
+    ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_all_instr_cct -- ${APP_EXE} > /dev/null && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 2---------\033[0m" && \
-    ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_instr_statistics.log && \
+    ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_instr_statistics -- ${APP_EXE} > /dev/null && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 3---------\033[0m" && \
-    ${RUN_DIRECTORY}/drrun -t drcctlib_cct_only -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_cct_only.log && \
+    ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_cct_only -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_cct_only.log && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 4---------\033[0m" && \
-    ${RUN_DIRECTORY}/drrun -t drcctlib_memory_with_data_centric -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_memory_with_data_centric.log && \
+    ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_memory_with_data_centric -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_memory_with_data_centric.log && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 5---------\033[0m" && \
-    ${RUN_DIRECTORY}/drrun -t drcctlib_memory_with_data_centric_with_search -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_memory_with_data_centric_with_search.log && \
+    ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_memory_with_data_centric_with_search -- ${APP_EXE} > ${LOG_SUFFIX}.drcctlib_memory_with_data_centric_with_search.log && \
         echo -e "\033[32m----------PASSED---------\033[0m" || \
             (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 

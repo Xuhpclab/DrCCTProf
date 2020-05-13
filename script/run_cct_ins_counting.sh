@@ -23,5 +23,5 @@ APP_ARG6=$7
 APP_ARG7=$8
 APP_ARG8=$9
 
-echo "${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP_FULL_PATH} $APP_ARG1 $APP_ARG2 $APP_ARG3 $APP_ARG4 $APP_ARG5 $APP_ARG6 $APP_ARG7 $APP_ARG8"
-${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP_FULL_PATH} $APP_ARG1 $APP_ARG2 $APP_ARG3 $APP_ARG4 $APP_ARG5 $APP_ARG6 $APP_ARG7 $APP_ARG8
+echo "${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_instr_statistics -- ${APP_FULL_PATH} $APP_ARG1 $APP_ARG2 $APP_ARG3 $APP_ARG4 $APP_ARG5 $APP_ARG6 $APP_ARG7 $APP_ARG8"
+${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_instr_statistics -- ${APP_FULL_PATH} $APP_ARG1 $APP_ARG2 $APP_ARG3 $APP_ARG4 $APP_ARG5 $APP_ARG6 $APP_ARG7 $APP_ARG8

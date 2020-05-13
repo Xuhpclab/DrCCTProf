@@ -73,27 +73,27 @@ echo "run ${APP3_FULL_PATH}"
 (time ${APP3_FULL_PATH}) > runtime.${APP3}.${TIMESTAMP} 2>&1
 
 echo "run drcctlib_all_instr_cct ${APP1_FULL_PATH}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP1_FULL_PATH} > client.drcctlib_all_instr_cct.${APP1}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.${APP1}.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_all_instr_cct -- ${APP1_FULL_PATH} > client.drcctlib_all_instr_cct.${APP1}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.${APP1}.${TIMESTAMP} 2>&1
 echo "run drcctlib_all_instr_cct ${APP2_FULL_PATH}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct -- ${APP2_FULL_PATH} > client.drcctlib_all_instr_cct.${APP2}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.${APP2}.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_all_instr_cct -- ${APP2_FULL_PATH} > client.drcctlib_all_instr_cct.${APP2}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_all_instr_cct.${APP2}.${TIMESTAMP} 2>&1
 
 echo "run drcctlib_instr_statistics ${APP1_FULL_PATH}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP1_FULL_PATH} > client.drcctlib_instr_statistics.${APP1}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.${APP1}.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_instr_statistics -- ${APP1_FULL_PATH} > client.drcctlib_instr_statistics.${APP1}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.${APP1}.${TIMESTAMP} 2>&1
 echo "run drcctlib_instr_statistics ${APP2_FULL_PATH}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APP2_FULL_PATH} > client.drcctlib_instr_statistics.${APP2}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.${APP2}.${TIMESTAMP} 2>&1
+(time ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_instr_statistics -- ${APP2_FULL_PATH} > client.drcctlib_instr_statistics.${APP2}.log.${TIMESTAMP} 2>&1) > runtime.drcctlib_instr_statistics.${APP2}.${TIMESTAMP} 2>&1
 
 echo "run drcctlib_reuse_distance ${APP3_FULL_PATH}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance -- ${APP3_FULL_PATH} > client.drcctlib_reuse_distance.${APP3}.log 2>&1) > runtime.drcctlib_reuse_distance.${APP3} 2>&1
+(time ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_reuse_distance -- ${APP3_FULL_PATH} > client.drcctlib_reuse_distance.${APP3}.log 2>&1) > runtime.drcctlib_reuse_distance.${APP3} 2>&1
 
 cd ${BUILD_LOG_PATH}
 echo "run drcctlib_all_instr_cct_hpc_fmt ${APP2_FULL_PATH}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_all_instr_cct_hpc_fmt -- ${APP2_FULL_PATH} > client.drcctlib_all_instr_cct_hpc_fmt.${APP2}.log 2>&1) > runtime.drcctlib_all_instr_cct_hpc_fmt.${APP2} 2>&1
+(time ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_all_instr_cct_hpc_fmt -- ${APP2_FULL_PATH} > client.drcctlib_all_instr_cct_hpc_fmt.${APP2}.log 2>&1) > runtime.drcctlib_all_instr_cct_hpc_fmt.${APP2} 2>&1
 cd ${CUR_DIR}
 ${CUR_DIR}/machine_custom_hpc_fmt.sh $APP2 $APP2_FULL_PATH $APPSAMPLES_SRC ${BUILD_LOG_PATH}
 
 cd ${BUILD_LOG_PATH}
 echo "run drcctlib_reuse_distance_hpc_fmt ${APP3_FULL_PATH}"
-(time ${RUN_DIRECTORY}/drrun -t drcctlib_reuse_distance_hpc_fmt -- ${APP3_FULL_PATH} > client.drcctlib_reuse_distance_hpc_fmt.${APP3}.log 2>&1) > runtime.drcctlib_reuse_distance_hpc_fmt.${APP3} 2>&1
+(time ${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_reuse_distance_hpc_fmt -- ${APP3_FULL_PATH} > client.drcctlib_reuse_distance_hpc_fmt.${APP3}.log 2>&1) > runtime.drcctlib_reuse_distance_hpc_fmt.${APP3} 2>&1
 cd ${CUR_DIR}
 ${CUR_DIR}/machine_custom_hpc_fmt.sh $APP3 $APP3_FULL_PATH $APPSAMPLES_SRC ${BUILD_LOG_PATH}
 

@@ -52,8 +52,6 @@ APP2_FULL_PATH=${APPSAMPLES_BUILD}/sample_multithread
 APP3_FULL_PATH=${APPSAMPLES_BUILD}/sample_reuse
 APP4_FULL_PATH=${APPSAMPLES_BUILD}/sample_signal
 
-echo -e "Enter \033[34m${APPSAMPLES}\033[0m.."
-cd ${APPSAMPLES}
 echo -e "\033[32mStart build app... \033[0m"
 # build sample1
 g++ -g ${APP1_SRC} -o ${APP1_FULL_PATH}
@@ -61,7 +59,6 @@ g++ -g ${APP2_SRC} -o ${APP2_FULL_PATH} -pthread
 g++ -g ${APP3_SRC} -o ${APP3_FULL_PATH}
 g++ -g ${APP4_SRC} -o ${APP4_FULL_PATH}
 echo -e "\033[32m Build app successfully! \033[0m"
-echo -e "Leave \033[34m${APPSAMPLES}\033[0m.."
 
 cd ${BUILD_LOG_PATH}
-${RUN_DIRECTORY}/drrun -t drcctlib_instr_statistics -- ${APPSAMPLES}/build/sample_signal
+${RUN_DIRECTORY}/drrun -unsafe_build_ldstex -t drcctlib_instr_statistics -- ${APP4_FULL_PATH}
