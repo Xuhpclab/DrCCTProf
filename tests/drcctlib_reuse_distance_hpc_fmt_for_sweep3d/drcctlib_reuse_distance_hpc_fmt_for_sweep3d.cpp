@@ -171,14 +171,12 @@ UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur
         it->second.use_hndl = ref->ctxt_hndl;
         it->second.last_reuse_mem_idx = cur_mem_idx;
     } else {
-        data_handle_t* data_hndl = drcctlib_get_data_hndl_runtime(drcontext, (app_pc)real_data_addr);
+        data_handle_t data_hndl = drcctlib_get_data_hndl_ignore_stack_data(drcontext, (app_pc)real_data_addr);
         context_handle_t create_hndl = 0;
-        if(data_hndl != NULL) {
-            if (data_hndl->object_type == DYNAMIC_OBJECT) {
-                create_hndl = data_hndl->path_handle;
-            } else if (data_hndl->object_type == STATIC_OBJECT) {
-                create_hndl = - data_hndl->sym_name;
-            }
+        if (data_hndl.object_type == DYNAMIC_OBJECT) {
+            create_hndl = data_hndl.path_handle;
+        } else if (data_hndl.object_type == STATIC_OBJECT) {
+            create_hndl = - data_hndl.sym_name;
         }
         use_node_t new_entry(create_hndl, ref->ctxt_hndl, cur_mem_idx);
         (*use_map).insert(pair<uint64_t, use_node_t>(real_data_addr, new_entry));

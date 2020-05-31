@@ -19,7 +19,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                              \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));             \
         pid_t pid = getpid();                                                      \
-        dr_printf("[(%s%d)drcctlib_all_instr_cct msg]====" format "\n", name, pid, \
+        dr_printf("[(%s%d)drcctlib_all_instr_cct_with_data_centric msg]====" format "\n", name, pid, \
                   ##args);                                                         \
     } while (0)
 
@@ -28,7 +28,7 @@ using namespace std;
         char name[MAXIMUM_PATH] = "";                                                    \
         gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                   \
         pid_t pid = getpid();                                                            \
-        dr_printf("[(%s%d)drcctlib_all_instr_cct(%s%d) msg]====" format "\n", name, pid, \
+        dr_printf("[(%s%d)drcctlib_all_instr_cct_with_data_centric(%s%d) msg]====" format "\n", name, pid, \
                   ##args);                                                               \
     } while (0);                                                                         \
     dr_exit_process(-1)
@@ -52,7 +52,7 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_all_instr_cct'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_all_instr_cct_with_data_centric'",
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);

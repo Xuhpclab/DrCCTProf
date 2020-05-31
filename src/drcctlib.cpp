@@ -189,17 +189,13 @@ typedef struct _per_thread_t {
 #endif
 } per_thread_t;
 
-typedef struct _pt_cache_t {
-    bool dead;
-    per_thread_t *active_data;
-    per_thread_t *cache_data;
-} pt_cache_t;
 
 #define BB_TABLE_HASH_BITS 10
 #define PT_CACHE_TABLE_HASH_BITS 6
 static hashtable_t global_bb_key_table;
 static hashtable_t global_bb_shadow_table;
-static hashtable_t global_pt_cache_table;
+
+static per_thread_t** global_pt_cache_buff;
 
 static int init_count = 0;
 
@@ -219,6 +215,7 @@ static int tls_idx;
 static file_t log_file;
 static client_cb_t client_cb; 
 
+// static file_t debug_file;
 
 static char global_flags = DRCCTLIB_DEFAULT;
 
@@ -544,16 +541,6 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
 #ifdef TEST_TREE_SIZE
         pt->real_node_number = 0;
 #endif
-}
-
-static inline void
-pt_cache_free(void *cache)
-{
-    pt_cache_t *pt_cache = (pt_cache_t *)cache;
-    delete pt_cache->cache_data->bb_node_cache;
-    delete pt_cache->cache_data->splay_node_cache;
-    dr_global_free(pt_cache->cache_data, sizeof(per_thread_t));
-    dr_global_free(cache, sizeof(pt_cache_t));
 }
 
 static inline void
@@ -991,20 +978,20 @@ drcctlib_event_thread_start(void *drcontext)
 
     int id = ATOM_ADD_THREAD_ID_MAX(global_thread_id_max);
     id--;
+    if(id > THREAD_MAX_NUM) {
+        DRCCTLIB_EXIT_PROCESS("Thread num > THREAD_MAX_NUM(%d), please change the value of THREAD_MAX_NUM.", THREAD_MAX_NUM);
+    }
 
-    per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
+    per_thread_t *pt = (per_thread_t *)dr_global_alloc(sizeof(per_thread_t));
     if(pt == NULL){
         DRCCTLIB_EXIT_PROCESS("drcctlib_event_thread_start pt == NULL");
     }
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
 
     pt_init(drcontext, pt, id);
-    pt_cache_t *pt_cache = (pt_cache_t *)dr_global_alloc(sizeof(pt_cache_t));
-    pt_cache->active_data = pt;
-    pt_cache->cache_data = NULL;
-    pt_cache->dead = false;
-    hashtable_add(&global_pt_cache_table, (void *)(ptr_int_t)id, pt_cache);
+    global_pt_cache_buff[id] = pt;
     // DRCCTLIB_PRINTF("thread %d init", id);
+    // dr_fprintf(debug_file, "thread %d init\n", pt->id);
 }
 
 static void
@@ -1023,13 +1010,10 @@ drcctlib_event_thread_end(void *drcontext)
     real_node_number += pt->real_node_number;
     dr_mutex_unlock(test_lock);
 #endif
-    pt_cache_t *pt_cache = (pt_cache_t *)hashtable_lookup(&global_pt_cache_table,
-                                                          (void *)(ptr_int_t)(pt->id));
-    pt_cache->cache_data = (per_thread_t *)dr_global_alloc(sizeof(per_thread_t));
-    memcpy(pt_cache->cache_data, pt_cache->active_data, sizeof(per_thread_t));
-    pt_cache->dead = true;
-    dr_thread_free(drcontext, pt, sizeof(per_thread_t));
+    pt->bb_node_cache->free_unuse_object();
+    pt->splay_node_cache->free_unuse_object();
     // DRCCTLIB_PRINTF("thread %d end", pt_cache->cache_data->id);
+    // dr_fprintf(debug_file, "thread %d end\n", pt->id);
 }
 
 static inline int32_t
@@ -1062,17 +1046,17 @@ init_shadow_memory_space(void *addr, uint32_t accessLen, data_handle_t initializ
     }
 }
 
-static void
-capture_mmap_size(void *wrapcxt, void **user_data)
-{
-    // Remember the CCT node and the allocation size
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
-        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
-    pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
-    // DRCCTLIB_PRINTF("capture_mmap_size %lu", pt->dmem_alloc_size);
-    pt->dmem_alloc_ctxt_hndl =
-        pt->cur_bb_node->child_ctxt_start_idx;
-}
+// static void
+// capture_mmap_size(void *wrapcxt, void **user_data)
+// {
+//     // Remember the CCT node and the allocation size
+//     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+//         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+//     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
+//     // DRCCTLIB_PRINTF("capture_mmap_size %lu", pt->dmem_alloc_size);
+//     pt->dmem_alloc_ctxt_hndl =
+//         pt->cur_bb_node->child_ctxt_start_idx;
+// }
 
 static void
 capture_malloc_size(void *wrapcxt, void **user_data)
@@ -1081,6 +1065,7 @@ capture_malloc_size(void *wrapcxt, void **user_data)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
     // DRCCTLIB_PRINTF("capture_malloc_size %lu", (size_t)drwrap_get_arg(wrapcxt, 0));
+    // dr_fprintf(debug_file, "capture_malloc_size %lu \n", (size_t)drwrap_get_arg(wrapcxt, 0));
     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 0);
     pt->dmem_alloc_ctxt_hndl =
         pt->cur_bb_node->child_ctxt_start_idx;
@@ -1093,6 +1078,7 @@ capture_calloc_size(void *wrapcxt, void **user_data)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
     // DRCCTLIB_PRINTF("capture_calloc_size %lu %lu", (size_t)drwrap_get_arg(wrapcxt, 0), (size_t)drwrap_get_arg(wrapcxt, 1));
+    // dr_fprintf(debug_file, "capture_calloc_size %lu %lu \n", (size_t)drwrap_get_arg(wrapcxt, 0), (size_t)drwrap_get_arg(wrapcxt, 1));
     pt->dmem_alloc_size =
         (size_t)drwrap_get_arg(wrapcxt, 0) * (size_t)drwrap_get_arg(wrapcxt, 1);
     pt->dmem_alloc_ctxt_hndl =
@@ -1105,7 +1091,9 @@ capture_realloc_size(void *wrapcxt, void **user_data)
     // Remember the CCT node and the allocation size
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    // dr_fprintf(debug_file, "thread %d capture_realloc_size\n", pt->id);
     // DRCCTLIB_PRINTF("capture_realloc_size %lu", (size_t)drwrap_get_arg(wrapcxt, 1));
+    // dr_fprintf(debug_file, "capture_realloc_size %lu \n", (size_t)drwrap_get_arg(wrapcxt, 1));
     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
     pt->dmem_alloc_ctxt_hndl =
         pt->cur_bb_node->child_ctxt_start_idx;
@@ -1116,11 +1104,15 @@ datacentric_dynamic_alloc(void *wrapcxt, void *user_data)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+    // dr_fprintf(debug_file, "thread %d datacentric_dynamic_alloc\n", pt->id);
+    
     void *ptr = drwrap_get_retval(wrapcxt);
+    // dr_fprintf(debug_file, "thread %d datacentric_dynamic_alloc ptr %p\n", pt->id, ptr);
     data_handle_t data_hndl;
     data_hndl.object_type = DYNAMIC_OBJECT;
     data_hndl.path_handle = pt->dmem_alloc_ctxt_hndl;
     // DRCCTLIB_PRINTF("DYNAMIC_OBJECT %d %lu", data_hndl.path_handle, pt->dmem_alloc_size);
+    // dr_fprintf(debug_file, "DYNAMIC_OBJECT %d %lu \n", data_hndl.path_handle, pt->dmem_alloc_size);
     init_shadow_memory_space(ptr, pt->dmem_alloc_size,
                                   data_hndl);
 }
@@ -1141,6 +1133,7 @@ static void
 datacentric_static_alloc(const module_data_t *info)
 {   
     // DRCCTLIB_PRINTF("datacentric_static_alloc %s", info->full_path);
+    // dr_fprintf(debug_file, "datacentric_static_alloc %s \n", info->full_path);
     file_t fd = dr_open_file(info->full_path, DR_FILE_READ);
     uint64 file_size;
     if (fd == INVALID_FILE) {
@@ -1178,6 +1171,7 @@ datacentric_static_alloc(const module_data_t *info)
             char *sym_name = elf_strptr(elf, shdr->sh_link, syms[i].st_name);
             data_hndl.sym_name = sym_name ? next_string_pool_idx(sym_name) : 0;
             // DRCCTLIB_PRINTF("STATIC_OBJECT %s %d", sym_name, (uint32_t)syms[i].st_size);
+            // dr_fprintf(debug_file, "STATIC_OBJECT %s %d \n", sym_name, (uint32_t)syms[i].st_size);
             init_shadow_memory_space((void *)((uint64_t)(info->start) + syms[i].st_value),
                                         (uint32_t)syms[i].st_size, data_hndl);
         }
@@ -1185,6 +1179,7 @@ datacentric_static_alloc(const module_data_t *info)
     dr_unmap_file(map_base, map_size);
     dr_close_file(fd);
     // DRCCTLIB_PRINTF("finish datacentric_static_alloc %s", info->full_path);
+    // dr_fprintf(debug_file, "finish datacentric_static_alloc %s \n", info->full_path);
 }
 
 static inline app_pc
@@ -1238,8 +1233,8 @@ drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info, 
         // static analysis
         datacentric_static_alloc(info);
         // dynamic analysis
-        insert_func_instrument_by_drwap(info, FUNC_NAME_MMAP, capture_mmap_size,
-                                                    datacentric_dynamic_alloc);
+        // insert_func_instrument_by_drwap(info, FUNC_NAME_MMAP, capture_mmap_size,
+        //                                             datacentric_dynamic_alloc);
         insert_func_instrument_by_drwap(info, FUNC_NAME_MALLOC, capture_malloc_size,
                                                     datacentric_dynamic_alloc);
         insert_func_instrument_by_drwap(info, FUNC_NAME_CALLOC, capture_calloc_size,
@@ -1312,6 +1307,25 @@ init_global_buff()
     if (!global_splay_node_cache->init(CONTEXT_HANDLE_MAX/20, 1000, 20)) {
         DRCCTLIB_EXIT_PROCESS("init_global_buff error: global_splay_node_cache");
     }
+
+    global_pt_cache_buff = (per_thread_t **)dr_raw_mem_alloc(
+        THREAD_MAX_NUM * sizeof(per_thread_t*),
+        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    if (global_pt_cache_buff == NULL) {
+        DRCCTLIB_EXIT_PROCESS("init_global_buff error: dr_raw_mem_alloc fail global_pt_cache_buff");
+    }
+}
+
+static inline void
+free_pt_cache()
+{
+    for (int i = 0; i < THREAD_MAX_NUM; i++) {
+        if (global_pt_cache_buff[i] != NULL) {
+            delete global_pt_cache_buff[i]->bb_node_cache;
+            delete global_pt_cache_buff[i]->splay_node_cache;
+            dr_global_free(global_pt_cache_buff[i], sizeof(per_thread_t));
+        }
+    }
 }
 
 static inline void
@@ -1322,6 +1336,9 @@ free_global_buff()
         dr_raw_mem_free(global_string_pool, STRING_POOL_NODES_MAX * sizeof(char));
     }
 
+    free_pt_cache();
+    dr_raw_mem_free(global_pt_cache_buff, THREAD_MAX_NUM * sizeof(per_thread_t*));
+    
     delete global_bb_node_cache;
     delete global_splay_node_cache;
 }
@@ -1371,13 +1388,7 @@ print_stats()
 static per_thread_t *
 pt_get_from_gcache_by_id(int id)
 {
-    pt_cache_t *cache = (pt_cache_t *)hashtable_lookup(&global_pt_cache_table,
-                                                       (void *)(ptr_int_t)(id));
-    if (cache->dead) {
-        return cache->cache_data;
-    } else {
-        return cache->active_data;
-    }
+    return global_pt_cache_buff[id];
 }
 
 static int
@@ -1486,6 +1497,22 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
     }
 }
 
+// void
+// drcctlib_init_debug_file()
+// {
+// #    ifdef ARM_CCTLIB
+//     char debug_file_name[MAXIMUM_PATH] = "arm.";
+// #    else
+//     char debug_file_name[MAXIMUM_PATH] = "x86.";
+// #    endif
+//     gethostname(debug_file_name + strlen(debug_file_name), MAXIMUM_PATH - strlen(debug_file_name));
+//     pid_t pid = getpid();
+//     sprintf(debug_file_name + strlen(debug_file_name), "debug.%d.log", pid);
+//     debug_file = dr_open_file(debug_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
+//     DR_ASSERT(debug_file != INVALID_FILE);
+//     DRCCTLIB_PRINTF("debug_file(%s) create success!", debug_file_name);
+// }
+
 bool
 drcctlib_init(char flag)
 {
@@ -1493,6 +1520,7 @@ drcctlib_init(char flag)
     int count = dr_atomic_add32_return_sum(&init_count, 1);
     if (count > 1)
         return true;
+    // drcctlib_init_debug_file();
     global_flags = flag;
     if (!drmgr_init()) {
         DRCCTLIB_PRINTF("WARNING: drcctlib unable to initialize drmgr");
@@ -1545,6 +1573,8 @@ drcctlib_init(char flag)
     }
     if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0 ||
         (global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0) {
+        drwrap_set_global_flags(DRWRAP_SAFE_READ_RETADDR);
+        drwrap_set_global_flags(DRWRAP_SAFE_READ_ARGS);
         drmgr_register_module_load_event(drcctlib_event_module_load_analysis);
         drmgr_register_module_unload_event(drcctlib_event_module_unload_analysis);
     }
@@ -1554,12 +1584,6 @@ drcctlib_init(char flag)
     hashtable_init_ex(&global_bb_shadow_table, BB_TABLE_HASH_BITS, HASH_INTPTR,
                       false /*!strdup*/, false /*!synch*/, bb_shadow_free, NULL, NULL);
     init_global_bb_shadow_table();
-    
-    hashtable_init_ex(&global_pt_cache_table, PT_CACHE_TABLE_HASH_BITS, HASH_INTPTR,
-                      false /*!strdup*/, false /*!synch*/, pt_cache_free, NULL, NULL);
-
-    
-
     create_global_locks();
 
     tls_idx = drmgr_register_tls_field();
@@ -1623,7 +1647,6 @@ drcctlib_exit(void)
 
     hashtable_delete(&global_bb_key_table);
     hashtable_delete(&global_bb_shadow_table);
-    hashtable_delete(&global_pt_cache_table);
     destroy_global_locks();
 
     drmgr_exit();
@@ -1638,7 +1661,10 @@ drcctlib_exit(void)
     // free cct_ip_node and cct_bb_node
     free_global_buff();
 
-    dr_close_file(log_file);
+    // dr_close_file(debug_file);
+    if(log_file != INVALID_FILE) {
+        dr_close_file(log_file);
+    }
     // DRCCTLIB_PRINTF("====drcctlib_exit end");
 }
 
@@ -1965,33 +1991,36 @@ has_same_call_path(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2)
 // API to get the handle for a data object
 DR_EXPORT
 data_handle_t
-drcctlib_get_data_hndl(void *drcontext, void *address)
+drcctlib_get_data_hndl_ignore_stack_data(void *drcontext, void *address)
 {
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    // if it is a stack location, set so and return
-    if (pt->stack_unlimited && address > pt->stack_end && address < pt->stack_base) {
-        data_handle_t data_hndl;
-        data_hndl.object_type = STACK_OBJECT;
-        return data_hndl;
-    }
+    data_handle_t data_hndl;
+    data_hndl.object_type = UNKNOWN_OBJECT;
     data_handle_t *ptr =
-        global_shadow_memory->GetOrCreateShadowAddress((size_t)(uint64_t)address);
+        global_shadow_memory->GetShadowAddress((size_t)(uint64_t)address);
     if(ptr != NULL) {
-        return *ptr;
-    } else {
-        data_handle_t data_hndl;
-        data_hndl.object_type = UNKNOWN_OBJECT;
-        return data_hndl;
+        data_hndl = *ptr;
     }
+    return data_hndl;
 }
 
 DR_EXPORT
-data_handle_t*
+data_handle_t
 drcctlib_get_data_hndl_runtime(void *drcontext, void *address)
 {
-    data_handle_t *ptr = 
-        global_shadow_memory->GetOrCreateShadowAddress((size_t)(uint64_t)address);
-    return ptr;
+    data_handle_t data_hndl;
+    data_hndl.object_type = UNKNOWN_OBJECT;
+    data_handle_t *ptr =
+        global_shadow_memory->GetShadowAddress((size_t)(uint64_t)address);
+    if(ptr != NULL) {
+        data_hndl = *ptr;
+    }
+    if(data_hndl.object_type == UNKNOWN_OBJECT) {
+        per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+        if (!pt->stack_unlimited && address > pt->stack_end && address < pt->stack_base) {
+            data_hndl.object_type = STACK_OBJECT;
+        }
+    }
+    return data_hndl;
 }
 
 DR_EXPORT

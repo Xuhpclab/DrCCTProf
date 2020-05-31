@@ -11,6 +11,23 @@
 
 using namespace std;
 
+#define MEMORY_CACHE_PRINTF(format, args...)                                      \
+    do {                                                                          \
+        char name[MAXIMUM_PATH] = "";                                             \
+        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));            \
+        pid_t pid = getpid();                                                     \
+        dr_printf("[memory_cache(%s%d) msg]====" format "\n", name, pid, ##args); \
+    } while (0)
+
+#define MEMORY_CACHE_EXIT_PROCESS(format, args...)                                \
+    do {                                                                          \
+        char name[MAXIMUM_PATH] = "";                                             \
+        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));            \
+        pid_t pid = getpid();                                                     \
+        dr_printf("[memory_cache(%s%d) msg]====" format "\n", name, pid, ##args); \
+    } while (0);                                                                  \
+    dr_exit_process(-1)
+
 template <class T> class memory_cache_t {
 public:
     memory_cache_t();
@@ -21,20 +38,19 @@ public:
     add_debris(T *debris_start, int32_t debris_size);
     void
     init_sub_cache_frame(T **sub_cache_frame_vector, int32_t *sub_cache_frame_size_vector,
-                         int32_t sub_cache_max_num, int32_t sub_cache_frame_num);
+                         int32_t sub_cache_min_num, int32_t sub_cache_frame_max_num);
 
 private:
-    bool
+    void
     sub_add();
     void
     free_all();
 
 public:
     int32_t debris_size_min_size_;
-
+    int32_t sub_add_num_;
 private:
     bool debris_mode_;
-    int32_t sub_add_num_;
     int32_t max_add_times_;
 
     int32_t cur_use_pool_id_;
@@ -52,7 +68,8 @@ public:
     ~tls_memory_cache_t();
     T *
     get_next_object();
-
+    void
+    free_unuse_object();
 private:
     void
     reinit_sub_cache();
@@ -76,10 +93,10 @@ private:
 template <class T>
 memory_cache_t<T>::memory_cache_t()
     : debris_size_min_size_(0)
-    , debris_mode_(false)
     , sub_add_num_(0)
+    , debris_mode_(false)
     , max_add_times_(0)
-    , cur_use_pool_id_(0)
+    , cur_use_pool_id_(-1)
     , cur_use_pool_start_(0)
     , cache_pool_vector_(NULL)
 {
@@ -99,40 +116,29 @@ memory_cache_t<T>::init(int32_t sub_add_num, int32_t debris_size_min_size,
     debris_mode_ = false;
     sub_add_num_ = sub_add_num;
     max_add_times_ = max_add_times;
-    cur_use_pool_id_ = 0;
-    cur_use_pool_start_ = 0;
+    
     cache_pool_vector_ = (T **)dr_global_alloc(max_add_times_ * sizeof(T *));
-    T *sub_cache = (T *)dr_raw_mem_alloc(
-        sub_add_num_ * sizeof(T),
-        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-    if (sub_cache == NULL) {
-        dr_printf("memory_cache_t init_error \n");
-        return false;
-    }
-    cache_pool_vector_[cur_use_pool_id_] = sub_cache;
-    cur_use_pool_start_ = 0;
+    cur_use_pool_id_ = -1;
+    sub_add();
     return true;
 }
 
 template <class T>
-bool
+void
 memory_cache_t<T>::sub_add()
 {
-    if (cur_use_pool_id_ + 1 >= max_add_times_) {
-        dr_printf("memory_cache_t full_error \n");
-        return false;
+    cur_use_pool_id_++;
+    if (cur_use_pool_id_ >= max_add_times_) {
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t full_error \n");
     }
     T *sub_cache = (T *)dr_raw_mem_alloc(
         sub_add_num_ * sizeof(T),
         DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     if (sub_cache == NULL) {
-        dr_printf("memory_cache_t init_error \n");
-        return false;
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t sub_cache add error %d\n", cur_use_pool_id_);
     }
-    cur_use_pool_id_++;
     cache_pool_vector_[cur_use_pool_id_] = sub_cache;
     cur_use_pool_start_ = 0;
-    return true;
 }
 
 template <class T>
@@ -154,22 +160,23 @@ memory_cache_t<T>::add_debris(T *debris_start, int32_t debris_size)
     }
     debris_vector_.push_back(debris_start);
     debris_size_vector_.push_back(debris_size);
+    // MEMORY_CACHE_PRINTF("DEBUG:memory_cache_t add_debris debris_size %d\n", debris_size);
 }
 
 template <class T>
 void
 memory_cache_t<T>::init_sub_cache_frame(T **sub_cache_frame_vector,
                                      int32_t *sub_cache_frame_size_vector,
-                                     int32_t sub_cache_max_num,
-                                     int32_t sub_cache_frame_num)
+                                     int32_t sub_cache_min_num,
+                                     int32_t sub_cache_frame_max_num)
 {
     if (!debris_mode_) {
         int32_t cur_use_pool_last = sub_add_num_ - cur_use_pool_start_;
-        if (cur_use_pool_last >= sub_cache_max_num) {
+        if (cur_use_pool_last >= sub_cache_min_num) {
             sub_cache_frame_vector[0] =
                 cache_pool_vector_[cur_use_pool_id_] + cur_use_pool_start_;
-            sub_cache_frame_size_vector[0] = sub_cache_max_num;
-            cur_use_pool_start_ += sub_cache_max_num;
+            sub_cache_frame_size_vector[0] = sub_cache_min_num;
+            cur_use_pool_start_ += sub_cache_min_num;
         } else {
             if (cur_use_pool_last >= debris_size_min_size_) {
                 add_debris(cache_pool_vector_[cur_use_pool_id_] + cur_use_pool_start_,
@@ -180,15 +187,27 @@ memory_cache_t<T>::init_sub_cache_frame(T **sub_cache_frame_vector,
     }
     if (debris_mode_) {
         int32_t size = debris_vector_.size();
-        if (size >= sub_cache_frame_num) {
-            int32_t temp_number = 0;
-            for (int32_t i = 0; i < sub_cache_frame_num; i++) {
+        bool use_debris = false;
+        if (sub_cache_frame_max_num <= size) {
+            use_debris = true;
+        } else {
+            int32_t debris_max_number = 0;
+            for (int32_t i = 0; i < size ; i++) {
+                debris_max_number += debris_size_vector_[i];
+            }
+            if (debris_max_number >= sub_cache_min_num) {
+                use_debris = true;
+            }
+        }
+        if (use_debris) {
+            int sub_cache_add_number = 0;
+            for (int32_t i = 0; i < size; i++) {
                 sub_cache_frame_vector[i] = debris_vector_.back();
                 sub_cache_frame_size_vector[i] = debris_size_vector_.back();
-                temp_number += debris_size_vector_.back();
+                sub_cache_add_number += debris_size_vector_.back();
                 debris_vector_.pop_back();
                 debris_size_vector_.pop_back();
-                if (temp_number >= sub_cache_max_num) {
+                if (sub_cache_add_number >= sub_cache_min_num) {
                     break;
                 }
             }
@@ -196,7 +215,7 @@ memory_cache_t<T>::init_sub_cache_frame(T **sub_cache_frame_vector,
             sub_add();
             debris_mode_ = false;
             init_sub_cache_frame(sub_cache_frame_vector, sub_cache_frame_size_vector,
-                                 sub_cache_max_num, sub_cache_frame_num);
+                                 sub_cache_min_num, sub_cache_frame_max_num);
         }
     }
 }
@@ -208,8 +227,15 @@ tls_memory_cache_t<T>::tls_memory_cache_t(memory_cache_t<T> *memory_cache,
     memory_cache_ = memory_cache;
     memory_cache_lock_ = memory_cache_lock;
     cache_min_num_ = cache_min_num;
+    if (cache_min_num_ > memory_cache->sub_add_num_) {
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:tls_memory_cache_t cache_min_num_(%d) > "
+                  "memory_cache->sub_add_num_(%d)\n",
+                  cache_min_num_, memory_cache->sub_add_num_);
+    }
     cache_frame_min_size_ = memory_cache->debris_size_min_size_;
-    cache_frame_num_ = cache_min_num_ / cache_frame_min_size_ + 1;
+    cache_frame_num_ = cache_min_num_ % cache_frame_min_size_ > 0
+        ? cache_min_num_ / cache_frame_min_size_ + 1
+        : cache_min_num_ / cache_frame_min_size_;
 
     cache_frame_vector_ = (T **)dr_global_alloc(cache_frame_num_ * sizeof(T *));
     cache_frame_size_vector_ =
@@ -226,19 +252,6 @@ tls_memory_cache_t<T>::tls_memory_cache_t(memory_cache_t<T> *memory_cache,
 template <class T> 
 tls_memory_cache_t<T>::~tls_memory_cache_t()
 {
-    dr_mutex_lock(memory_cache_lock_);
-    int32_t unuse_num = cache_frame_size_vector_[last_use_frame_id_] - last_use_num_ - 1;
-    if (unuse_num >= cache_frame_min_size_) {
-        memory_cache_->add_debris(
-            cache_frame_vector_[last_use_frame_id_] + last_use_num_ + 1, unuse_num);
-    }
-    for (int32_t i = last_use_frame_id_ + 1; i < cache_frame_num_; i++) {
-        unuse_num = cache_frame_size_vector_[i];
-        if (unuse_num >= cache_frame_min_size_) {
-            memory_cache_->add_debris(cache_frame_vector_[i], unuse_num);
-        }
-    }
-    dr_mutex_unlock(memory_cache_lock_);
     dr_global_free(cache_frame_vector_, cache_frame_num_ * sizeof(T *));
     dr_global_free(cache_frame_size_vector_, cache_frame_num_ * sizeof(int32_t));
 }
@@ -258,8 +271,32 @@ tls_memory_cache_t<T>::get_next_object()
             last_use_num_ = 0;
         }
     }
-    // dr_printf("last_use_frame_id_ %d, last_use_num_ %d\n", last_use_frame_id_, last_use_num_);
+    // MEMORY_CACHE_PRINTF("DEBUG:last_use_frame_id_ %d, last_use_num_ %d\n", last_use_frame_id_,
+    //                 last_use_num_);
     return cache_frame_vector_[last_use_frame_id_] + last_use_num_;
+}
+
+template <class T>
+void
+tls_memory_cache_t<T>::free_unuse_object()
+{
+    dr_mutex_lock(memory_cache_lock_);
+    int32_t unuse_num = cache_frame_size_vector_[last_use_frame_id_] - last_use_num_ - 1;
+    if (unuse_num >= cache_frame_min_size_) {
+        memory_cache_->add_debris(
+            cache_frame_vector_[last_use_frame_id_] + last_use_num_ + 1, unuse_num);
+    }
+    for (int32_t i = last_use_frame_id_ + 1; i < cache_frame_num_; i++) {
+        unuse_num = cache_frame_size_vector_[i];
+        if (unuse_num >= cache_frame_min_size_) {
+            memory_cache_->add_debris(cache_frame_vector_[i], unuse_num);
+        }
+    }
+    dr_mutex_unlock(memory_cache_lock_);
+    for (int32_t i = 0; i < cache_frame_num_; i++) {
+        cache_frame_vector_[i] = NULL;
+        cache_frame_size_vector_[i] = 0;
+    }
 }
 
 template <class T> 

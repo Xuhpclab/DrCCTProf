@@ -132,6 +132,34 @@ public:
         T * shadowPage = GetOrCreateShadowBaseAddress(address);
         return &(shadowPage[PAGE_OFFSET((uint64_t)address)]);
     }
+
+    inline T *
+    GetShadowBaseAddress(const size_t address)
+    {
+        atomic<atomic<T *> *> *l1Ptr =
+            &pageDirectory[LEVEL_1_PAGE_TABLE_SLOT(address)];
+        atomic<T *> *v1;
+        if ((v1 = l1Ptr->load(memory_order_consume)) == 0) {
+            return NULL;
+        }
+
+        atomic<T *> *l2Ptr = &v1[LEVEL_2_PAGE_TABLE_SLOT(address)];
+        T *v2; 
+        if ((v2 = l2Ptr->load(memory_order_consume)) == 0) {
+            return NULL;
+        }
+        return v2;
+    }
+    
+    inline T*
+    GetShadowAddress(const size_t address)
+    {
+        T * shadowPage = GetOrCreateShadowBaseAddress(address);
+        if (shadowPage == NULL) {
+            return NULL;
+        }
+        return &(shadowPage[PAGE_OFFSET((uint64_t)address)]);
+    }
 };
 
 #endif // __SHADOW_MEMORY__

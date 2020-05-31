@@ -86,14 +86,12 @@ typedef struct _per_thread_t{
 void
 DoWhatClientWantTodo(void* drcontext, mem_ref_t * ref)
 {
-    data_handle_t* data_hndl = drcctlib_get_data_hndl_runtime(drcontext, ref->addr);
+    data_handle_t data_hndl = drcctlib_get_data_hndl_runtime(drcontext, ref->addr);
     context_handle_t data_ctxt_hndl = 0;
-    if(data_hndl != NULL) {
-        if (data_hndl->object_type == DYNAMIC_OBJECT) {
-            data_ctxt_hndl = data_hndl->path_handle;
-        } else if (data_hndl->object_type == STATIC_OBJECT) {
-            data_ctxt_hndl = - data_hndl->sym_name;
-        }
+    if (data_hndl.object_type == DYNAMIC_OBJECT) {
+        data_ctxt_hndl = data_hndl.path_handle;
+    } else if (data_hndl.object_type == STATIC_OBJECT) {
+        data_ctxt_hndl = - data_hndl.sym_name;
     }
     // use {data_ctxt_hndl}
 }

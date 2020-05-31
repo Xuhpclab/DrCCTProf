@@ -10,9 +10,11 @@
 #ifdef FOR_SPEC_TEST
 #define context_handle_t int32_t
 #define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1vim 
+#define THREAD_MAX_NUM 10000
 #else
 #define context_handle_t int32_t
 #define CONTEXT_HANDLE_MAX 7483647L
+#define THREAD_MAX_NUM 10000
 #endif
 
 #ifdef CCTLIB_32
@@ -167,10 +169,10 @@ typedef struct data_handle_t {
 
 DR_EXPORT
 data_handle_t
-drcctlib_get_data_hndl(void *drcontext, void *address);
+drcctlib_get_data_hndl_ignore_stack_data(void *drcontext, void *address);
 
 DR_EXPORT
-data_handle_t*
+data_handle_t
 drcctlib_get_data_hndl_runtime(void *drcontext, void *address);
 
 DR_EXPORT
