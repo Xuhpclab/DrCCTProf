@@ -107,7 +107,7 @@ echo -e "\033[32mStart test... \033[0m"
 set +euo pipefail
 cd ${BUILD_LOG_PATH}
 
-echo -e "\033[32m-----Testing Dynamorio---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
+echo -e "\033[32m-----Testing Dynamorio---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -- echo hi > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 echo -e "\033[32m----------Test 1---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -unsafe_build_ldstex -t drcctlib_all_instr_cct -- ${APP1_FULL_PATH} > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 echo -e "\033[32m----------Test 2---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -unsafe_build_ldstex -t drcctlib_all_instr_cct -- ${APP2_FULL_PATH} > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 echo -e "\033[32m----------Test 3---------\033[0m" && ${RUN_DIRECTORY}/drrun -debug -loglevel 4 -unsafe_build_ldstex -t drcctlib_instr_statistics -- ${APP1_FULL_PATH} > /dev/null && echo -e "\033[32m----------PASSED---------\033[0m" || (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
