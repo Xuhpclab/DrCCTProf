@@ -171,7 +171,6 @@ UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur
     } else {
         data_handle_t data_hndl = drcctlib_get_data_hndl_ignore_stack_data(drcontext, ref->addr);
         context_handle_t create_hndl = 0;
-        context_handle_t create_hndl = 0;
         if (data_hndl.object_type == DYNAMIC_OBJECT) {
             create_hndl = data_hndl.path_handle;
         } else if (data_hndl.object_type == STATIC_OBJECT) {

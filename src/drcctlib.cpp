@@ -171,8 +171,10 @@ typedef struct _per_thread_t {
 
     // DO_DATA_CENTRIC
     void *stack_base;
-    void *stack_end;
+    void *stack_size;
+    bool init_stack_cache;
     bool stack_unlimited;
+
     size_t dmem_alloc_size;
     context_handle_t dmem_alloc_ctxt_hndl;
 
@@ -496,20 +498,33 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
         if (getrlimit(RLIMIT_STACK, &rlim)) {
             DRCCTLIB_EXIT_PROCESS("Failed to getrlimit()");
         }
+        if (getrlimit(RLIMIT_STACK, &rlim)) {
+            DRCCTLIB_EXIT_PROCESS("Failed to getrlimit()");
+        }
+        pt->stack_base = (void *)(ptr_int_t)0;
         if (rlim.rlim_cur == RLIM_INFINITY) {
             pt->stack_unlimited = true;
-            pt->stack_base = (void *)(ptr_int_t)0;
-            pt->stack_end = (void *)(ptr_int_t)0;
+            pt->init_stack_cache = true;
+            pt->stack_size = (void *)(ptr_int_t)0;
         } else {
             pt->stack_unlimited = false;
-            pt->stack_base =
-            (void *)(ptr_int_t)reg_get_value(DR_REG_XSP, (dr_mcontext_t *)drcontext);
-            pt->stack_end = (void *)((ptr_int_t)pt->stack_base - rlim.rlim_cur);
+            pt->init_stack_cache = false;
+            pt->stack_size = (void *)(ptr_int_t)rlim.rlim_cur;
         }
+        pt->dmem_alloc_size = 0;
+        pt->dmem_alloc_ctxt_hndl = 0;
+    } else {
+        pt->stack_unlimited = false;
+        pt->init_stack_cache = false;
+        pt->stack_base = (void *)(ptr_int_t)0;
+        pt->stack_size = (void *)(ptr_int_t)0;
         pt->dmem_alloc_size = 0;
         pt->dmem_alloc_ctxt_hndl = 0;
     }
     if((global_flags & DRCCTLIB_SAVE_HPCTOOLKIT_FILE) != 0){
+        pt->nodeCount = 0;
+        pt->tlsHPCRunCCTRoot = NULL;
+    } else {
         pt->nodeCount = 0;
         pt->tlsHPCRunCCTRoot = NULL;
     }
@@ -645,6 +660,19 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state
 {
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    
+    if (!pt->init_stack_cache) {
+        dr_mcontext_t mcontext = {
+            sizeof(mcontext),
+            DR_MC_ALL,
+        };
+        dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
+        pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_REG_RSP, &mcontext);
+        DRCCTLIB_PRINTF("stack_base %p stack size %p stack_end %p", pt->stack_base,
+                        (ptr_int_t)pt->stack_size,
+                        (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
+        pt->init_stack_cache = true;
+    }
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, "+%d/%d/%d+|%d(Ox%p)/",
                                  new_key, num, end_state,
                                  pt->cur_bb_node->key, pt->cur_bb_node);)
@@ -2008,17 +2036,18 @@ data_handle_t
 drcctlib_get_data_hndl_runtime(void *drcontext, void *address)
 {
     data_handle_t data_hndl;
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (!pt->stack_unlimited &&
+        address > (void *)((ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size) &&
+        address < pt->stack_base) {
+        data_hndl.object_type = STACK_OBJECT;
+        return data_hndl;
+    }
     data_hndl.object_type = UNKNOWN_OBJECT;
     data_handle_t *ptr =
         global_shadow_memory->GetShadowAddress((size_t)(uint64_t)address);
     if(ptr != NULL) {
         data_hndl = *ptr;
-    }
-    if(data_hndl.object_type == UNKNOWN_OBJECT) {
-        per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-        if (!pt->stack_unlimited && address > pt->stack_end && address < pt->stack_base) {
-            data_hndl.object_type = STACK_OBJECT;
-        }
     }
     return data_hndl;
 }
