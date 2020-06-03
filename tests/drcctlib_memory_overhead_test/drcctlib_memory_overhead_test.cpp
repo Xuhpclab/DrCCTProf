@@ -76,45 +76,94 @@ typedef struct _mem_ref_t {
 } mem_ref_t;
 
 typedef struct _per_thread_t{
+    uint64_t last_mem_idx;
+    uint64_t cur_mem_idx;
     mem_ref_t *cur_buf_list;
+    int cur_buf_fill_num;
+    void *cur_buf;
+    bool init_stack_config;
+    thread_stack_config_t stack_config;
     uint64_t number1;
     uint64_t number2;
-    void *cur_buf;
+    bool sample_mem;
 } per_thread_t;
 
-#define TLS_MEM_REF_BUFF_SIZE 100
+#define TLS_MEM_REF_BUFF_SIZE 100000
+#define SAMPLE_RUN
+#ifdef SAMPLE_RUN
+#define UNITE_NUM 1000000000
+#define SAMPLE_NUM 100000000
+#endif
+
 static uint64_t global_number1 = 0;
 static uint64_t global_number2 = 0;
 // client want to do
 void
-DoWhatClientWantTodo(per_thread_t *pt, void* drcontext, mem_ref_t * ref)
+DoWhatClientWantTodo(void* drcontext, per_thread_t *pt, mem_ref_t * ref)
 {
-    data_handle_t data_hndl = drcctlib_get_data_hndl_runtime(drcontext, ref->addr);
-    // context_handle_t data_ctxt_hndl = 0;
-    // if (data_hndl.object_type == DYNAMIC_OBJECT) {
-    //     data_ctxt_hndl = data_hndl.path_handle;
-    // } else if (data_hndl.object_type == STATIC_OBJECT) {
-    //     data_ctxt_hndl = - data_hndl.sym_name;
-    // }
-    if(data_hndl.object_type == STACK_OBJECT) {
+    if (ref->addr > pt->stack_config.stack_end &&
+        ref->addr < pt->stack_config.stack_base) {
         pt->number2 ++;
     }
     pt->number1 ++;
-    // use {data_ctxt_hndl}
-
 }
-// dr clean call
+
+// dr clean call per bb
 void 
-InsertCleancall(int num)
+InstrumentBBStartInsertCallback(int32_t mem_ref_num, void* data)
 {
     void* drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    for (int i = 0; i < num; i++) {
-        if (pt->cur_buf_list[i].addr != 0) {
-            DoWhatClientWantTodo(pt, drcontext, &pt->cur_buf_list[i]);
+    int next_buf_max_idx = pt->cur_buf_fill_num + mem_ref_num;
+    if (next_buf_max_idx > TLS_MEM_REF_BUFF_SIZE) {
+        if(!pt->init_stack_config) {
+            pt->stack_config = drcctlib_get_thread_stack_config(drcontext);
+            pt->init_stack_config = true;
+            DRCCTLIB_PRINTF("pt %d stack_base %p, stack_end %p", pt->stack_config.thread_id, pt->stack_config.stack_base,
+                        pt->stack_config.stack_base);
         }
+        pt->cur_mem_idx += pt->cur_buf_fill_num;
+#ifdef SAMPLE_RUN
+        if (pt->cur_mem_idx % UNITE_NUM <= SAMPLE_NUM) {
+            int i = 0;
+            if(!pt->sample_mem) {
+                i = UNITE_NUM - pt->last_mem_idx % UNITE_NUM;
+            }
+            for (; i < pt->cur_buf_fill_num; i++) {
+                int cur_mem_idx = pt->last_mem_idx + i;
+                if (pt->cur_buf_list[i].addr != 0) {
+                    DoWhatClientWantTodo(drcontext, pt, &pt->cur_buf_list[i]);
+                    pt->cur_buf_list[i].addr = 0;
+                }
+            }
+            pt->sample_mem = true;
+        } else if(pt->last_mem_idx % UNITE_NUM <= SAMPLE_NUM) {
+            int sample_num = SAMPLE_NUM - pt->last_mem_idx % UNITE_NUM;
+            for (int i = 0; i < sample_num; i++) {
+                int cur_mem_idx = pt->last_mem_idx + i;
+                if (pt->cur_buf_list[i].addr != 0) {
+                    DoWhatClientWantTodo(drcontext, pt, &pt->cur_buf_list[i]);
+                    pt->cur_buf_list[i].addr = 0;
+                }
+            }
+            pt->sample_mem = true;
+        } else if(pt->sample_mem) {
+            pt->sample_mem = false;
+        }
+#else
+        for (int i = 0; i < pt->cur_buf_fill_num; i++) {
+            int cur_mem_idx = pt->last_mem_idx + i;
+            if (pt->cur_buf_list[i].addr != 0) {
+                DoWhatClientWantTodo(drcontext, pt, &pt->cur_buf_list[i]);
+                pt->cur_buf_list[i].addr = 0;
+            }
+        }
+#endif
+        BUF_PTR(pt->cur_buf, mem_ref_t, INSTRACE_TLS_OFFS_BUF_PTR) = pt->cur_buf_list;
+        pt->cur_buf_fill_num = 0;
     }
-    BUF_PTR(pt->cur_buf, mem_ref_t, INSTRACE_TLS_OFFS_BUF_PTR) = pt->cur_buf_list;
+    pt->last_mem_idx = pt->cur_mem_idx;
+    pt->cur_buf_fill_num += mem_ref_num;
 }
 
 // insert
@@ -173,22 +222,17 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
     
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
-    int32_t slot = instrument_msg->slot;
-    int num = 0;
+
     for (int i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_is_memory_reference(instr_get_src(instr, i))){
-            num++;
             InstrumentMem(drcontext, bb, instr, instr_get_src(instr, i));
         }     
     }
     for (int i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-            num++;
             InstrumentMem(drcontext, bb, instr, instr_get_dst(instr, i));
         }
     }
-    dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 1,
-                             OPND_CREATE_CCT_INT(num));
 }
 
 
@@ -204,15 +248,21 @@ ClientThreadStart(void *drcontext)
 
     pt->cur_buf = dr_get_dr_segment_base(tls_seg);
     pt->cur_buf_list = (mem_ref_t*)dr_global_alloc(TLS_MEM_REF_BUFF_SIZE * sizeof(mem_ref_t));
+    pt->last_mem_idx = 0;
+    pt->cur_mem_idx = 0;
+    pt->cur_buf_fill_num = 0;
     BUF_PTR(pt->cur_buf, mem_ref_t, INSTRACE_TLS_OFFS_BUF_PTR) = pt->cur_buf_list;
+    pt->init_stack_config = false;
     pt->number1 = 0;
     pt->number2 = 0;
+    pt->sample_mem = false;
 }
 void *lock;
 static void
 ClientThreadEnd(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    InstrumentBBStartInsertCallback(TLS_MEM_REF_BUFF_SIZE, NULL);
     dr_mutex_lock(lock);
     global_number1 += pt->number1;
     global_number2 += pt->number2;
@@ -231,7 +281,7 @@ ClientInit(int argc, const char *argv[])
 static void
 ClientExit(void)
 {
-    DRCCTLIB_PRINTF("global_number1 : %llu globalnumber2: %llu", global_number1, global_number2);
+    DRCCTLIB_PRINTF("global_number1 : %llu globalnumber2: %llu rate %.2f", global_number1, global_number2, (float)global_number2/global_number1);
     dr_mutex_destroy(lock);
     drcctlib_exit();
 
@@ -284,7 +334,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_overhead_test dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
-                    NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                    InstrumentBBStartInsertCallback, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     dr_register_exit_event(ClientExit);
 }
 

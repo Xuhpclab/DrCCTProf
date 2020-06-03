@@ -2,7 +2,7 @@
 
 # set -euo pipefail
 
-CUR_DIR=$(pwd)
+CUR_DIR=$(cd "$(dirname "$0")";pwd)
 BUILD_PATH=${CUR_DIR}/build_debug
 
 

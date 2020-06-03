@@ -114,33 +114,37 @@ typedef struct _per_thread_t{
     uint64_t last_mem_idx;
     uint64_t cur_mem_idx;
     mem_ref_t *cur_buf_list;
-    int cur_buf_fill_num;
+    int32_t cur_buf_fill_num;
     void *cur_buf;
     map<uint64_t, use_node_t> *tls_use_map;
     multimap<uint64_t, reuse_node_t> *tls_reuse_map;
     bool sample_mem;
+// #define DEBUG_REUSE
+#ifdef DEBUG_REUSE
+    file_t log_file;
+#endif
 } per_thread_t;
 
 #define TLS_MEM_REF_BUFF_SIZE 100000
 
-// #define SAMPLE_RUN
+#define SAMPLE_RUN
 #ifdef SAMPLE_RUN
 #define UNITE_NUM 1000000000
-#define SAMPLE_NUM 100000000
+#define SAMPLE_NUM 10000000
 #endif
 
 
 #define OUTPUT_SIZE 200
-#define REUSED_THRES 8912
+#define REUSED_THRES 8192
 #define REUSED_PRINT_MIN_COUNT 1000
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 
 void
-UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur_mem_idx)
+UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, uint64_t cur_mem_idx)
 {
     map<uint64_t, use_node_t> *use_map = pt->tls_use_map;
     map<uint64_t, use_node_t>::iterator it = (*use_map).find((uint64_t)ref->addr);
-    
+
     if (it != (*use_map).end()) {
         uint64_t reuse_distance = cur_mem_idx - it->second.last_reuse_mem_idx;
         uint64_t new_pair = (((uint64_t)it->second.use_hndl) << 32) + ref->ctxt_hndl;
@@ -160,8 +164,8 @@ UpdateUseAndReuseMap(void* drcontext, per_thread_t *pt, mem_ref_t * ref, int cur
         }
         if (pair_it == pair_range_it.second) {
             reuse_node_t val(it->second.create_hndl, reuse_distance, 1);
-                (*pair_map).insert(
-                    pair<uint64_t, reuse_node_t>(new_pair, val));
+            (*pair_map).insert(
+                pair<uint64_t, reuse_node_t>(new_pair, val));
         }
 
         it->second.use_hndl = ref->ctxt_hndl;
@@ -236,29 +240,29 @@ PrintTopN(per_thread_t *pt, uint64_t print_num)
             }
         }
     }
-    dr_fprintf(gTraceFile, "max memory idx %llu\n", pt->cur_mem_idx);
-    // output the selected reuse pairs
-    uint64_t no = 0;
-    for (uint64_t i = 0; i < print_num; i++) {
-        if (output_format_list[i].count == 0)
-            continue;
-        no ++;
-        dr_fprintf(gTraceFile, "No.%u counts(%llu) avg distance(%llu)\n", no, output_format_list[i].count, output_format_list[i].distance);
-        dr_fprintf(gTraceFile, "====================================create=======================================\n");
-        if(output_format_list[i].create_hndl > 0) {
-            drcctlib_print_full_cct(gTraceFile, output_format_list[i].create_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
-        } else if (output_format_list[i].create_hndl < 0) {
-            dr_fprintf(gTraceFile, "STATIC_OBJECT %s\n", drcctlib_get_str_from_strpool(-output_format_list[i].create_hndl));
-        } else {
-            dr_fprintf(gTraceFile, "STACK_OBJECT/UNKNOWN_OBJECT\n");
-        }
-        dr_fprintf(gTraceFile, "====================================use=======================================\n");
-        drcctlib_print_full_cct(gTraceFile, output_format_list[i].use_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile, "====================================reuse=========================================\n");
-        drcctlib_print_full_cct(gTraceFile, output_format_list[i].reuse_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile, "================================================================================\n\n\n");
-    }
-    dr_global_free(output_format_list, print_num * sizeof(output_format_t));
+    // dr_fprintf(gTraceFile, "max memory idx %llu\n", pt->cur_mem_idx);
+    // // output the selected reuse pairs
+    // uint64_t no = 0;
+    // for (uint64_t i = 0; i < print_num; i++) {
+    //     if (output_format_list[i].count == 0)
+    //         continue;
+    //     no ++;
+    //     dr_fprintf(gTraceFile, "No.%u counts(%llu) avg distance(%llu)\n", no, output_format_list[i].count, output_format_list[i].distance);
+    //     dr_fprintf(gTraceFile, "====================================create=======================================\n");
+    //     if(output_format_list[i].create_hndl > 0) {
+    //         drcctlib_print_full_cct(gTraceFile, output_format_list[i].create_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
+    //     } else if (output_format_list[i].create_hndl < 0) {
+    //         dr_fprintf(gTraceFile, "STATIC_OBJECT %s\n", drcctlib_get_str_from_strpool(-output_format_list[i].create_hndl));
+    //     } else {
+    //         dr_fprintf(gTraceFile, "STACK_OBJECT/UNKNOWN_OBJECT\n");
+    //     }
+    //     dr_fprintf(gTraceFile, "====================================use=======================================\n");
+    //     drcctlib_print_full_cct(gTraceFile, output_format_list[i].use_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
+    //     dr_fprintf(gTraceFile, "====================================reuse=========================================\n");
+    //     drcctlib_print_full_cct(gTraceFile, output_format_list[i].reuse_hndl, true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
+    //     dr_fprintf(gTraceFile, "================================================================================\n\n\n");
+    // }
+    // dr_global_free(output_format_list, print_num * sizeof(output_format_t));
 }
 
 void
@@ -269,32 +273,34 @@ ResetPtMap(per_thread_t *pt)
 }
 
 void 
-BBStartInsertCleancall(int num)
+InstrumentBBStartInsertCallback(int32_t mem_ref_num, void* data)
 {
     void* drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    int next_buf_max_idx = pt->cur_buf_fill_num + num;
+    int32_t next_buf_max_idx = pt->cur_buf_fill_num + mem_ref_num;
     if (next_buf_max_idx > TLS_MEM_REF_BUFF_SIZE) {
         pt->cur_mem_idx += pt->cur_buf_fill_num;
 #ifdef SAMPLE_RUN
         if (pt->cur_mem_idx % UNITE_NUM <= SAMPLE_NUM) {
-            int i = 0;
+            int32_t i = 0;
             if(!pt->sample_mem) {
                 i = UNITE_NUM - pt->last_mem_idx % UNITE_NUM;
             }
             for (; i < pt->cur_buf_fill_num; i++) {
-                int cur_mem_idx = pt->last_mem_idx + i;
+                uint64_t cur_mem_idx = pt->last_mem_idx + i;
                 if (pt->cur_buf_list[i].addr != 0) {
                     UpdateUseAndReuseMap(drcontext, pt, &pt->cur_buf_list[i], cur_mem_idx);
+                    pt->cur_buf_list[i].addr = 0;
                 }
             }
             pt->sample_mem = true;
         } else if(pt->last_mem_idx % UNITE_NUM <= SAMPLE_NUM) {
-            int sample_num = SAMPLE_NUM - pt->last_mem_idx % UNITE_NUM;
-            for (int i = 0; i < sample_num; i++) {
-                int cur_mem_idx = pt->last_mem_idx + i;
+            int32_t sample_num = SAMPLE_NUM - pt->last_mem_idx % UNITE_NUM;
+            for (int32_t i = 0; i < sample_num; i++) {
+                uint64_t cur_mem_idx = pt->last_mem_idx + i;
                 if (pt->cur_buf_list[i].addr != 0) {
                     UpdateUseAndReuseMap(drcontext, pt, &pt->cur_buf_list[i], cur_mem_idx);
+                    pt->cur_buf_list[i].addr = 0;
                 }
             }
             pt->sample_mem = true;
@@ -303,10 +309,11 @@ BBStartInsertCleancall(int num)
             pt->sample_mem = false;
         }
 #else
-        for (int i = 0; i < pt->cur_buf_fill_num; i++) {
-            int cur_mem_idx = pt->last_mem_idx + i;
+        for (int32_t i = 0; i < pt->cur_buf_fill_num; i++) {
+            uint64_t cur_mem_idx = pt->last_mem_idx + i;
             if (pt->cur_buf_list[i].addr != 0) {
                 UpdateUseAndReuseMap(drcontext, pt, &pt->cur_buf_list[i], cur_mem_idx);
+                pt->cur_buf_list[i].addr = 0;
             }
         }
 #endif
@@ -314,7 +321,7 @@ BBStartInsertCleancall(int num)
         pt->cur_buf_fill_num = 0;
     }
     pt->last_mem_idx = pt->cur_mem_idx;
-    pt->cur_buf_fill_num += num;
+    pt->cur_buf_fill_num += mem_ref_num;
 }
 
 static void
@@ -368,26 +375,6 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
     }
 }
 
-int
-BBMemRefNum(instrlist_t *instrlits)
-{
-    int num = 0;
-    for (instr_t *instr = instrlist_first_app(instrlits); instr != NULL;
-         instr = instr_get_next_app(instr)) {
-        for (int i = 0; i < instr_num_srcs(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                num++;
-            }
-        }
-        for (int i = 0; i < instr_num_dsts(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                num++;
-            }
-        }
-    }
-    return num;
-}
-
 void
 InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
 {
@@ -395,16 +382,11 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
     int32_t slot = instrument_msg->slot;
-    if (instrument_msg->interest_start) {
-        int bb_num = BBMemRefNum(bb);
-        dr_insert_clean_call(drcontext, bb, instr, (void *)BBStartInsertCleancall, false, 1,
-                             OPND_CREATE_CCT_INT(bb_num));
-    }
+    
     if (instr_is_call_direct(instr) || instr_is_call_indirect(instr) ||
         instr_is_return(instr)) {
         return;
     }
-
 #ifdef INTEL_CCTLIB
     if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS(
@@ -438,7 +420,10 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
 #endif
 }
 
-
+#ifdef DEBUG_REUSE
+#define ATOM_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
+static int global_thread_id_max = 0;
+#endif
 
 static void
 ClientThreadStart(void *drcontext)
@@ -459,6 +444,26 @@ ClientThreadStart(void *drcontext)
     pt->tls_use_map = new map<uint64_t,use_node_t>();
     pt->tls_reuse_map = new multimap<uint64_t, reuse_node_t>();
     pt->sample_mem = false;
+
+#ifdef DEBUG_REUSE
+    int id = ATOM_ADD_THREAD_ID_MAX(global_thread_id_max);
+    id--;
+    if(id > THREAD_MAX_NUM) {
+        DRCCTLIB_EXIT_PROCESS("Thread num > THREAD_MAX_NUM(%d), please change the value of THREAD_MAX_NUM.", THREAD_MAX_NUM);
+    }
+#    ifdef ARM_CCTLIB
+    char reuse_tread_log_file_name[MAXIMUM_PATH] = "arm.";
+#    else
+    char reuse_tread_log_file_name[MAXIMUM_PATH] = "x86.";
+#    endif
+    gethostname(reuse_tread_log_file_name + strlen(reuse_tread_log_file_name), MAXIMUM_PATH - strlen(reuse_tread_log_file_name));
+    pid_t pid = getpid();
+
+    sprintf(reuse_tread_log_file_name + strlen(reuse_tread_log_file_name), "%d.reuse.thread-%d.log", pid, id);
+    pt->log_file = dr_open_file(reuse_tread_log_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
+    DR_ASSERT(pt->log_file != INVALID_FILE);
+#endif
+
 }
 
 static void
@@ -466,12 +471,15 @@ ClientThreadEnd(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     
-    BBStartInsertCleancall(TLS_MEM_REF_BUFF_SIZE);
-    PrintTopN(pt, OUTPUT_SIZE);
+    InstrumentBBStartInsertCallback(TLS_MEM_REF_BUFF_SIZE, 0);
+    // PrintTopN(pt, OUTPUT_SIZE);
     
     dr_global_free(pt->cur_buf_list, TLS_MEM_REF_BUFF_SIZE * sizeof(mem_ref_t));
     delete pt->tls_use_map;
     delete pt->tls_reuse_map;
+#ifdef DEBUG_REUSE
+    dr_close_file(pt->log_file);
+#endif
     
     dr_thread_free(drcontext, pt, sizeof(per_thread_t));
 }
@@ -566,7 +574,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
-                    NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                    InstrumentBBStartInsertCallback, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     dr_register_exit_event(ClientExit);
 }
 

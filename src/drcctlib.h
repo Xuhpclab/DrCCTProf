@@ -74,7 +74,7 @@ DR_EXPORT
 bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
                  void (*func1)(void *, instr_instrument_msg_t *, void *), void *data1,
-                 void (*func2)(void *), void *data2, char flag);
+                 void (*func2)(int32_t, void *), void *data2, char flag);
 
 DR_EXPORT
 void
@@ -88,7 +88,7 @@ DR_EXPORT
 void
 drcctlib_register_client_cb(void (*func_instr_analysis)(void *, instr_instrument_msg_t *,
                                                         void *),
-                            void *analysis_data, void (*func_insert_bb_start)(void *),
+                            void *analysis_data, void (*func_insert_bb_start)(int32_t, void *),
                             void *insert_data);
 
 DR_EXPORT
@@ -158,8 +158,19 @@ enum{
     DYNAMIC_OBJECT, 
     STATIC_OBJECT
 };
+// stack config
+typedef struct _thread_stack_config_t {
+    int thread_id;
+    void * stack_base;
+    void * stack_end;
+} thread_stack_config_t;
+
+DR_EXPORT
+thread_stack_config_t
+drcctlib_get_thread_stack_config(void *drcontext);
+
 // The handle representing a data object
-typedef struct data_handle_t {
+typedef struct _data_handle_t {
     uint8_t object_type;
     union {
         context_handle_t path_handle;

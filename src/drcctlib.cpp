@@ -36,6 +36,12 @@
 #    define DR_DISASM_DRCCTLIB DR_DISASM_INTEL
 #endif
 
+#ifdef ARM_CCTLIB
+#    define DR_STACK_REG DR_REG_SP
+#else
+#    define DR_STACK_REG DR_REG_RSP
+#endif
+
 #define MAX_CCT_PRINT_DEPTH 15
 
 #define bb_key_t int32_t
@@ -62,10 +68,12 @@
 #    define OPND_CREATE_BB_KEY OPND_CREATE_INT32
 #    define OPND_CREATE_SLOT OPND_CREATE_INT32
 #    define OPND_CREATE_STATE OPND_CREATE_INT32
+#    define OPND_CREATE_MEM_REF_NUM OPND_CREATE_INT32
 #elif defined(ARM_CCTLIB)
 #    define OPND_CREATE_BB_KEY OPND_CREATE_INT
 #    define OPND_CREATE_SLOT OPND_CREATE_INT
 #    define OPND_CREATE_STATE OPND_CREATE_INT
+#    define OPND_CREATE_MEM_REF_NUM OPND_CREATE_INT
 #endif
 #define OPND_CREATE_PT_CUR_SLOT OPND_CREATE_MEM32
 #define OPND_CREATE_PT_CUR_STATE OPND_CREATE_MEM32
@@ -95,7 +103,7 @@
 typedef struct _client_cb_t {
     void (*func_instr_analysis)(void *, instr_instrument_msg_t*, void *);
     void *analysis_data;
-    void (*func_insert_bb_start)(void *);
+    void (*func_insert_bb_start)(int32_t, void *);
     void *insert_data;
 } client_cb_t;
 
@@ -136,6 +144,7 @@ typedef struct _bb_instrument_msg_t {
     slot_t slot_max;
     bb_key_t bb_key;
     state_t bb_end_state;
+    int32_t mem_ref_num;
 } bb_instrument_msg_t;
 
 #ifdef TEST_TREE_SIZE
@@ -382,7 +391,7 @@ bb_get_num_interest_instr(instr_t *bb_first)
     slot_t num = 0;
 #ifdef ARM_CCTLIB
     if (instr_is_exclusive_store(bb_first)) {
-        return num;
+        return 0;
     }
     bool skip = false;
 #endif
@@ -515,7 +524,7 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
         pt->dmem_alloc_ctxt_hndl = 0;
     } else {
         pt->stack_unlimited = false;
-        pt->init_stack_cache = false;
+        pt->init_stack_cache = true;
         pt->stack_base = (void *)(ptr_int_t)0;
         pt->stack_size = (void *)(ptr_int_t)0;
         pt->dmem_alloc_size = 0;
@@ -592,7 +601,7 @@ instr_instrument_msg_delete(instr_instrument_msg_t *msg)
 }
 
 static inline bb_instrument_msg_t *
-bb_instrument_msg_create(bb_key_t bb_key, slot_t slot_max, state_t bb_end_state)
+bb_instrument_msg_create(bb_key_t bb_key, slot_t slot_max, state_t bb_end_state, int32_t mem_ref_num)
 {
     bb_instrument_msg_t *bb_msg = (bb_instrument_msg_t *)dr_global_alloc(sizeof(bb_instrument_msg_t));
     bb_msg->first = bb_msg->end = NULL;
@@ -600,6 +609,7 @@ bb_instrument_msg_create(bb_key_t bb_key, slot_t slot_max, state_t bb_end_state)
     bb_msg->slot_max = slot_max;
     bb_msg->bb_key = bb_key;
     bb_msg->bb_end_state = bb_end_state;
+    bb_msg->mem_ref_num = mem_ref_num;
     return bb_msg;
 }
 
@@ -656,26 +666,25 @@ bb_instrument_msg_delete(bb_instrument_msg_t *bb_msg)
 }
 
 static void
-instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state)
+instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state, int32_t memory_ref_num)
 {
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-    
+    IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, "+%d/%d/%d+|%d(Ox%p)/",
+                                 new_key, num, end_state,
+                                 pt->cur_bb_node->key, pt->cur_bb_node);)
     if (!pt->init_stack_cache) {
         dr_mcontext_t mcontext = {
             sizeof(mcontext),
             DR_MC_ALL,
         };
         dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-        pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_REG_RSP, &mcontext);
-        DRCCTLIB_PRINTF("stack_base %p stack size %p stack_end %p", pt->stack_base,
+        pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_STACK_REG, &mcontext);
+        DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id, pt->stack_base,
                         (ptr_int_t)pt->stack_size,
                         (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
         pt->init_stack_cache = true;
     }
-    IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, "+%d/%d/%d+|%d(Ox%p)/",
-                                 new_key, num, end_state,
-                                 pt->cur_bb_node->key, pt->cur_bb_node);)
     context_handle_t new_caller_ctxt = 0;
 
     if (instr_state_contain(pt->pre_instr_state, INSTR_STATE_THREAD_ROOT_VIRTUAL)) {
@@ -723,7 +732,7 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_instr_state = end_state;
     if (client_cb.func_insert_bb_start != NULL) {
-        (*client_cb.func_insert_bb_start)(client_cb.insert_data);
+        (*client_cb.func_insert_bb_start)(memory_ref_num, client_cb.insert_data);
     }
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, 
         "%d(Ox%p)/%d(Ox%p)|\n", pt->cur_bb_node->key, pt->cur_bb_node,
@@ -820,6 +829,25 @@ instr_exlusive_check(void *drcontext, bb_key_t bb_key, instr_instrument_msg_t *i
 #endif
 
 
+static int32_t
+bb_mem_ref_num(instrlist_t *bb)
+{
+    int num = 0;
+    for (instr_t *instr = instrlist_first_app(bb); instr != NULL;
+         instr = instr_get_next_app(instr)) {
+        for (int i = 0; i < instr_num_srcs(instr); i++) {
+            if (opnd_is_memory_reference(instr_get_src(instr, i))) {
+                num++;
+            }
+        }
+        for (int i = 0; i < instr_num_dsts(instr); i++) {
+            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+                num++;
+            }
+        }
+    }
+    return num;
+}
 
 static dr_emit_flags_t
 drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
@@ -834,9 +862,9 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
 #ifdef ARM32_CCTLIB
         if (instrument_msg->state == INSTR_STATE_BB_START_NOP) {
             dr_insert_clean_call(
-                drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 3,
+                drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 4,
                 OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max),
-                OPND_CREATE_STATE(bb_msg->bb_end_state));
+                OPND_CREATE_STATE(bb_msg->bb_end_state), OPND_CREATE_MEM_REF_NUM(bb_msg->mem_ref_num));
         } else {
             if((global_flags & DRCCTLIB_CACHE_EXCEPTION) != 0) {
                 instrument_before_every_instr_meta_instr(drcontext, instrument_msg);
@@ -846,9 +874,9 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
 #else
         if (instrument_msg->slot == 0) {
             dr_insert_clean_call(
-                drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 3,
+                drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 4,
                 OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max),
-                OPND_CREATE_STATE(bb_msg->bb_end_state));
+                OPND_CREATE_STATE(bb_msg->bb_end_state), OPND_CREATE_MEM_REF_NUM(bb_msg->mem_ref_num));
         }
         if((global_flags & DRCCTLIB_CACHE_EXCEPTION) != 0) {
             instrument_before_every_instr_meta_instr(drcontext, instrument_msg);
@@ -857,10 +885,9 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
         instr_instrument_client_cb(drcontext, instrument_msg);
 #endif
         instr_instrument_msg_delete(instrument_msg);
-
-        if (bb_msg->number == 0) {
-            bb_instrument_msg_delete(bb_msg);
-        }
+    }
+    if (instr == instrlist_last(bb)) {
+        bb_instrument_msg_delete(bb_msg);
     }
     return DR_EMIT_DEFAULT;
 }
@@ -905,7 +932,7 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     
     bb_instrument_msg_t *bb_msg =
         bb_instrument_msg_create(bb_key, interest_instr_num, 
-            instr_get_state(instrlist_last_app(bb)));
+            instr_get_state(instrlist_last_app(bb)), bb_mem_ref_num(bb));
     IF_ARM32_CCTLIB(
         bb_instrument_msg_add(bb_msg,
             instr_instrument_msg_create(
@@ -1707,7 +1734,7 @@ DR_EXPORT
 void
 drcctlib_register_client_cb(void (*func_instr_analysis)(void *, instr_instrument_msg_t *,
                                                         void *),
-                            void *analysis_data, void (*func_insert_bb_start)(void *),
+                            void *analysis_data, void (*func_insert_bb_start)(int32_t, void *),
                             void *insert_data)
 {
     client_cb.func_instr_analysis = func_instr_analysis;
@@ -1726,7 +1753,7 @@ drcctlib_config_log_file(file_t file)
 DR_EXPORT bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
                  void (*func1)(void *, instr_instrument_msg_t *, void *), void *data1,
-                 void (*func2)(void *), void *data2, char flag)
+                 void (*func2)(int32_t, void *), void *data2, char flag)
 {
     if (!drcctlib_init(flag)) {
         return false;
@@ -2016,6 +2043,18 @@ has_same_call_path(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2)
     return false;
 }
 
+DR_EXPORT
+thread_stack_config_t
+drcctlib_get_thread_stack_config(void *drcontext)
+{
+    thread_stack_config_t stack_config;
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    stack_config.thread_id = pt->id;
+    stack_config.stack_base = pt->stack_base;
+    stack_config.stack_end = (void *)((ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
+    return stack_config;
+}
+
 // API to get the handle for a data object
 DR_EXPORT
 data_handle_t
@@ -2023,6 +2062,7 @@ drcctlib_get_data_hndl_ignore_stack_data(void *drcontext, void *address)
 {
     data_handle_t data_hndl;
     data_hndl.object_type = UNKNOWN_OBJECT;
+    data_hndl.path_handle = 0;
     data_handle_t *ptr =
         global_shadow_memory->GetShadowAddress((size_t)(uint64_t)address);
     if(ptr != NULL) {

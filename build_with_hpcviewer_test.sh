@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-CUR_DIR=$(pwd)
+CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
 TEMP_MAKE_FILE=${CUR_DIR}/CMakeLists.temp
 SRC_PATH=${CUR_DIR}/src

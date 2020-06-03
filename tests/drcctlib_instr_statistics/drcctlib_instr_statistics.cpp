@@ -115,7 +115,7 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
 }
 
 void 
-InstrumentBBStartInsertCallback(void* data)
+InstrumentBBStartInsertCallback(int32_t mem_ref_num, void* data)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     context_handle_t cur_bb_start = drcctlib_get_bb_start_context_handle();
