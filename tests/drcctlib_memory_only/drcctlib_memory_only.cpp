@@ -208,7 +208,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_only drmgr_register_tls_field fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
-                    NULL, NULL, DRCCTLIB_DEFAULT);
+                    NULL, NULL, NULL, NULL, DRCCTLIB_DEFAULT);
     dr_register_exit_event(ClientExit);
 }
 

@@ -57,11 +57,7 @@
 #define THREAD_ROOT_SHARDED_CALLEE_INDEX 0
 
 #define ATOM_ADD_NEXT_BB_KEY(origin) dr_atomic_add32_return_sum(&origin, 1)
-#ifdef FOR_SPEC_TEST
-#define ATOM_ADD_CTXT_HNDL(origin, val) dr_atomic_add64_return_sum(&origin, val)
-#else
 #define ATOM_ADD_CTXT_HNDL(origin, val) dr_atomic_add32_return_sum(&origin, val)
-#endif
 #define ATOM_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
 
 #ifdef INTEL_CCTLIB
@@ -103,8 +99,10 @@
 typedef struct _client_cb_t {
     void (*func_instr_analysis)(void *, instr_instrument_msg_t*, void *);
     void *analysis_data;
-    void (*func_insert_bb_start)(int32_t, void *);
+    void (*func_insert_bb_start)(void *, int32_t, int32_t, void *);
     void *insert_data;
+    void (*func_insert_ins_post)(void *, context_handle_t, int32_t, mem_ref_msg_t *, void *);
+    void *insert_ins_data;
 } client_cb_t;
 
 typedef struct _bb_shadow_t {
@@ -149,11 +147,49 @@ typedef struct _bb_instrument_msg_t {
 
 #ifdef TEST_TREE_SIZE
 void* test_lock;
+static uint64_t ins_number = 0;
+static uint64_t bb_node_number = 0;
 static uint64_t real_node_number = 0;
+#endif
+
+#ifdef CCTLIB_32
+#define thread_control_type_t int32_t
+#define thread_aligned_num_t int32_t
+#define OPND_CREATE_TCT OPND_CREATE_MEM32
+#else 
+#define thread_control_type_t int64_t
+#define thread_aligned_num_t int64_t
+#define OPND_CREATE_TCT OPND_CREATE_MEM64
 #endif
 
 
 struct hpcviewer_format_ip_node_t;
+
+
+
+typedef struct _bb_cache_message_t{
+    thread_aligned_num_t index;
+    thread_aligned_num_t new_key;
+    thread_aligned_num_t num;
+    thread_aligned_num_t end_state;
+    thread_aligned_num_t memory_ref_num;
+}bb_cache_message_t;
+
+#define BB_CACHE_MESSAGE_MAX_NUM 4000
+
+
+typedef struct _inner_mem_ref_t {
+    thread_aligned_num_t index;
+    thread_aligned_num_t bb_index;
+    thread_aligned_num_t slot;
+    app_pc addr;
+} inner_mem_ref_t;
+#define MEM_REF_CACHE_UNIT_MAX 4000
+#define MEM_REF_CACHE_UNIT_NUM 1
+
+#define INS_MEM_REF_CACHE_MAX 20
+
+
 // TLS(thread local storage)
 typedef struct _per_thread_t {
     int id;
@@ -162,7 +198,7 @@ typedef struct _per_thread_t {
     // for current handle
     cct_bb_node_t *cur_bb_node;
 
-    void* cur_buf;
+    void* cur_buf1;
     tls_memory_cache_t<cct_bb_node_t>* bb_node_cache;
     tls_memory_cache_t<splay_node_t>* splay_node_cache;
     splay_node_t* next_splay_node;
@@ -191,11 +227,30 @@ typedef struct _per_thread_t {
     hpcviewer_format_ip_node_t *tlsHPCRunCCTRoot;
     uint64_t nodeCount;
 
+    // For cache control
+    void* cur_buf2;
+    bb_cache_message_t *bb_cache;
+    void* cur_buf3;
+    thread_control_type_t is_start_bb;
+    // For mem access cache control
+    void* cur_buf4;
+    inner_mem_ref_t* inner_mem_ref_cache;
+    thread_aligned_num_t pre_bb_start_index;
+    thread_aligned_num_t pre_bb_end_index;
+    // For cache run
+    bb_key_t pre_bb_key;
+    slot_t pre_ins_num;
+    state_t pre_end_state;
+    int32_t pre_mem_ref_num;
+    mem_ref_msg_t * ins_mem_ref_cache;
+
     IF_DRCCTLIB_DEBUG(uint64_t call_num;)
     IF_DRCCTLIB_DEBUG(uint64_t return_num;)
     IF_DRCCTLIB_DEBUG(file_t log_file_bb;)
     IF_DRCCTLIB_DEBUG(file_t log_file_instr;)
 #ifdef TEST_TREE_SIZE
+    uint64_t ins_number;
+    uint64_t bb_node_number;
     uint64_t real_node_number;
 #endif
 } per_thread_t;
@@ -215,10 +270,28 @@ enum {
     INSTRACE_TLS_OFFS_BUF_PTR,
     INSTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
-static reg_id_t tls_seg;
-static uint tls_offs;
-#define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs + (enum_val))
-#define BUF_PTR(tls_base, enum_val) *(aligned_ctxt_hndl_t **)TLS_SLOT(tls_base, enum_val)
+
+static reg_id_t tls_seg1;
+static uint tls_offs1;
+#define TLS_SLOT1(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs1 + (enum_val))
+#define BUF_PTR1(tls_base, enum_val) *(aligned_ctxt_hndl_t **)TLS_SLOT1(tls_base, enum_val)
+
+
+static reg_id_t tls_seg2;
+static uint tls_offs2;
+#define TLS_SLOT2(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs2 + (enum_val))
+#define BUF_PTR2(tls_base, enum_val) *(bb_cache_message_t **)TLS_SLOT2(tls_base, enum_val)
+
+static reg_id_t tls_seg3;
+static uint tls_offs3;
+#define TLS_SLOT3(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs3 + (enum_val))
+#define BUF_PTR3(tls_base, enum_val) *(thread_control_type_t **)TLS_SLOT3(tls_base, enum_val)
+
+static reg_id_t tls_seg4;
+static uint tls_offs4;
+#define TLS_SLOT4(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs4 + (enum_val))
+#define BUF_PTR4(tls_base, enum_val) *(inner_mem_ref_t **)TLS_SLOT4(tls_base, enum_val)
+
 #define MINSERT instrlist_meta_preinsert
 
 static int tls_idx;
@@ -240,6 +313,7 @@ static int global_thread_id_max = 0;
 static void *bb_shadow_lock;
 static void *bb_node_cache_lock;
 static void *splay_node_cache_lock;
+static void *bb_message_cache_lock;
 static memory_cache_t<cct_bb_node_t> *global_bb_node_cache;
 static memory_cache_t<splay_node_t> *global_splay_node_cache;
 
@@ -374,6 +448,11 @@ instr_get_state(instr_t *instr)
     state_t flag = 0;
     if (global_instr_filter(instr)) {
         flag = flag | INSTR_STATE_CLIENT_INTEREST;
+        // if((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0){
+        //     if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
+        //         flag = flag | INSTR_STATE_MEM_ACCESS;
+        //     }
+        // }
     }
     if (instr_is_call_direct(instr)) {
         flag = flag | INSTR_STATE_CALL_DIRECT;
@@ -491,10 +570,10 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->cur_slot = 0;
     pt->cur_state = INSTR_STATE_CLIENT_INTEREST;
 
-    pt->cur_buf = dr_get_dr_segment_base(tls_seg);
+    pt->cur_buf1 = dr_get_dr_segment_base(tls_seg1);
 
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
-    BUF_PTR(pt->cur_buf, INSTRACE_TLS_OFFS_BUF_PTR) =
+    BUF_PTR1(pt->cur_buf1, INSTRACE_TLS_OFFS_BUF_PTR) =
         &(pt->cur_bb_child_ctxt_start_idx);
 
     pt->signal_raise_bb_node = NULL;
@@ -538,6 +617,39 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
         pt->tlsHPCRunCCTRoot = NULL;
     }
 
+    // for control
+    if((global_flags & DRCCTLIB_CACHE_MODE) != 0){
+        pt->bb_cache = (bb_cache_message_t *)dr_global_alloc(BB_CACHE_MESSAGE_MAX_NUM * sizeof(bb_cache_message_t));
+        for (thread_aligned_num_t i = 0; i < BB_CACHE_MESSAGE_MAX_NUM; i++) {
+            pt->bb_cache[i].index = i + 1;
+            pt->bb_cache[i].new_key = 0;
+        }
+        pt->cur_buf2 = dr_get_dr_segment_base(tls_seg2);
+        BUF_PTR2(pt->cur_buf2, INSTRACE_TLS_OFFS_BUF_PTR) = pt->bb_cache;
+        pt->is_start_bb = 1;
+        pt->cur_buf3 = dr_get_dr_segment_base(tls_seg3);
+        BUF_PTR3(pt->cur_buf3, INSTRACE_TLS_OFFS_BUF_PTR) = &(pt->is_start_bb);
+        if((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0){
+            pt->inner_mem_ref_cache = (inner_mem_ref_t *)dr_global_alloc(MEM_REF_CACHE_UNIT_MAX * MEM_REF_CACHE_UNIT_NUM * sizeof(inner_mem_ref_t));
+            for (thread_aligned_num_t i = 0; i < MEM_REF_CACHE_UNIT_MAX * MEM_REF_CACHE_UNIT_NUM; i++) {
+                pt->inner_mem_ref_cache[i].index = i + 1;
+            }
+            pt->cur_buf4 = dr_get_dr_segment_base(tls_seg4);
+            BUF_PTR4(pt->cur_buf4, INSTRACE_TLS_OFFS_BUF_PTR) = pt->inner_mem_ref_cache + pt->pre_bb_end_index;
+            pt->ins_mem_ref_cache = (mem_ref_msg_t *)dr_global_alloc(INS_MEM_REF_CACHE_MAX * sizeof(mem_ref_msg_t));
+        } else {
+            pt->inner_mem_ref_cache = NULL;
+            pt->ins_mem_ref_cache = NULL;
+            pt->cur_buf4 = NULL;
+        }
+        pt->pre_bb_start_index = 0;
+        pt->pre_bb_end_index = 0;
+    }
+    pt->pre_bb_key = THREAD_ROOT_BB_SHARED_BB_KEY;
+    pt->pre_ins_num = 0;
+    pt->pre_end_state = INSTR_STATE_THREAD_ROOT_VIRTUAL;
+    pt->pre_mem_ref_num = 0;
+
 #ifdef DRCCTLIB_DEBUG
 #    ifdef ARM_CCTLIB
     char bb_file_name[MAXIMUM_PATH] = "arm.";
@@ -563,7 +675,9 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
 #endif
 
 #ifdef TEST_TREE_SIZE
-        pt->real_node_number = 0;
+    pt->ins_number = 0;
+    pt->bb_node_number = 0;
+    pt->real_node_number = 0;
 #endif
 }
 
@@ -666,27 +780,12 @@ bb_instrument_msg_delete(bb_instrument_msg_t *bb_msg)
 }
 
 static void
-instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state, int32_t memory_ref_num)
+thread_add_new_bb(void* drcontext, per_thread_t *pt, bb_key_t new_key, slot_t num, state_t end_state, int32_t memory_ref_num)
 {
-    per_thread_t *pt =
-        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, "+%d/%d/%d+|%d(Ox%p)/",
                                  new_key, num, end_state,
                                  pt->cur_bb_node->key, pt->cur_bb_node);)
-    if (!pt->init_stack_cache) {
-        dr_mcontext_t mcontext = {
-            sizeof(mcontext),
-            DR_MC_ALL,
-        };
-        dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-        pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_STACK_REG, &mcontext);
-        DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id, pt->stack_base,
-                        (ptr_int_t)pt->stack_size,
-                        (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
-        pt->init_stack_cache = true;
-    }
     context_handle_t new_caller_ctxt = 0;
-
     if (instr_state_contain(pt->pre_instr_state, INSTR_STATE_THREAD_ROOT_VIRTUAL)) {
         new_caller_ctxt =
             pt->root_bb_node->child_ctxt_start_idx + THREAD_ROOT_SHARDED_CALLEE_INDEX;
@@ -709,6 +808,8 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state
     
 #ifdef TEST_TREE_SIZE
     int32_t o_num = 0;
+    pt->ins_number += num;
+    pt->bb_node_number ++;
     splay_node_t *new_root = splay_tree_update_test(
         ctxt_hndl_to_ip_node(new_caller_ctxt)->callee_splay_tree_root,
         (splay_node_key_t)new_key, pt->dummy_splay_node, pt->next_splay_node, &o_num);
@@ -731,12 +832,463 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state
     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_instr_state = end_state;
-    if (client_cb.func_insert_bb_start != NULL) {
-        (*client_cb.func_insert_bb_start)(memory_ref_num, client_cb.insert_data);
-    }
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, 
         "%d(Ox%p)/%d(Ox%p)|\n", pt->cur_bb_node->key, pt->cur_bb_node,
             ctxt_hndl_to_ip_node(new_caller_ctxt)->parent_bb_node->key, ctxt_hndl_to_ip_node(new_caller_ctxt)->parent_bb_node);)
+}
+
+static void
+thread_cb_pre_add_new_bb(void* drcontext, per_thread_t *pt, bb_key_t new_key, slot_t num, state_t end_state, int32_t memory_ref_num)
+{
+    if ((global_flags & DRCCTLIB_CACHE_MODE) != 0) {
+        if (client_cb.func_insert_ins_post != NULL) {
+            if(!instr_state_contain(end_state, INSTR_STATE_CLIENT_INTEREST)) {
+                num --;
+            }
+            if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+                int32_t temp_index = pt->pre_bb_start_index;
+                for (slot_t i = 0; i < num; i ++) {
+                    int32_t ins_ref_number = 0;
+                    for (; temp_index < pt->pre_bb_end_index; temp_index ++) {
+                        if (pt->inner_mem_ref_cache[temp_index].slot == i) {
+                            pt->ins_mem_ref_cache[ins_ref_number].addr = pt->inner_mem_ref_cache[temp_index].addr;
+                            ins_ref_number ++;
+                        } else if (pt->inner_mem_ref_cache[temp_index].slot > i) {
+                            break;
+                        }
+                    }
+                    (*client_cb.func_insert_ins_post)(drcontext, (context_handle_t)(pt->cur_bb_child_ctxt_start_idx + i), 
+                        ins_ref_number, pt->ins_mem_ref_cache, client_cb.insert_ins_data);
+                }
+            } else {
+                for (slot_t i = 0; i < num; i ++) {
+                    (*client_cb.func_insert_ins_post)(drcontext, (context_handle_t)(pt->cur_bb_child_ctxt_start_idx + i), 
+                        0, NULL, client_cb.insert_ins_data);
+                }
+            }
+        }
+    }
+}
+
+static void
+thread_cb_post_add_new_bb(void* drcontext, per_thread_t *pt, bb_key_t new_key, slot_t num, state_t end_state, int32_t memory_ref_num)
+{
+    if (client_cb.func_insert_bb_start != NULL) {
+        if(instr_state_contain(end_state, INSTR_STATE_CLIENT_INTEREST)) {
+            (*client_cb.func_insert_bb_start)(drcontext, num, memory_ref_num, client_cb.insert_data);
+        } else {
+            (*client_cb.func_insert_bb_start)(drcontext, num - 1, memory_ref_num, client_cb.insert_data);
+        }
+    }
+    pt->pre_bb_key = new_key;
+    pt->pre_ins_num = num;
+    pt->pre_end_state = end_state;
+    pt->pre_mem_ref_num = memory_ref_num;
+}
+
+static void
+thread_update_cct_tree()
+{
+    void * drcontext = dr_get_current_drcontext();
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (pt->is_start_bb != 0) {
+        if (!pt->init_stack_cache) {
+            dr_mcontext_t mcontext = {
+                sizeof(mcontext),
+                DR_MC_ALL,
+            };
+            dr_get_mcontext(drcontext, &mcontext);
+            pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_STACK_REG, &mcontext);
+            DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id, pt->stack_base,
+                            (ptr_int_t)pt->stack_size,
+                            (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
+            pt->init_stack_cache = true;
+        }
+        pt->is_start_bb = 0;
+    }
+    if (pt->bb_cache == NULL) {
+        return;
+    }
+    if (pt->bb_cache[0].new_key == 0) {
+        return;
+    }
+    for(thread_control_type_t i = 0; i < BB_CACHE_MESSAGE_MAX_NUM; i++) {
+        if(pt->bb_cache[i].new_key != 0) {
+            thread_cb_pre_add_new_bb(drcontext, pt, pt->pre_bb_key, pt->pre_ins_num, 
+                pt->pre_end_state, pt->pre_mem_ref_num);
+            if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+                pt->pre_bb_start_index = pt->pre_bb_end_index;
+                pt->pre_bb_end_index += (int32_t)pt->bb_cache[i].memory_ref_num;
+            }
+            thread_add_new_bb(drcontext, pt, (bb_key_t)pt->bb_cache[i].new_key, (slot_t)pt->bb_cache[i].num, 
+                (state_t)pt->bb_cache[i].end_state, (int32_t)pt->bb_cache[i].memory_ref_num);
+            thread_cb_post_add_new_bb(drcontext, pt, (bb_key_t)pt->bb_cache[i].new_key, (slot_t)pt->bb_cache[i].num, 
+                (state_t)pt->bb_cache[i].end_state, (int32_t)pt->bb_cache[i].memory_ref_num);
+            pt->bb_cache[i].new_key = 0;
+        } else {
+            break;
+        }
+    }
+    if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+        thread_control_type_t max_index = MEM_REF_CACHE_UNIT_MAX * MEM_REF_CACHE_UNIT_NUM > pt->pre_bb_end_index
+             ? pt->pre_bb_end_index : MEM_REF_CACHE_UNIT_MAX * MEM_REF_CACHE_UNIT_NUM;
+        for(thread_control_type_t i = pt->pre_bb_start_index; i < max_index; i++) {
+            pt->inner_mem_ref_cache[i - pt->pre_bb_start_index].bb_index =  pt->inner_mem_ref_cache[i].bb_index;
+            pt->inner_mem_ref_cache[i - pt->pre_bb_start_index].slot =  pt->inner_mem_ref_cache[i].slot;
+            pt->inner_mem_ref_cache[i - pt->pre_bb_start_index].addr =  pt->inner_mem_ref_cache[i].addr;
+        }
+        // DRCCTLIB_PRINTF("pre_bb_start_index %d pre_bb_end_index %d max_index - pt->pre_bb_start_index %d",
+        //             pt->pre_bb_start_index, pt->pre_bb_end_index, max_index - pt->pre_bb_start_index);
+        BUF_PTR4(pt->cur_buf4, INSTRACE_TLS_OFFS_BUF_PTR) = pt->inner_mem_ref_cache + max_index - pt->pre_bb_start_index;
+        pt->pre_bb_end_index = pt->pre_bb_end_index - pt->pre_bb_start_index;
+        pt->pre_bb_start_index = 0;
+    }
+    BUF_PTR2(pt->cur_buf2, INSTRACE_TLS_OFFS_BUF_PTR) = pt->bb_cache;
+}
+
+
+
+#ifdef ARM_CCTLIB
+#    define OPND_CREATE_CCT_INT OPND_CREATE_INT
+#else
+#    ifdef CCTLIB_64
+#        define OPND_CREATE_CCT_INT OPND_CREATE_INT64
+#    else
+#        define OPND_CREATE_CCT_INT OPND_CREATE_INT32
+#    endif
+#endif
+
+#ifdef CCTLIB_64
+#    define OPND_CREATE_THREAE_CONTROL_MEM OPND_CREATE_MEM64
+#else
+#    define OPND_CREATE_THREAE_CONTROL_MEM OPND_CREATE_MEM32
+#endif
+
+
+static inline void
+instrument_before_every_bb_first(void *drcontext, instr_instrument_msg_t *instrument_msg, 
+        bb_instrument_msg_t *bb_msg)
+{
+    instrlist_t *ilist = instrument_msg->bb;
+    instr_t *where = instrument_msg->instr;
+
+    reg_id_t reg_1, reg_2, reg_3;
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_1) !=
+            DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_2) !=
+            DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_3) !=
+            DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("instrument_before_every_bb_first drreg_reserve_register != DRREG_SUCCESS");
+    }
+
+    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg2,
+                               tls_offs2 + INSTRACE_TLS_OFFS_BUF_PTR, reg_1);
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                                    OPND_CREATE_CCT_INT(bb_msg->bb_key)));
+    MINSERT(ilist, where,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_MEMPTR(reg_1, offsetof(bb_cache_message_t, new_key)),
+                opnd_create_reg(reg_2)));
+
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                                    OPND_CREATE_CCT_INT(bb_msg->slot_max)));
+    MINSERT(ilist, where,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_MEMPTR(reg_1, offsetof(bb_cache_message_t, num)),
+                opnd_create_reg(reg_2)));
+
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                                    OPND_CREATE_CCT_INT(bb_msg->bb_end_state)));
+    MINSERT(ilist, where,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_MEMPTR(reg_1, offsetof(bb_cache_message_t, end_state)),
+                opnd_create_reg(reg_2)));
+
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                                    OPND_CREATE_CCT_INT(bb_msg->mem_ref_num)));
+    MINSERT(ilist, where,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_MEMPTR(reg_1, offsetof(bb_cache_message_t, memory_ref_num)),
+                opnd_create_reg(reg_2)));
+
+    MINSERT(ilist, where, 
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_3), 
+                OPND_CREATE_MEM64(reg_1, 0)));
+
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                                    OPND_CREATE_CCT_INT(sizeof(bb_cache_message_t))));
+    MINSERT(ilist, where,
+            XINST_CREATE_add(drcontext, opnd_create_reg(reg_1),
+                                opnd_create_reg(reg_2)));
+    dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg2,
+                            tls_offs2 + INSTRACE_TLS_OFFS_BUF_PTR, reg_1);
+
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_1),
+                                    OPND_CREATE_CCT_INT(BB_CACHE_MESSAGE_MAX_NUM)));
+    MINSERT(ilist, where, 
+            XINST_CREATE_sub(drcontext, opnd_create_reg(reg_1), opnd_create_reg(reg_3)));
+
+
+    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg3,
+                               tls_offs3 + INSTRACE_TLS_OFFS_BUF_PTR, reg_3);
+    MINSERT(ilist, where, 
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_2), 
+                OPND_CREATE_MEM64(reg_3, 0)));
+            
+    
+    instr_t *skip_clean_call = INSTR_CREATE_label(drcontext);
+    instr_t *skip_to_call = INSTR_CREATE_label(drcontext);
+
+    MINSERT(ilist, where,
+            INSTR_CREATE_cbz(drcontext, opnd_create_instr(skip_to_call),
+                             opnd_create_reg(reg_1)));
+    MINSERT(ilist, where,
+            INSTR_CREATE_cbz(drcontext, opnd_create_instr(skip_clean_call),
+                             opnd_create_reg(reg_2)));
+    MINSERT(ilist, where, skip_to_call);
+    dr_insert_clean_call(
+            drcontext, ilist, where, (void *)thread_update_cct_tree, false, 0);
+    MINSERT(ilist, where, skip_clean_call);
+
+    /* Restore scratch registers */
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_1) !=
+            DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_2) !=
+            DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_3) !=
+            DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("instrument_before_every_bb_first drreg_unreserve_register != DRREG_SUCCESS");
+    }
+}
+
+static void
+refresh_cct_tree(void *drcontext, per_thread_t *pt)
+{
+    if((global_flags & DRCCTLIB_CACHE_MODE) == 0) {
+        return;
+    }
+    if (pt->bb_cache == NULL) {
+        return;
+    }
+    if (pt->bb_cache[0].new_key == 0) {
+        return;
+    }
+    for(thread_control_type_t i = 0; i < BB_CACHE_MESSAGE_MAX_NUM; i++) {
+        if(pt->bb_cache[i].new_key != 0) {
+            thread_cb_pre_add_new_bb(drcontext, pt, pt->pre_bb_key, pt->pre_ins_num, 
+                pt->pre_end_state, pt->pre_mem_ref_num);
+            if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+                pt->pre_bb_start_index = pt->pre_bb_end_index;
+                pt->pre_bb_end_index += (int32_t)pt->bb_cache[i].memory_ref_num;
+            }
+            thread_add_new_bb(drcontext, pt, (bb_key_t)pt->bb_cache[i].new_key, (slot_t)pt->bb_cache[i].num, 
+                (state_t)pt->bb_cache[i].end_state, (int32_t)pt->bb_cache[i].memory_ref_num);
+            thread_cb_post_add_new_bb(drcontext, pt, (bb_key_t)pt->bb_cache[i].new_key, (slot_t)pt->bb_cache[i].num, 
+                (state_t)pt->bb_cache[i].end_state, (int32_t)pt->bb_cache[i].memory_ref_num);
+            pt->bb_cache[i].new_key = 0;
+        } else {
+            break;
+        }
+    }
+    if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+        thread_control_type_t max_index = MEM_REF_CACHE_UNIT_MAX * MEM_REF_CACHE_UNIT_NUM > pt->pre_bb_end_index
+             ? pt->pre_bb_end_index : MEM_REF_CACHE_UNIT_MAX * MEM_REF_CACHE_UNIT_NUM;
+        for(thread_control_type_t i = pt->pre_bb_start_index; i < max_index; i++) {
+            pt->inner_mem_ref_cache[i - pt->pre_bb_start_index].bb_index =  pt->inner_mem_ref_cache[i].bb_index;
+            pt->inner_mem_ref_cache[i - pt->pre_bb_start_index].slot =  pt->inner_mem_ref_cache[i].slot;
+            pt->inner_mem_ref_cache[i - pt->pre_bb_start_index].addr =  pt->inner_mem_ref_cache[i].addr;
+        }
+        // DRCCTLIB_PRINTF("pre_bb_start_index %d pre_bb_end_index %d max_index - pt->pre_bb_start_index %d",
+        //             pt->pre_bb_start_index, pt->pre_bb_end_index, max_index - pt->pre_bb_start_index);
+        BUF_PTR4(pt->cur_buf4, INSTRACE_TLS_OFFS_BUF_PTR) = pt->inner_mem_ref_cache + max_index - pt->pre_bb_start_index;
+        pt->pre_bb_end_index = pt->pre_bb_end_index - pt->pre_bb_start_index;
+        pt->pre_bb_start_index = 0;
+    }
+    BUF_PTR2(pt->cur_buf2, INSTRACE_TLS_OFFS_BUF_PTR) = pt->bb_cache;
+}
+
+static void
+thread_end_bb_cache_refresh(void *drcontext, per_thread_t *pt)
+{
+    thread_cb_pre_add_new_bb(drcontext, pt, pt->pre_bb_key, pt->pre_ins_num, 
+                pt->pre_end_state, pt->pre_mem_ref_num);
+}
+
+static void
+instrument_before_bb_first_instr(bb_key_t new_key, slot_t num, state_t end_state, int32_t memory_ref_num)
+{
+    void * drcontext = dr_get_current_drcontext();
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (!pt->init_stack_cache) {
+        dr_mcontext_t mcontext = {
+            sizeof(mcontext),
+            DR_MC_ALL,
+        };
+        dr_get_mcontext(drcontext, &mcontext);
+        pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_STACK_REG, &mcontext);
+        DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id, pt->stack_base,
+                        (ptr_int_t)pt->stack_size,
+                        (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
+        pt->init_stack_cache = true;
+    }
+    thread_add_new_bb(drcontext, pt, new_key, num, end_state, memory_ref_num);
+    thread_cb_post_add_new_bb(drcontext, pt, new_key, num, end_state, memory_ref_num);
+}
+
+static inline void
+instrument_every_mem_access(void *drcontext, instrlist_t *ilist, instr_t *where, slot_t num, opnd_t ref, reg_id_t reg_bb_idex)
+{
+    /* We need 4 scratch registers */
+    reg_id_t reg_mem_ref_ptr, free_reg, reg_1, reg_2;
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_mem_ref_ptr) !=
+            DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &free_reg) !=
+            DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_1) !=
+            DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_2) !=
+            DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("instrument_every_mem_access drreg_reserve_register != DRREG_SUCCESS");
+    }
+    if (!drutil_insert_get_mem_addr(drcontext, ilist, where, ref, free_reg, reg_mem_ref_ptr)) {
+        MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(free_reg),
+                                    OPND_CREATE_CCT_INT(0)));
+    }
+    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg4,
+                               tls_offs4 + INSTRACE_TLS_OFFS_BUF_PTR, reg_mem_ref_ptr);
+    // store inner_mem_ref_t->bb_index
+    MINSERT(ilist, where,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(inner_mem_ref_t, bb_index)),
+                opnd_create_reg(reg_bb_idex)));
+    // store inner_mem_ref_t->addr
+    MINSERT(ilist, where,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(inner_mem_ref_t, addr)),
+                opnd_create_reg(free_reg)));
+
+    // store inner_mem_ref_t->slot
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(free_reg),
+                                    OPND_CREATE_CCT_INT(num)));
+    MINSERT(ilist, where,
+            XINST_CREATE_store(
+                drcontext,
+                OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(inner_mem_ref_t, slot)),
+                opnd_create_reg(free_reg)));
+                
+    MINSERT(ilist, where, 
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_1), 
+                OPND_CREATE_MEM64(reg_mem_ref_ptr, 0)));
+    
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(free_reg),
+                                    OPND_CREATE_CCT_INT(sizeof(inner_mem_ref_t))));
+    MINSERT(ilist, where,
+            XINST_CREATE_add(drcontext, opnd_create_reg(reg_mem_ref_ptr),
+                                opnd_create_reg(free_reg)));
+    dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg4,
+                            tls_offs4 + INSTRACE_TLS_OFFS_BUF_PTR, reg_mem_ref_ptr);
+
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                                    OPND_CREATE_CCT_INT(MEM_REF_CACHE_UNIT_MAX)));
+    for (int i = 0; i < MEM_REF_CACHE_UNIT_NUM; i++) {
+        MINSERT(ilist, where,
+            XINST_CREATE_sub(drcontext, opnd_create_reg(reg_1), opnd_create_reg(reg_2)));
+    }
+    
+    instr_t *skip_clean_call = INSTR_CREATE_label(drcontext);
+    MINSERT(ilist, where,
+            INSTR_CREATE_cbnz(drcontext, opnd_create_instr(skip_clean_call),
+                             opnd_create_reg(reg_1)));
+    dr_insert_clean_call(
+            drcontext, ilist, where, (void *)thread_update_cct_tree, false, 0);
+    MINSERT(ilist, where, skip_clean_call);
+
+    
+    /* Restore scratch registers */
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_mem_ref_ptr) !=
+            DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, free_reg) !=
+            DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_1) !=
+            DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_2) !=
+            DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("instrument_every_mem_access drreg_unreserve_register != DRREG_SUCCESS");
+    }
+}
+
+void
+instrument_every_memory_instr(void *drcontext, instr_instrument_msg_t *instrument_msg)
+{
+    
+    instrlist_t *ilist = instrument_msg->bb;
+    instr_t *where = instrument_msg->instr;
+    int32_t slot = instrument_msg->slot;
+
+    reg_id_t reg_1, reg_2, reg_3;
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_1) !=
+            DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_2) !=
+            DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_3) !=
+            DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("instrument_every_instr drreg_reserve_register != DRREG_SUCCESS");
+    }
+    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg2,
+                               tls_offs2 + INSTRACE_TLS_OFFS_BUF_PTR, reg_2);
+    MINSERT(ilist, where, 
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_1), 
+                OPND_CREATE_MEM64(reg_2, 0)));
+    MINSERT(ilist, where, 
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_3), 
+                OPND_CREATE_MEM64(reg_2, sizeof(thread_aligned_num_t))));
+    instr_t *skip_set = INSTR_CREATE_label(drcontext);
+    MINSERT(ilist, where,
+            INSTR_CREATE_cbnz(drcontext, opnd_create_instr(skip_set),
+                             opnd_create_reg(reg_3)));
+    MINSERT(ilist, where, 
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_1), 
+                OPND_CREATE_CCT_INT(0)));
+    MINSERT(ilist, where, skip_set);
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_2) !=
+            DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_3) !=
+            DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("instrument_every_instr drreg_unreserve_register 2 3 != DRREG_SUCCESS");
+    }
+    for (int i = 0; i < instr_num_srcs(where); i++) {
+        if (opnd_is_memory_reference(instr_get_src(where, i))){
+            instrument_every_mem_access(drcontext, ilist, where, slot, instr_get_src(where, i), reg_1);
+        }     
+    }
+    for (int i = 0; i < instr_num_dsts(where); i++) {
+        if (opnd_is_memory_reference(instr_get_dst(where, i))) {
+            instrument_every_mem_access(drcontext, ilist, where, slot, instr_get_dst(where, i), reg_1);
+        }
+    }
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_1) !=
+            DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("instrument_every_instr drreg_unreserve_register 1 != DRREG_SUCCESS");
+    }
 }
 
 static inline void
@@ -828,23 +1380,43 @@ instr_exlusive_check(void *drcontext, bb_key_t bb_key, instr_instrument_msg_t *i
 }
 #endif
 
-
 static int32_t
 bb_mem_ref_num(instrlist_t *bb)
 {
-    int num = 0;
-    for (instr_t *instr = instrlist_first_app(bb); instr != NULL;
-         instr = instr_get_next_app(instr)) {
-        for (int i = 0; i < instr_num_srcs(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                num++;
-            }
+    instr_t *bb_first = instrlist_first_app(bb);
+#ifdef ARM_CCTLIB
+    if (instr_is_exclusive_store(bb_first)) {
+        return 0;
+    }
+    bool skip = false;
+#endif
+    int32_t num = 0;
+    for (instr_t *instr = bb_first; 
+         instr != NULL; instr = instr_get_next_app(instr)) {
+#ifdef ARM_CCTLIB
+        if (!skip && (instr_is_exclusive_load(instr) || instr_is_ldstex(instr))) {
+            skip = true;
         }
-        for (int i = 0; i < instr_num_dsts(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                num++;
+        if (!skip) {
+#endif    
+            if (global_instr_filter(instr)){
+                for (int i = 0; i < instr_num_srcs(instr); i++) {
+                    if (opnd_is_memory_reference(instr_get_src(instr, i))) {
+                        num++;
+                    }
+                }
+                for (int i = 0; i < instr_num_dsts(instr); i++) {
+                    if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+                        num++;
+                    }
+                }
             }
+#ifdef ARM_CCTLIB
         }
+        if (skip && (instr_is_exclusive_store(instr) || instr_is_ldstex(instr))) {
+            skip = false;
+        }
+#endif
     }
     return num;
 }
@@ -873,11 +1445,21 @@ drcctlib_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
         }
 #else
         if (instrument_msg->slot == 0) {
-            dr_insert_clean_call(
-                drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 4,
-                OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max),
-                OPND_CREATE_STATE(bb_msg->bb_end_state), OPND_CREATE_MEM_REF_NUM(bb_msg->mem_ref_num));
+            if((global_flags & DRCCTLIB_CACHE_MODE) == 0) {
+                dr_insert_clean_call(
+                    drcontext, bb, instr, (void *)instrument_before_bb_first_instr, false, 4,
+                    OPND_CREATE_BB_KEY(bb_msg->bb_key), OPND_CREATE_SLOT(bb_msg->slot_max),
+                    OPND_CREATE_STATE(bb_msg->bb_end_state), OPND_CREATE_MEM_REF_NUM(bb_msg->mem_ref_num));
+            } else {
+                instrument_before_every_bb_first(drcontext, instrument_msg, bb_msg);
+            }
         }
+        if((global_flags & DRCCTLIB_CACHE_MODE) != 0) {
+            if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+                instrument_every_memory_instr(drcontext, instrument_msg);
+            }
+        }
+
         if((global_flags & DRCCTLIB_CACHE_EXCEPTION) != 0) {
             instrument_before_every_instr_meta_instr(drcontext, instrument_msg);
         }
@@ -1006,12 +1588,14 @@ drcctlib_event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if(info->type == DR_XFER_SIGNAL_DELIVERY) {
+        refresh_cct_tree(drcontext, pt);
         pt->signal_raise_bb_node = pt->cur_bb_node;
         pt->signal_raise_slot = pt->cur_slot;
         pt->signal_raise_state = pt->cur_state;
         DRCCTLIB_PRINTF("drcctlib_event_kernel_xfer DR_XFER_SIGNAL_DELIVERY %d(thread %d)\n", info->sig, pt->id);
     }
     if(info->type == DR_XFER_SIGNAL_RETURN) {
+        refresh_cct_tree(drcontext, pt);
         pt->cur_bb_node = pt->signal_raise_bb_node;
         pt->cur_slot = pt->signal_raise_slot;
         pt->cur_state = pt->signal_raise_state;
@@ -1030,13 +1614,12 @@ drcctlib_event_signal(void *drcontext, dr_siginfo_t *siginfo)
 static void
 drcctlib_event_thread_start(void *drcontext)
 {
-
     int id = ATOM_ADD_THREAD_ID_MAX(global_thread_id_max);
     id--;
     if(id > THREAD_MAX_NUM) {
         DRCCTLIB_EXIT_PROCESS("Thread num > THREAD_MAX_NUM(%d), please change the value of THREAD_MAX_NUM.", THREAD_MAX_NUM);
     }
-
+    // DRCCTLIB_PRINTF("thread %d start init", id);
     per_thread_t *pt = (per_thread_t *)dr_global_alloc(sizeof(per_thread_t));
     if(pt == NULL){
         DRCCTLIB_EXIT_PROCESS("drcctlib_event_thread_start pt == NULL");
@@ -1046,14 +1629,16 @@ drcctlib_event_thread_start(void *drcontext)
     pt_init(drcontext, pt, id);
     global_pt_cache_buff[id] = pt;
     // DRCCTLIB_PRINTF("thread %d init", id);
-    // dr_fprintf(debug_file, "thread %d init\n", pt->id);
+    // dr_fprintf(debug_file, "thread %d init\n", id);
 }
 
 static void
 drcctlib_event_thread_end(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-
+    // DRCCTLIB_PRINTF("thread %d start end", pt->id);
+    refresh_cct_tree(drcontext, pt);
+    thread_end_bb_cache_refresh(drcontext, pt);
 #ifdef DRCCTLIB_DEBUG
     dr_fprintf(pt->log_file_bb, "call:%llu/return%llu\n", pt->call_num, pt->return_num);
     dr_close_file(pt->log_file_bb);
@@ -1063,11 +1648,13 @@ drcctlib_event_thread_end(void *drcontext)
 #ifdef TEST_TREE_SIZE
     dr_mutex_lock(test_lock);
     real_node_number += pt->real_node_number;
+    bb_node_number += pt->bb_node_number;
+    ins_number += pt->ins_number;
     dr_mutex_unlock(test_lock);
 #endif
     pt->bb_node_cache->free_unuse_object();
     pt->splay_node_cache->free_unuse_object();
-    // DRCCTLIB_PRINTF("thread %d end", pt_cache->cache_data->id);
+    // DRCCTLIB_PRINTF("thread %d end", pt->id);
     // dr_fprintf(debug_file, "thread %d end\n", pt->id);
 }
 
@@ -1105,10 +1692,11 @@ init_shadow_memory_space(void *addr, uint32_t accessLen, data_handle_t initializ
 // capture_mmap_size(void *wrapcxt, void **user_data)
 // {
 //     // Remember the CCT node and the allocation size
+//     void* drcontext = (void *)drwrap_get_drcontext(wrapcxt);
 //     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
-//         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+//         drcontext, tls_idx);
 //     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
-//     // DRCCTLIB_PRINTF("capture_mmap_size %lu", pt->dmem_alloc_size);
+//     refresh_cct_tree(drcontext, pt);
 //     pt->dmem_alloc_ctxt_hndl =
 //         pt->cur_bb_node->child_ctxt_start_idx;
 // }
@@ -1117,11 +1705,11 @@ static void
 capture_malloc_size(void *wrapcxt, void **user_data)
 {
     // Remember the CCT node and the allocation size
+    void* drcontext = (void *)drwrap_get_drcontext(wrapcxt);
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
-        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
-    // DRCCTLIB_PRINTF("capture_malloc_size %lu", (size_t)drwrap_get_arg(wrapcxt, 0));
-    // dr_fprintf(debug_file, "capture_malloc_size %lu \n", (size_t)drwrap_get_arg(wrapcxt, 0));
+        drcontext, tls_idx);
     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 0);
+    refresh_cct_tree(drcontext, pt);
     pt->dmem_alloc_ctxt_hndl =
         pt->cur_bb_node->child_ctxt_start_idx;
 }
@@ -1130,12 +1718,12 @@ static void
 capture_calloc_size(void *wrapcxt, void **user_data)
 {
     // Remember the CCT node and the allocation size
+    void* drcontext = (void *)drwrap_get_drcontext(wrapcxt);
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
-        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
-    // DRCCTLIB_PRINTF("capture_calloc_size %lu %lu", (size_t)drwrap_get_arg(wrapcxt, 0), (size_t)drwrap_get_arg(wrapcxt, 1));
-    // dr_fprintf(debug_file, "capture_calloc_size %lu %lu \n", (size_t)drwrap_get_arg(wrapcxt, 0), (size_t)drwrap_get_arg(wrapcxt, 1));
+        drcontext, tls_idx);
     pt->dmem_alloc_size =
         (size_t)drwrap_get_arg(wrapcxt, 0) * (size_t)drwrap_get_arg(wrapcxt, 1);
+    refresh_cct_tree(drcontext, pt);
     pt->dmem_alloc_ctxt_hndl =
         pt->cur_bb_node->child_ctxt_start_idx;
 }
@@ -1144,12 +1732,11 @@ static void
 capture_realloc_size(void *wrapcxt, void **user_data)
 {
     // Remember the CCT node and the allocation size
+    void* drcontext = (void *)drwrap_get_drcontext(wrapcxt);
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
-        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
-    // dr_fprintf(debug_file, "thread %d capture_realloc_size\n", pt->id);
-    // DRCCTLIB_PRINTF("capture_realloc_size %lu", (size_t)drwrap_get_arg(wrapcxt, 1));
-    // dr_fprintf(debug_file, "capture_realloc_size %lu \n", (size_t)drwrap_get_arg(wrapcxt, 1));
+        drcontext, tls_idx);
     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
+    refresh_cct_tree(drcontext, pt);
     pt->dmem_alloc_ctxt_hndl =
         pt->cur_bb_node->child_ctxt_start_idx;
 }
@@ -1159,15 +1746,11 @@ datacentric_dynamic_alloc(void *wrapcxt, void *user_data)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
-    // dr_fprintf(debug_file, "thread %d datacentric_dynamic_alloc\n", pt->id);
     
     void *ptr = drwrap_get_retval(wrapcxt);
-    // dr_fprintf(debug_file, "thread %d datacentric_dynamic_alloc ptr %p\n", pt->id, ptr);
     data_handle_t data_hndl;
     data_hndl.object_type = DYNAMIC_OBJECT;
     data_hndl.path_handle = pt->dmem_alloc_ctxt_hndl;
-    // DRCCTLIB_PRINTF("DYNAMIC_OBJECT %d %lu", data_hndl.path_handle, pt->dmem_alloc_size);
-    // dr_fprintf(debug_file, "DYNAMIC_OBJECT %d %lu \n", data_hndl.path_handle, pt->dmem_alloc_size);
     init_shadow_memory_space(ptr, pt->dmem_alloc_size,
                                   data_hndl);
 }
@@ -1378,6 +1961,13 @@ free_pt_cache()
         if (global_pt_cache_buff[i] != NULL) {
             delete global_pt_cache_buff[i]->bb_node_cache;
             delete global_pt_cache_buff[i]->splay_node_cache;
+            if((global_flags & DRCCTLIB_CACHE_MODE) != 0){
+                dr_global_free(global_pt_cache_buff[i]->bb_cache, BB_CACHE_MESSAGE_MAX_NUM * sizeof(bb_cache_message_t));
+                if((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0){
+                    dr_global_free(global_pt_cache_buff[i]->inner_mem_ref_cache, MEM_REF_CACHE_UNIT_MAX * MEM_REF_CACHE_UNIT_NUM * sizeof(inner_mem_ref_t));
+                    dr_global_free(global_pt_cache_buff[i]->ins_mem_ref_cache, INS_MEM_REF_CACHE_MAX * sizeof(mem_ref_msg_t));
+                }
+            }
             dr_global_free(global_pt_cache_buff[i], sizeof(per_thread_t));
         }
     }
@@ -1405,6 +1995,7 @@ create_global_locks()
     module_data_lock = dr_mutex_create();
     bb_node_cache_lock = dr_mutex_create();
     splay_node_cache_lock = dr_mutex_create();
+    bb_message_cache_lock = dr_mutex_create();
 #ifdef TEST_TREE_SIZE
     test_lock = dr_mutex_create();
 #endif    
@@ -1417,6 +2008,7 @@ destroy_global_locks()
     dr_mutex_destroy(module_data_lock);
     dr_mutex_destroy(bb_node_cache_lock);
     dr_mutex_destroy(splay_node_cache_lock);
+    dr_mutex_destroy(bb_message_cache_lock);
 #ifdef TEST_TREE_SIZE
     dr_mutex_destroy(test_lock);
 #endif
@@ -1594,7 +2186,7 @@ drcctlib_init(char flag)
         return false;
     }
     drreg_options_t ops = { sizeof(ops),
-                            IF_ARM_CCTLIB_ELSE(3, 2)/*max slots needed*/,
+                            4,
                             false };
     if (drreg_init(&ops) != DRREG_SUCCESS) {
         DRCCTLIB_PRINTF("WARNING: drcctlib unable to initialize drreg");
@@ -1644,13 +2236,31 @@ drcctlib_init(char flag)
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1)
         return false;
-    if (!drmgr_register_thread_init_event(drcctlib_event_thread_start))
+    drmgr_priority_t thread_init_pri = {sizeof(thread_init_pri),
+                                                "drcctlib-thread_init",
+                                                NULL, NULL, DRCCTLIB_THREAD_EVENT_PRI};
+    drmgr_priority_t thread_exit_pri = {sizeof(thread_exit_pri),
+                                                "drcctlib-thread-exit",
+                                                NULL, NULL, DRCCTLIB_THREAD_EVENT_PRI};
+    if (!drmgr_register_thread_init_event_ex(drcctlib_event_thread_start, &thread_init_pri))
         return false;
-    if (!drmgr_register_thread_exit_event(drcctlib_event_thread_end))
+    if (!drmgr_register_thread_exit_event_ex(drcctlib_event_thread_end, &thread_exit_pri))
         return false;
 
-    if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)){
-        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_calloc fail");
+    if (!dr_raw_tls_calloc(&tls_seg1, &tls_offs1, INSTRACE_TLS_COUNT, 0)){
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_calloc1 fail");
+        return false;
+    }
+    if (!dr_raw_tls_calloc(&tls_seg2, &tls_offs2, INSTRACE_TLS_COUNT, 0)){
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_calloc2 fail");
+        return false;
+    }
+    if (!dr_raw_tls_calloc(&tls_seg3, &tls_offs3, INSTRACE_TLS_COUNT, 0)){
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_calloc3 fail");
+        return false;
+    }
+    if (!dr_raw_tls_calloc(&tls_seg4, &tls_offs4, INSTRACE_TLS_COUNT, 0)){
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_calloc4 fail");
         return false;
     }
 
@@ -1671,11 +2281,20 @@ drcctlib_exit(void)
     for(int32_t i = 0; i < global_ip_node_buff_idle_idx; i++) {
         global_search_time += ctxt_hndl_to_ip_node(i)->global_search_times;
     }
-    DRCCTLIB_PRINTF("+++++++++++++++real_node_number %llu global_search_time %llu", real_node_number, global_search_time);
+    DRCCTLIB_PRINTF("+++++++++++++++ins_number %llu bb_node_number %llu real_node_number %llu global_search_time %llu", ins_number, bb_node_number, real_node_number, global_search_time);
 #endif
     
-    if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
-        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_cfree fail");
+    if (!dr_raw_tls_cfree(tls_offs1, INSTRACE_TLS_COUNT)) {
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_cfree1 fail");
+    }
+    if (!dr_raw_tls_cfree(tls_offs2, INSTRACE_TLS_COUNT)) {
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_cfree2 fail");
+    }
+    if (!dr_raw_tls_cfree(tls_offs3, INSTRACE_TLS_COUNT)) {
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_cfree3 fail");
+    }
+    if (!dr_raw_tls_cfree(tls_offs4, INSTRACE_TLS_COUNT)) {
+        DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_cfree4 fail");
     }
     print_stats();
     if (!drmgr_unregister_bb_app2app_event(drcctlib_event_bb_app2app) ||
@@ -1734,13 +2353,16 @@ DR_EXPORT
 void
 drcctlib_register_client_cb(void (*func_instr_analysis)(void *, instr_instrument_msg_t *,
                                                         void *),
-                            void *analysis_data, void (*func_insert_bb_start)(int32_t, void *),
-                            void *insert_data)
+                            void *analysis_data, void (*func_insert_bb_start)(void *, int32_t, int32_t, void *),
+                            void *insert_data, void (*func_insert_ins_post)(void *, context_handle_t, int32_t, mem_ref_msg_t *, void *),
+                            void *insert_ins_data)
 {
     client_cb.func_instr_analysis = func_instr_analysis;
     client_cb.analysis_data = analysis_data;
     client_cb.func_insert_bb_start = func_insert_bb_start;
     client_cb.insert_data = insert_data;
+    client_cb.func_insert_ins_post = func_insert_ins_post;
+    client_cb.insert_ins_data = insert_ins_data;
 }
 
 DR_EXPORT
@@ -1753,14 +2375,16 @@ drcctlib_config_log_file(file_t file)
 DR_EXPORT bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
                  void (*func1)(void *, instr_instrument_msg_t *, void *), void *data1,
-                 void (*func2)(int32_t, void *), void *data2, char flag)
+                 void (*func2)(void *, int32_t, int32_t, void *), void *data2,
+                 void (*func3)(void *, context_handle_t, int32_t, mem_ref_msg_t *, void *),
+                            void *data3, char flag)
 {
     if (!drcctlib_init(flag)) {
         return false;
     }
     drcctlib_register_instr_filter(filter);
     drcctlib_config_log_file(file);
-    drcctlib_register_client_cb(func1, data1, func2, data2);
+    drcctlib_register_client_cb(func1, data1, func2, data2, func3, data3);
     return true;
 }
 
@@ -1780,12 +2404,26 @@ drcctlib_get_per_thread_data_id()
     return (int)(pt->id);
 }
 
+// don't need refresh
+DR_EXPORT
+context_handle_t
+drcctlib_get_context_handle_cache(void *drcontext, int32_t slot)
+{
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    return (context_handle_t)(pt->cur_bb_child_ctxt_start_idx + slot);
+}
+
+
+// need refresh
 DR_EXPORT
 context_handle_t
 drcctlib_get_context_handle(int32_t slot)
 {
+    void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt =
-        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+        (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    refresh_cct_tree(drcontext, pt);
     return (context_handle_t)(pt->cur_bb_child_ctxt_start_idx + slot);
 }
 
@@ -1793,8 +2431,10 @@ DR_EXPORT
 context_handle_t
 drcctlib_get_bb_start_context_handle()
 {
+    void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt =
-        (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+        (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    refresh_cct_tree(drcontext, pt);
     return (context_handle_t)(pt->cur_bb_child_ctxt_start_idx);
 }
 
@@ -1809,8 +2449,11 @@ void
 drcctlib_get_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
                                    int32_t slot, reg_id_t store_reg, reg_id_t addr_reg)
 {
-    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
-                           tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, addr_reg);
+    if((global_flags & DRCCTLIB_CACHE_MODE) != 0) {
+        thread_update_cct_tree();
+    }
+    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg1,
+                           tls_offs1 + INSTRACE_TLS_OFFS_BUF_PTR, addr_reg);
     MINSERT(ilist, where,
             XINST_CREATE_load(drcontext, opnd_create_reg(store_reg), 
                 OPND_CREATE_CTXT_HNDL_MEM(addr_reg, 0)));
@@ -1982,6 +2625,29 @@ drcctlib_get_pc(context_handle_t ctxt_hndl)
         &global_bb_shadow_table, (void *)(ptr_int_t)(bb_node->key));
     app_pc pc = bb_shadow->ip_shadow[slot];
     return pc;
+}
+
+DR_EXPORT
+int32_t
+drcctlib_get_state(context_handle_t ctxt_hndl)
+{
+    if (!ctxt_hndl_is_valid(ctxt_hndl)) {
+        DRCCTLIB_EXIT_PROCESS("drcctlib_get_state: !ctxt_hndl_is_valid");
+    }
+    if (ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
+        DRCCTLIB_PRINTF("drcctlib_get_state: THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE");
+        return 0;
+    }
+    cct_bb_node_t *bb_node = ctxt_hndl_to_ip_node(ctxt_hndl)->parent_bb_node;
+    if (bb_node->key == THREAD_ROOT_BB_SHARED_BB_KEY) {
+        DRCCTLIB_PRINTF("drcctlib_get_state: THREAD_ROOT_BB_SHARED_BB_KEY");
+        return 0;
+    }
+    slot_t slot = ctxt_hndl - bb_node->child_ctxt_start_idx;
+    bb_shadow_t *bb_shadow = (bb_shadow_t *)hashtable_lookup(
+        &global_bb_shadow_table, (void *)(ptr_int_t)(bb_node->key));
+    int32_t state = bb_shadow->state_shadow[slot];
+    return state;
 }
 
 DR_EXPORT

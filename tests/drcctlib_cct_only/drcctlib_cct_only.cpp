@@ -59,7 +59,6 @@ static int tls_idx;
 #    define OPND_CREATE_CTXT_HNDL_MEM OPND_CREATE_MEM32
 #endif
 
-
 typedef struct _per_thread_t{
     aligned_ctxt_hndl_t cur_ctxt_hndl;
 } per_thread_t;
@@ -208,7 +207,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_cct_only drmgr_register_tls_field fail");
     }
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, NULL, NULL, NULL,
                     NULL, NULL, DRCCTLIB_DEFAULT);
     dr_register_exit_event(ClientExit);
 }

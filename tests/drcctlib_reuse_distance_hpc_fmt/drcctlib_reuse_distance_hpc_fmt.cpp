@@ -533,7 +533,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
-                    NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE | DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                    NULL, NULL, NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE | DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     init_hpcrun_format(dr_get_application_name(), false);
     ins_metric_id1 = hpcrun_create_metric("SUM_COUNT");
     ins_metric_id2 = hpcrun_create_metric("AVG_DIS");

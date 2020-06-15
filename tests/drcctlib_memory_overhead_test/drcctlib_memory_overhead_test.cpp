@@ -110,9 +110,8 @@ DoWhatClientWantTodo(void* drcontext, per_thread_t *pt, mem_ref_t * ref)
 
 // dr clean call per bb
 void 
-InstrumentBBStartInsertCallback(int32_t mem_ref_num, void* data)
+InstrumentBBStartInsertCallback(void* drcontext, int32_t slot_num, int32_t mem_ref_num, void* data)
 {
-    void* drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     int next_buf_max_idx = pt->cur_buf_fill_num + mem_ref_num;
     if (next_buf_max_idx > TLS_MEM_REF_BUFF_SIZE) {
@@ -262,7 +261,7 @@ static void
 ClientThreadEnd(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    InstrumentBBStartInsertCallback(TLS_MEM_REF_BUFF_SIZE, NULL);
+    InstrumentBBStartInsertCallback(drcontext, 0, TLS_MEM_REF_BUFF_SIZE, NULL);
     dr_mutex_lock(lock);
     global_number1 += pt->number1;
     global_number2 += pt->number2;
@@ -334,7 +333,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_overhead_test dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
-                    InstrumentBBStartInsertCallback, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                    InstrumentBBStartInsertCallback, NULL, NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     dr_register_exit_event(ClientExit);
 }
 

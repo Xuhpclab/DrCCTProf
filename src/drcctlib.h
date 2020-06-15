@@ -6,10 +6,11 @@
 #include "drcctlib_filter_func_list.h"
 
 #include <vector>
-// #define FOR_SPEC_TEST
+#define FOR_SPEC_TEST
 #ifdef FOR_SPEC_TEST
 #define context_handle_t int32_t
-#define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1vim 
+// #define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1vim
+#define CONTEXT_HANDLE_MAX 147483647L // 1^31 - 1vim
 #define THREAD_MAX_NUM 10000
 #else
 #define context_handle_t int32_t
@@ -19,8 +20,10 @@
 
 #ifdef CCTLIB_32
 #define aligned_ctxt_hndl_t int32_t
+#define aligned_bb_key_t int32_t
 #else 
 #define aligned_ctxt_hndl_t int64_t
+#define aligned_bb_key_t int64_t
 #endif
 
 
@@ -33,12 +36,11 @@ enum {
     INSTR_STATE_CALL_DIRECT = 0x02,
     INSTR_STATE_CALL_IN_DIRECT = 0x04,
     INSTR_STATE_RETURN = 0x08,
-    INSTR_STATE_UNINTEREST_FIRST = 0X10,
-    INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x20,
-    INSTR_STATE_EVENT_SIGNAL = 0x40,
-    INSTR_STATE_EVENT_EXCEPTION = 0x80,
+    INSTR_STATE_MEM_ACCESS = 0X10,
+    INSTR_STATE_UNINTEREST_FIRST = 0x20,
+    INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x40,
 #ifdef ARM32_CCTLIB 
-    INSTR_STATE_BB_START_NOP = 0X100
+    INSTR_STATE_BB_START_NOP = 0X80
 #endif
 };
 
@@ -61,11 +63,15 @@ typedef struct _context_t {
     struct _context_t *pre_ctxt;
 } context_t;
 
+typedef struct _mem_ref_msg_t {
+    app_pc addr;
+} mem_ref_msg_t;
+
 enum {
     DRCCTLIB_DEFAULT = 0x00,
-    DRCCTLIB_USE_CLEAN_CALL = 0x01,
+    DRCCTLIB_CACHE_MODE = 0x01,
     DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE = 0x02,
-    DRCCTLIB_SAVE_CCTLIB_FILE = 0x04,
+    DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR = 0x04,
     DRCCTLIB_SAVE_HPCTOOLKIT_FILE = 0x08,
     DRCCTLIB_CACHE_EXCEPTION = 0x10
 };
@@ -74,7 +80,9 @@ DR_EXPORT
 bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
                  void (*func1)(void *, instr_instrument_msg_t *, void *), void *data1,
-                 void (*func2)(int32_t, void *), void *data2, char flag);
+                 void (*func2)(void *, int32_t, int32_t, void *), void *data2,
+                 void (*func3)(void *, context_handle_t, int32_t, mem_ref_msg_t *, void *),
+                            void *data3, char flag);
 
 DR_EXPORT
 void
@@ -86,10 +94,12 @@ drcctlib_register_instr_filter(bool (*filter)(instr_t *));
 
 DR_EXPORT
 void
-drcctlib_register_client_cb(void (*func_instr_analysis)(void *, instr_instrument_msg_t *,
-                                                        void *),
-                            void *analysis_data, void (*func_insert_bb_start)(int32_t, void *),
-                            void *insert_data);
+drcctlib_register_client_cb(void (*func_instr_analysis)(void *, instr_instrument_msg_t *, void *),
+                            void *analysis_data,
+                            void (*func_insert_bb_start)(void *, int32_t, int32_t, void *),
+                            void *insert_data,
+                            void (*func_insert_ins_post)(void *, context_handle_t, int32_t, mem_ref_msg_t *, void *),
+                            void *insert_ins_data);
 
 DR_EXPORT
 void
@@ -128,6 +138,11 @@ void
 drcctlib_get_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
                                    int32_t slot, reg_id_t store_reg, reg_id_t addr_reg);
 
+// new cache api
+DR_EXPORT
+context_handle_t
+drcctlib_get_context_handle_cache(void *drcontext, int32_t slot);
+
 DR_EXPORT
 context_handle_t
 drcctlib_get_caller_handle(context_handle_t ctxt_hndl);
@@ -143,6 +158,11 @@ drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl);
 DR_EXPORT
 app_pc
 drcctlib_get_pc(context_handle_t ctxt_hndl);
+
+DR_EXPORT
+int32_t
+drcctlib_get_state(context_handle_t ctxt_hndl);
+
 
 DR_EXPORT
 bool

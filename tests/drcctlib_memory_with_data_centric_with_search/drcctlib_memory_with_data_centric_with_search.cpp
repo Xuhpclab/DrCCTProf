@@ -296,7 +296,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_data_centric_with_search dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
-                    NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                    NULL, NULL, NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     dr_register_exit_event(ClientExit);
 }
 

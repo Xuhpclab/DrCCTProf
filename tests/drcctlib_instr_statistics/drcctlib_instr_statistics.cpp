@@ -41,122 +41,37 @@ int64_t *gloabl_hndl_call_num;
 static file_t gTraceFile;
 static int tls_idx;
 
-enum {
-    INSTRACE_TLS_OFFS_BUF_PTR,
-    INSTRACE_TLS_COUNT, /* total number of TLS slots allocated */
-};
-
-static reg_id_t tls_seg;
-static uint tls_offs;
-#define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs + (enum_val))
-#define BUF_PTR(tls_base, enum_val) *(int64_t **)TLS_SLOT(tls_base, enum_val)
-#define MINSERT instrlist_meta_preinsert
-
-#ifdef X86
-#define OPND_CREATE_NUM OPND_CREATE_INT32
-#elif defined(ARM_CCTLIB)
-#define OPND_CREATE_NUM OPND_CREATE_INT
-#endif
-
-typedef struct _per_thread_t {
-    void* buff;
-} per_thread_t;
-
+// client want to do
 void
-EveryInstrInstrument(void *drcontext, instrlist_t *bb, instr_t *instr, int32_t slot)
+DoWhatClientWantTodo(void* drcontext, context_handle_t cur_ctxt_hndl)
 {
-#ifdef INTEL_CCTLIB
-    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS(
-            "InstrumentInsCallback drreg_reserve_aflags != DRREG_SUCCESS");
-    }
-#endif
-    reg_id_t reg_cur_bb_buf_start, reg1;
-    if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_cur_bb_buf_start) !=
-            DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, instr, NULL, &reg1) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS(
-            "InstrumentInsCallback drreg_reserve_register != DRREG_SUCCESS");
-    }
-    opnd_t opnd_reg_1 = opnd_create_reg(reg1);
-    dr_insert_read_raw_tls(drcontext, bb, instr, tls_seg,
-                           tls_offs + INSTRACE_TLS_OFFS_BUF_PTR, reg_cur_bb_buf_start);
-    opnd_t opnd_mem_buff =
-        OPND_CREATE_MEM64(reg_cur_bb_buf_start, sizeof(int64_t) * slot);
-
-    MINSERT(bb, instr, XINST_CREATE_load(drcontext, opnd_reg_1, opnd_mem_buff));
-    MINSERT(bb, instr, XINST_CREATE_add(drcontext, opnd_reg_1, OPND_CREATE_NUM(1)));
-    MINSERT(bb, instr, XINST_CREATE_store(drcontext, opnd_mem_buff, opnd_reg_1));
-
-    if (drreg_unreserve_register(drcontext, bb, instr, reg_cur_bb_buf_start) !=
-            DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, bb, instr, reg1) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS(
-            "InstrumentInsCallback drreg_unreserve_register != DRREG_SUCCESS");
-    }
-#ifdef INTEL_CCTLIB
-    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS(
-            "InstrumentInsCallback drreg_unreserve_aflags != DRREG_SUCCESS");
-    }
-#endif
+    gloabl_hndl_call_num[cur_ctxt_hndl] ++;
 }
 
-
-void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
-{
-    instrlist_t *bb = instrument_msg->bb;
-    instr_t *instr = instrument_msg->instr;
-    // if (instrument_msg->interest_start) {
-    //     dr_insert_clean_call(drcontext, bb, instr, (void *)BBStartCleanCall, false, 0);
-    // }
-    EveryInstrInstrument(drcontext, bb, instr, instrument_msg->slot);
-}
-
+// dr clean call per bb
 void 
-InstrumentBBStartInsertCallback(int32_t mem_ref_num, void* data)
+InstrumentBBStartInsertCallback(void* drcontext, int32_t slot_num, int32_t mem_ref_num, void* data)
 {
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-    context_handle_t cur_bb_start = drcctlib_get_bb_start_context_handle();
-    BUF_PTR(pt->buff, INSTRACE_TLS_OFFS_BUF_PTR) = (gloabl_hndl_call_num + cur_bb_start);
-}
-
-static void
-ClientThreadStart(void *drcontext)
-{
-    per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
-    if(pt == NULL){
-        DRCCTLIB_EXIT_PROCESS("pt == NULL");
+    for (int i = 0; i < slot_num; i++) {
+        DoWhatClientWantTodo(drcontext, drcctlib_get_context_handle_cache(drcontext, i));
     }
-    drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
-    pt->buff = dr_get_dr_segment_base(tls_seg);
-    BUF_PTR(pt->buff, INSTRACE_TLS_OFFS_BUF_PTR) = gloabl_hndl_call_num;
 }
 
-static void
-ClientThreadEnd(void *drcontext)
-{
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    dr_thread_free(drcontext, pt, sizeof(per_thread_t));
-}
 static inline void
 InitGlobalBuff()
 {
-    gloabl_hndl_call_num =
-        (int64_t *)mmap(0, CONTEXT_HANDLE_MAX * sizeof(int64_t),
-                              PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    if (gloabl_hndl_call_num == MAP_FAILED) {
-        DRCCTLIB_EXIT_PROCESS("init_global_buff error: MAP_FAILED gloabl_hndl_call_num");
+    gloabl_hndl_call_num = (int64_t *)dr_raw_mem_alloc(
+        CONTEXT_HANDLE_MAX * sizeof(int64_t),
+        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    if (gloabl_hndl_call_num == NULL) {
+        DRCCTLIB_EXIT_PROCESS("init_global_buff error: dr_raw_mem_alloc fail gloabl_hndl_call_num");
     }
 }
 
 static inline void
 FreeGlobalBuff()
 {
-    if (munmap(gloabl_hndl_call_num, CONTEXT_HANDLE_MAX * sizeof(int64_t)) != 0) {
-        DRCCTLIB_PRINTF("free_global_buff munmap error");
-    }
+    dr_raw_mem_free(gloabl_hndl_call_num, CONTEXT_HANDLE_MAX * sizeof(int64_t));
 }
 
 static void
@@ -218,19 +133,6 @@ ClientExit(void)
     FreeGlobalBuff();
     drcctlib_exit();
 
-    if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: dr_raw_tls_calloc fail");
-    } 
-
-    if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
-        !drmgr_unregister_thread_exit_event(ClientThreadEnd) ||
-        !drmgr_unregister_tls_field(tls_idx)) {
-        DRCCTLIB_PRINTF("failed to unregister in ClientExit");
-    }
-    drmgr_exit();
-    if (drreg_exit() != DRREG_SUCCESS) {
-        DRCCTLIB_PRINTF("failed to exit drreg");
-    }
     dr_close_file(gTraceFile);
 }
 
@@ -245,26 +147,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     
     ClientInit(argc, argv);
-    if (!drmgr_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics unable to initialize drmgr");
-    }
-    drreg_options_t ops = { sizeof(ops), 4 /*max slots needed*/, false};
-    if (drreg_init(&ops) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics unable to initialize drreg");
-    }
-    drmgr_register_thread_init_event(ClientThreadStart);
-    drmgr_register_thread_exit_event(ClientThreadEnd);
 
-    tls_idx = drmgr_register_tls_field();
-    if (tls_idx == -1){
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics drmgr_register_tls_field fail");
-    }
-    if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics dr_raw_tls_calloc fail");
-    }
-
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
-                     InstrumentBBStartInsertCallback, NULL, DRCCTLIB_DEFAULT);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL,
+                     InstrumentBBStartInsertCallback, NULL, NULL, NULL, DRCCTLIB_CACHE_MODE);
     dr_register_exit_event(ClientExit);
 }
 
