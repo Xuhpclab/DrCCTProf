@@ -76,6 +76,8 @@ enum {
     DRCCTLIB_CACHE_EXCEPTION = 0x10
 };
 
+#define DRCCTLIB_THREAD_EVENT_PRI 5
+
 DR_EXPORT
 bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
