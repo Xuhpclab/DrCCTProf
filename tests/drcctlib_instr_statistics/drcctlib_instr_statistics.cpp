@@ -108,6 +108,10 @@ static void
 ClientExit(void)
 {
     output_format_t* output_list =  (output_format_t*)dr_global_alloc(TOP_REACH_NUM_SHOW * sizeof(output_format_t));
+    for(int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
+        output_list[i].handle = 0;
+        output_list[i].count = 0;
+    }
     context_handle_t max_ctxt_hndl = drcctlib_get_global_context_handle_num();
     for(context_handle_t i = 0; i < max_ctxt_hndl; i++){
         if (gloabl_hndl_call_num[i] <= 0) {
@@ -115,11 +119,11 @@ ClientExit(void)
         }
         if (gloabl_hndl_call_num[i] > output_list[0].count) {
             uint64_t min_count = gloabl_hndl_call_num[i];
-            uint64_t min_idx = 0;
-            for (uint64_t i = 1; i < TOP_REACH_NUM_SHOW; i++) {
-                if (output_list[i].count < min_count) {
-                    min_count = output_list[i].count;
-                    min_idx = i;
+            int32_t min_idx = 0;
+            for (int32_t j = 1; j < TOP_REACH_NUM_SHOW; j++) {
+                if (output_list[j].count < min_count) {
+                    min_count = output_list[j].count;
+                    min_idx = j;
                 }
             }
             output_list[0].count = min_count;
@@ -128,9 +132,10 @@ ClientExit(void)
             output_list[min_idx].handle = i;
         }
     }
+
     output_format_t temp;
-    for (uint64_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
-        for (uint64_t j = i; j < TOP_REACH_NUM_SHOW; j++) {
+    for (int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
+        for (int32_t j = i; j < TOP_REACH_NUM_SHOW; j++) {
             if(output_list[i].count < output_list[j].count) {
                 temp = output_list[i];
                 output_list[i] = output_list[j];
@@ -138,8 +143,9 @@ ClientExit(void)
             }
         }
     }
-    for(uint i = 0; i < TOP_REACH_NUM_SHOW; i++) {
-        dr_fprintf(gTraceFile, "NO. %d ins call number %lld ctxt handle %lld====", i+1, output_list[i].handle, output_list[i].count);
+    for(int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
+        // dr_fprintf(gTraceFile, "NO. %d ins call number %lld ctxt handle %lld==== \n", i+1, output_list[i].count, output_list[i].handle);
+        dr_fprintf(gTraceFile, "NO. %d ins call number %lld ctxt handle %lld====", i+1, output_list[i].count, output_list[i].handle);
         drcctlib_print_ctxt_hndl_msg(gTraceFile, output_list[i].handle, false, false);
         dr_fprintf(gTraceFile, "================================================================================\n");
         drcctlib_print_full_cct(gTraceFile, output_list[i].handle, true, false, MAX_CLIENT_CCT_PRINT_DEPTH);
