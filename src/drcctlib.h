@@ -6,30 +6,6 @@
 #include "drcctlib_filter_func_list.h"
 
 #include <vector>
-#define FOR_SPEC_TEST
-#ifdef FOR_SPEC_TEST
-#define context_handle_t int32_t
-// #define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1vim
-#define CONTEXT_HANDLE_MAX 147483647L // 1^31 - 1vim
-#define THREAD_MAX_NUM 10000
-#else
-#define context_handle_t int32_t
-#define CONTEXT_HANDLE_MAX 7483647L
-#define THREAD_MAX_NUM 10000
-#endif
-
-#ifdef CCTLIB_32
-#define aligned_ctxt_hndl_t int32_t
-#define aligned_bb_key_t int32_t
-#else 
-#define aligned_ctxt_hndl_t int64_t
-#define aligned_bb_key_t int64_t
-#endif
-
-
-
-#define DISASM_CACHE_SIZE 80
-#define MAXIMUM_SYMNAME 256
 
 enum {
     INSTR_STATE_CLIENT_INTEREST = 0x01,
@@ -37,12 +13,27 @@ enum {
     INSTR_STATE_CALL_IN_DIRECT = 0x04,
     INSTR_STATE_RETURN = 0x08,
     INSTR_STATE_MEM_ACCESS = 0X10,
-    INSTR_STATE_UNINTEREST_FIRST = 0x20,
-    INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x40,
+    INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x20,
 #ifdef ARM32_CCTLIB 
-    INSTR_STATE_BB_START_NOP = 0X80
+    INSTR_STATE_BB_START_NOP = 0X40
 #endif
 };
+
+enum {
+    DRCCTLIB_DEFAULT = 0x00,
+    DRCCTLIB_CACHE_MODE = 0x01,
+    DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE = 0x02,
+    DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR = 0x04,
+    DRCCTLIB_SAVE_HPCTOOLKIT_FILE = 0x08,
+    DRCCTLIB_CACHE_EXCEPTION = 0x10
+};
+
+// stack config
+typedef struct _thread_stack_config_t {
+    int thread_id;
+    void * stack_base;
+    void * stack_end;
+} thread_stack_config_t;
 
 typedef struct _instr_instrument_msg_t {
     instrlist_t *bb;
@@ -67,16 +58,21 @@ typedef struct _mem_ref_msg_t {
     app_pc addr;
 } mem_ref_msg_t;
 
-enum {
-    DRCCTLIB_DEFAULT = 0x00,
-    DRCCTLIB_CACHE_MODE = 0x01,
-    DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE = 0x02,
-    DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR = 0x04,
-    DRCCTLIB_SAVE_HPCTOOLKIT_FILE = 0x08,
-    DRCCTLIB_CACHE_EXCEPTION = 0x10
+enum{
+    UNKNOWN_OBJECT,
+    STACK_OBJECT, 
+    DYNAMIC_OBJECT, 
+    STATIC_OBJECT
 };
 
-#define DRCCTLIB_THREAD_EVENT_PRI 5
+// The handle representing a data object
+typedef struct _data_handle_t {
+    uint8_t object_type;
+    union {
+        context_handle_t path_handle;
+        int32_t sym_name;
+    };
+} data_handle_t;
 
 DR_EXPORT
 bool
@@ -174,31 +170,9 @@ DR_EXPORT
 bool
 has_same_call_path(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2);
 
-enum{
-    UNKNOWN_OBJECT,
-    STACK_OBJECT, 
-    DYNAMIC_OBJECT, 
-    STATIC_OBJECT
-};
-// stack config
-typedef struct _thread_stack_config_t {
-    int thread_id;
-    void * stack_base;
-    void * stack_end;
-} thread_stack_config_t;
-
 DR_EXPORT
 thread_stack_config_t
 drcctlib_get_thread_stack_config(void *drcontext);
-
-// The handle representing a data object
-typedef struct _data_handle_t {
-    uint8_t object_type;
-    union {
-        context_handle_t path_handle;
-        int32_t sym_name;
-    };
-} data_handle_t;
 
 DR_EXPORT
 data_handle_t

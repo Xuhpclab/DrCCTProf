@@ -28,10 +28,18 @@
 #   define IF_ARM_CCTLIB_ELSE(value1, value2) value2
 #endif
 
-#ifdef ARM
+#ifdef ARM32_CCTLIB
 #   define IF_ARM32_CCTLIB(value) value
 #else
 #   define IF_ARM32_CCTLIB(value) 
+#endif
+
+#ifdef ARM64_CCTLIB
+#   define IF_ARM64_CCTLIB(value) value
+#   define IF_NOT_ARM64_CCTLIB(value)
+#else
+#   define IF_ARM64_CCTLIB(value)
+#   define IF_NOT_ARM64_CCTLIB(value) value
 #endif
 
 
@@ -42,11 +50,30 @@
 #   define IF_DRCCTLIB_DEBUG(value) 
 #endif
 
-#define USE_DATA_CENTRIC
-#ifndef USE_DATA_CENTRIC
-#    define DRCCTLIB_DATA_CENTRIC 0
+
+#define context_handle_t int32_t
+#define aligned_ctxt_hndl_t int64_t
+
+#define THREAD_MAX_NUM 10000
+#define FOR_SPEC_TEST
+#ifdef FOR_SPEC_TEST
+#   define CONTEXT_HANDLE_MAX 2147483647L // 1^31 - 1 8GB
+#   define MEM_CACHE_PAGE1_BIT 11 // 8KB 56GB
+#   define MEM_CACHE_PAGE2_BIT 20 // 28MB
 #else
-#    define DRCCTLIB_DATA_CENTRIC 1
+
+#   define CONTEXT_HANDLE_MAX 16777216L // 1^24 64MB
+#   define MEM_CACHE_PAGE1_BIT 4 // 128B 447MB
+#   define MEM_CACHE_PAGE2_BIT 20 // 28MB
 #endif
+#define TLS_MEM_CACHE_MIN_NUM 8192 // 2^13
+#define MEM_CACHE_DEBRIS_SIZE 1024 // 2^0
+
+
+
+#define DISASM_CACHE_SIZE 80
+#define MAXIMUM_SYMNAME 256
+
+#define DRCCTLIB_THREAD_EVENT_PRI 5
 
 #endif //_DRCCTLIB_GLOBAL_SHARE_H_

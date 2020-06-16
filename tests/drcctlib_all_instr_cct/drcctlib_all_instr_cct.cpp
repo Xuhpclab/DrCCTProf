@@ -57,9 +57,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     ClientInit(argc, argv);
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL,
         NULL, NULL, DRCCTLIB_CACHE_MODE);
-    // drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL,
-    //     NULL, NULL, DRCCTLIB_DEFAULT);
-    
     dr_register_exit_event(ClientExit);
 }
 

@@ -28,34 +28,45 @@ using namespace std;
     } while (0);                                                                  \
     dr_exit_process(-1)
 
+
+
 template <class T> class memory_cache_t {
 public:
-    memory_cache_t();
+    memory_cache_t(int32_t page1_bit, int32_t page2_bit, int32_t debris_min_size, void (*init_object_index)(T*, int32_t index));
     ~memory_cache_t();
-    bool
-    init(int32_t sub_add_num, int32_t debris_size_min_size, int32_t max_add_times);
     void
     add_debris(T *debris_start, int32_t debris_size);
     void
     init_sub_cache_frame(T **sub_cache_frame_vector, int32_t *sub_cache_frame_size_vector,
                          int32_t sub_cache_min_num, int32_t sub_cache_frame_max_num);
-
+    T*
+    get_object_by_index(int32_t index);
+    int32_t
+    get_debris_min_size();
+    int32_t
+    get_page2_size();
 private:
     void
-    sub_add();
+    init_new_page2();
     void
     free_all();
-
-public:
-    int32_t debris_size_min_size_;
-    int32_t sub_add_num_;
 private:
-    bool debris_mode_;
-    int32_t max_add_times_;
+    int32_t page1_bit_;
+    int32_t page1_size_;
+    int32_t page1_mask_;
 
-    int32_t cur_use_pool_id_;
-    int32_t cur_use_pool_start_;
-    T **cache_pool_vector_;
+    int32_t page2_bit_;
+    int32_t page2_size_;
+    int32_t page2_mask_;
+
+    int32_t debris_min_size_;
+    bool debris_mode_;
+
+    int32_t cur_page1_index_;
+    int32_t cur_page2_index_;
+    
+    T **page1_cache_;
+    void (*init_object_index_)(T*, int32_t index);
 
     vector<T *> debris_vector_;
     vector<int32_t> debris_size_vector_;
@@ -91,15 +102,25 @@ private:
 
 
 template <class T>
-memory_cache_t<T>::memory_cache_t()
-    : debris_size_min_size_(0)
-    , sub_add_num_(0)
-    , debris_mode_(false)
-    , max_add_times_(0)
-    , cur_use_pool_id_(-1)
-    , cur_use_pool_start_(0)
-    , cache_pool_vector_(NULL)
+memory_cache_t<T>::memory_cache_t(int32_t page1_bit, int32_t page2_bit, int32_t debris_min_size, void (*init_object_index)(T*, int32_t index))
 {
+    page1_bit_ = page1_bit;
+    page1_size_ = 1 << page1_bit_;
+    page1_mask_ = page1_size_ - 1;
+
+    page2_bit_ = page2_bit;
+    page2_size_ = 1 << page2_bit_;
+    page2_mask_ = page2_size_ - 1;
+    
+    debris_min_size_ = debris_min_size;
+    debris_mode_ = false;
+    
+    page1_cache_ = (T **)dr_global_alloc(page1_size_ * sizeof(T *));
+    init_object_index_ = init_object_index;
+
+    cur_page1_index_ = -1;
+    cur_page2_index_ = -1;
+    init_new_page2();
 }
 template <class T>
 memory_cache_t<T>::~memory_cache_t()
@@ -108,54 +129,43 @@ memory_cache_t<T>::~memory_cache_t()
 }
 
 template <class T>
-bool
-memory_cache_t<T>::init(int32_t sub_add_num, int32_t debris_size_min_size,
-                     int32_t max_add_times)
-{
-    debris_size_min_size_ = debris_size_min_size;
-    debris_mode_ = false;
-    sub_add_num_ = sub_add_num;
-    max_add_times_ = max_add_times;
-    
-    cache_pool_vector_ = (T **)dr_global_alloc(max_add_times_ * sizeof(T *));
-    cur_use_pool_id_ = -1;
-    sub_add();
-    return true;
-}
-
-template <class T>
 void
-memory_cache_t<T>::sub_add()
+memory_cache_t<T>::init_new_page2()
 {
-    cur_use_pool_id_++;
-    if (cur_use_pool_id_ >= max_add_times_) {
+    cur_page1_index_++;
+    if (cur_page1_index_ >= page1_size_) {
         MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t full_error \n");
     }
-    T *sub_cache = (T *)dr_raw_mem_alloc(
-        sub_add_num_ * sizeof(T),
+    T *page2_cache = (T *)dr_raw_mem_alloc(
+        page2_size_ * sizeof(T),
         DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-    if (sub_cache == NULL) {
-        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t sub_cache add error %d\n", cur_use_pool_id_);
+    if (page2_cache == NULL) {
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t page2_cache add error %d\n", cur_page1_index_);
     }
-    cache_pool_vector_[cur_use_pool_id_] = sub_cache;
-    cur_use_pool_start_ = 0;
+    for (int32_t i = 0; i < page2_size_; i++) {
+        if(init_object_index_ != NULL) {
+            init_object_index_(&page2_cache[i], (cur_page1_index_ << page2_bit_) + i);
+        }
+    }
+    page1_cache_[cur_page1_index_] = page2_cache;
+    cur_page2_index_ = 0;
 }
 
 template <class T>
 void
 memory_cache_t<T>::free_all()
 {
-    for (int32_t i = 0; i <= cur_use_pool_id_; i++) {
-        dr_raw_mem_free(cache_pool_vector_[i], sub_add_num_ * sizeof(T));
+    for (int32_t i = 0; i <= cur_page1_index_; i++) {
+        dr_raw_mem_free(page1_cache_[i], page2_size_ * sizeof(T));
     }
-    dr_global_free(cache_pool_vector_, max_add_times_ * sizeof(T *));
+    dr_global_free(page1_cache_, page1_size_ * sizeof(T *));
 }
 
 template <class T>
 void
 memory_cache_t<T>::add_debris(T *debris_start, int32_t debris_size)
 {
-    if (debris_size < debris_size_min_size_) {
+    if (debris_size < debris_min_size_) {
         return;
     }
     debris_vector_.push_back(debris_start);
@@ -171,15 +181,15 @@ memory_cache_t<T>::init_sub_cache_frame(T **sub_cache_frame_vector,
                                      int32_t sub_cache_frame_max_num)
 {
     if (!debris_mode_) {
-        int32_t cur_use_pool_last = sub_add_num_ - cur_use_pool_start_;
+        int32_t cur_use_pool_last = page2_size_ - cur_page2_index_;
         if (cur_use_pool_last >= sub_cache_min_num) {
             sub_cache_frame_vector[0] =
-                cache_pool_vector_[cur_use_pool_id_] + cur_use_pool_start_;
+                page1_cache_[cur_page1_index_] + cur_page2_index_;
             sub_cache_frame_size_vector[0] = sub_cache_min_num;
-            cur_use_pool_start_ += sub_cache_min_num;
+            cur_page2_index_ += sub_cache_min_num;
         } else {
-            if (cur_use_pool_last >= debris_size_min_size_) {
-                add_debris(cache_pool_vector_[cur_use_pool_id_] + cur_use_pool_start_,
+            if (cur_use_pool_last >= debris_min_size_) {
+                add_debris(page1_cache_[cur_page1_index_] + cur_page2_index_,
                            cur_use_pool_last);
             }
             debris_mode_ = true;
@@ -212,7 +222,7 @@ memory_cache_t<T>::init_sub_cache_frame(T **sub_cache_frame_vector,
                 }
             }
         } else {
-            sub_add();
+            init_new_page2();
             debris_mode_ = false;
             init_sub_cache_frame(sub_cache_frame_vector, sub_cache_frame_size_vector,
                                  sub_cache_min_num, sub_cache_frame_max_num);
@@ -221,18 +231,41 @@ memory_cache_t<T>::init_sub_cache_frame(T **sub_cache_frame_vector,
 }
 
 template <class T>
+T*
+memory_cache_t<T>::get_object_by_index(int32_t index){
+    int32_t page1_index = (index >> page2_bit_) & page1_mask_;
+    int32_t page2_index = index & page2_mask_;
+    return page1_cache_[page1_index] + page2_index;
+}
+
+template <class T>
+int32_t
+memory_cache_t<T>::get_debris_min_size() {
+    return debris_min_size_;
+}
+
+template <class T>
+int32_t
+memory_cache_t<T>::get_page2_size() {
+    return page2_size_;
+}
+
+
+
+
+template <class T>
 tls_memory_cache_t<T>::tls_memory_cache_t(memory_cache_t<T> *memory_cache,
                                        void *memory_cache_lock, int32_t cache_min_num)
 {
     memory_cache_ = memory_cache;
     memory_cache_lock_ = memory_cache_lock;
     cache_min_num_ = cache_min_num;
-    if (cache_min_num_ > memory_cache->sub_add_num_) {
+    if (cache_min_num_ > memory_cache->get_page2_size()) {
         MEMORY_CACHE_EXIT_PROCESS("ERROR:tls_memory_cache_t cache_min_num_(%d) > "
-                  "memory_cache->sub_add_num_(%d)\n",
-                  cache_min_num_, memory_cache->sub_add_num_);
+                  "memory_cache->page2_size_(%d)\n",
+                  cache_min_num_, memory_cache->get_page2_size());
     }
-    cache_frame_min_size_ = memory_cache->debris_size_min_size_;
+    cache_frame_min_size_ = memory_cache->get_debris_min_size();
     cache_frame_num_ = cache_min_num_ % cache_frame_min_size_ > 0
         ? cache_min_num_ / cache_frame_min_size_ + 1
         : cache_min_num_ / cache_frame_min_size_;

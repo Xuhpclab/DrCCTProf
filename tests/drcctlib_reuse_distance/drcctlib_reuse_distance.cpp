@@ -377,15 +377,9 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
 void
 InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
 {
-    
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
     int32_t slot = instrument_msg->slot;
-    
-    if (instr_is_call_direct(instr) || instr_is_call_indirect(instr) ||
-        instr_is_return(instr)) {
-        return;
-    }
 #ifdef INTEL_CCTLIB
     if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS(
@@ -476,6 +470,7 @@ ClientThreadEnd(void *drcontext)
     dr_global_free(pt->cur_buf_list, TLS_MEM_REF_BUFF_SIZE * sizeof(mem_ref_t));
     delete pt->tls_use_map;
     delete pt->tls_reuse_map;
+
 #ifdef DEBUG_REUSE
     dr_close_file(pt->log_file);
 #endif

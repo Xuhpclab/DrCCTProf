@@ -45,20 +45,10 @@ int64_t *gloabl_hndl_call_num;
 static file_t gTraceFile;
 static int tls_idx;
 
-// client want to do
-void
-DoWhatClientWantTodo(void* drcontext, context_handle_t cur_ctxt_hndl)
+// dr clean call per ins cache
+void InstrumentPerInsCache(void *drcontext, context_handle_t ctxt_hndl, int32_t mem_ref_num, mem_ref_msg_t * mem_ref_start, void *data)
 {
-    gloabl_hndl_call_num[cur_ctxt_hndl] ++;
-}
-
-// dr clean call per bb
-void 
-InstrumentBBStartInsertCallback(void* drcontext, int32_t slot_num, int32_t mem_ref_num, void* data)
-{
-    for (int i = 0; i < slot_num; i++) {
-        DoWhatClientWantTodo(drcontext, drcctlib_get_context_handle_cache(drcontext, i));
-    }
+    gloabl_hndl_call_num[ctxt_hndl] ++;
 }
 
 static inline void
@@ -153,7 +143,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     ClientInit(argc, argv);
 
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL,
-                     InstrumentBBStartInsertCallback, NULL, NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
+                     NULL, NULL, InstrumentPerInsCache, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
     init_hpcrun_format(dr_get_application_name(), false);
     ins_metric_id = hpcrun_create_metric("TOT_CALLS");
     dr_register_exit_event(ClientExit);
