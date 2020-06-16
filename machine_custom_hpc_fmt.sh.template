@@ -3,7 +3,7 @@
 HPCTOOLKIT=
 HPCPROFTT=${HPCTOOLKIT}/libexec/hpctoolkit/hpcproftt
 HPCSTRUCT=${HPCTOOLKIT}/bin/hpcstruct
-HPCSTPROF=${HPCTOOLKIT}l/bin/hpcprof
+HPCSTPROF=${HPCTOOLKIT}/bin/hpcprof
 APP_NAME=$1
 BIN_DIR=$2
 SRC_DIR=$3
