@@ -88,7 +88,7 @@
 
 #define THREAD_ROOT_BB_SHARED_BB_KEY 0
 
-#define TEST_TREE_SIZE
+// #define TEST_TREE_SIZE
 
 #define DRCCTLIB_PRINTF(format, args...)                                      \
     do {                                                                      \

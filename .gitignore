@@ -1,6 +1,7 @@
 build/
 build_debug/
-appsamples/build
 logs/
+test_apps/build
 .clang-format
-machine_custom_hpc_fmt.sh
+scripts/build_tool/machine_custom_hpc_fmt.sh
+server_cfg*

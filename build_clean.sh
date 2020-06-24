@@ -2,8 +2,11 @@
 
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
+echo -e "app build clean..."
+$CUR_DIR/test_apps/build_clean.sh
+
 echo -e "clean logs..."
-$CUR_DIR/scripts/build_tool/clean_logs.sh
+$CUR_DIR/scripts/clean_logs.sh
 
 echo -e "make clean..."
 $CUR_DIR/scripts/build_tool/make_clean.sh

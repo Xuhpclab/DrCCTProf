@@ -22,7 +22,7 @@ if [ $PLATFORM='aarch64' ]; then
     IS_ARM=true
 fi
 
-if [[ "$IS_X86" == "false" && "$DEBUG_MODE" == "false" ]]; then
+if [[ "$IS_X86" == "false" && "$IS_ARM" == "false" ]]; then
     echo -e "NOT support platform $PLATFORM"
     exit -1
 fi
