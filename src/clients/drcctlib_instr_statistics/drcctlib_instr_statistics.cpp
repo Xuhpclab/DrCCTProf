@@ -166,6 +166,9 @@ ClientExit(void)
         }
     }
     for(int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
+        if (output_list[i].handle == 0) {
+            break;
+        }
         // dr_fprintf(gTraceFile, "NO. %d ins call number %lld ctxt handle %lld==== \n", i+1, output_list[i].count, output_list[i].handle);
         dr_fprintf(gTraceFile, "NO. %d ins call number %lld ctxt handle %lld====", i+1, output_list[i].count, output_list[i].handle);
         drcctlib_print_ctxt_hndl_msg(gTraceFile, output_list[i].handle, false, false);

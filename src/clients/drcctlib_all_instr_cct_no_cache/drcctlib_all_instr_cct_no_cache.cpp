@@ -14,29 +14,28 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                           \
-    do {                                                                           \
-        char name[MAXIMUM_PATH] = "";                                              \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));             \
-        pid_t pid = getpid();                                                      \
-        dr_printf("[(%s%d)drcctlib_all_instr_cct_no_cache msg]====" format "\n", name, pid, \
-                  ##args);                                                         \
+#define DRCCTLIB_PRINTF(format, args...)                                               \
+    do {                                                                               \
+        char name[MAXIMUM_PATH] = "";                                                  \
+        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                 \
+        pid_t pid = getpid();                                                          \
+        dr_printf("[(%s%d)drcctlib_all_instr_cct_no_cache msg]====" format "\n", name, \
+                  pid, ##args);                                                        \
     } while (0)
 
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                           \
-    do {                                                                                 \
-        char name[MAXIMUM_PATH] = "";                                                    \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                   \
-        pid_t pid = getpid();                                                            \
-        dr_printf("[(%s%d)drcctlib_all_instr_cct_no_cache(%s%d) msg]====" format "\n", name, pid, \
-                  ##args);                                                               \
-    } while (0);                                                                         \
+#define DRCCTLIB_EXIT_PROCESS(format, args...)                                         \
+    do {                                                                               \
+        char name[MAXIMUM_PATH] = "";                                                  \
+        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                 \
+        pid_t pid = getpid();                                                          \
+        dr_printf("[(%s%d)drcctlib_all_instr_cct_no_cache(%s%d) msg]====" format "\n", \
+                  name, pid, ##args);                                                  \
+    } while (0);                                                                       \
     dr_exit_process(-1)
 
 static void
 ClientInit(int argc, const char *argv[])
 {
-
 }
 
 static void
@@ -58,7 +57,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     // drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL,
     //     NULL, NULL, NULL, NULL, DRCCTLIB_CACHE_MODE);
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, DRCCTLIB_DEFAULT);
+                     NULL, NULL, NULL, NULL, DRCCTLIB_DEFAULT);
     dr_register_exit_event(ClientExit);
 }
 

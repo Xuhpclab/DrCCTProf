@@ -70,7 +70,7 @@ splay_tree_update(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_
 
 splay_node_t *
 splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_node,
-                  splay_node_t *new_node, int32_t *o_num)
+                       splay_node_t *new_node, int32_t *o_num)
 {
     if (root != NULL) {
         splay_node_init(dummy_node, -1);

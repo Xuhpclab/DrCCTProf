@@ -7,13 +7,13 @@ if [ "$1" == "-DEBUG" ]; then
     DEBUG_MODE=true
 fi
 
-PLATFORM='uname-m'
+PLATFORM=$(uname -m)
 IS_ARM=false
 IS_X86=false
-if [ $PLATFORM='x86_64' ]; then
+if [ $PLATFORM == 'x86_64' ]; then
     IS_X86=true
 fi
-if [ $PLATFORM='aarch64' ]; then
+if [ $PLATFORM == 'aarch64' ]; then
     IS_ARM=true
 fi
 

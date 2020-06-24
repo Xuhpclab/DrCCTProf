@@ -47,29 +47,32 @@ static int tls_idx;
 
 // dr clean call per ins cache
 static inline void
-InstrumentPerInsCache(void *drcontext, context_handle_t ctxt_hndl, int32_t mem_ref_num, mem_ref_msg_t * mem_ref_start, void *data)
+InstrumentPerInsCache(void *drcontext, context_handle_t ctxt_hndl, int32_t mem_ref_num,
+                      mem_ref_msg_t *mem_ref_start, void *data)
 {
-    gloabl_hndl_call_num[ctxt_hndl] ++;
+    gloabl_hndl_call_num[ctxt_hndl]++;
 }
 
 static inline void
-InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_num, int32_t mem_ref_num, mem_ref_msg_t * mem_ref_start, void **data)
+InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_num,
+                     int32_t mem_ref_num, mem_ref_msg_t *mem_ref_start, void **data)
 {
     int32_t temp_index = 0;
-    for(int32_t i = 0; i < slot_num; i ++) {
+    for (int32_t i = 0; i < slot_num; i++) {
         int32_t ins_ref_number = 0;
-        mem_ref_msg_t* ins_cache_mem_start = NULL;
-        for (; temp_index < mem_ref_num; temp_index ++) {
+        mem_ref_msg_t *ins_cache_mem_start = NULL;
+        for (; temp_index < mem_ref_num; temp_index++) {
             if (mem_ref_start[temp_index].slot == i) {
                 if (ins_cache_mem_start == NULL) {
                     ins_cache_mem_start = mem_ref_start + temp_index;
                 }
-                ins_ref_number ++;
+                ins_ref_number++;
             } else if (mem_ref_start[temp_index].slot > i) {
                 break;
             }
         }
-        InstrumentPerInsCache(drcontext, ctxt_hndl + i, ins_ref_number, ins_cache_mem_start, data);
+        InstrumentPerInsCache(drcontext, ctxt_hndl + i, ins_ref_number,
+                              ins_cache_mem_start, data);
     }
 }
 
@@ -77,10 +80,10 @@ static inline void
 InitGlobalBuff()
 {
     gloabl_hndl_call_num = (int64_t *)dr_raw_mem_alloc(
-        CONTEXT_HANDLE_MAX * sizeof(int64_t),
-        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        CONTEXT_HANDLE_MAX * sizeof(int64_t), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     if (gloabl_hndl_call_num == NULL) {
-        DRCCTLIB_EXIT_PROCESS("init_global_buff error: dr_raw_mem_alloc fail gloabl_hndl_call_num");
+        DRCCTLIB_EXIT_PROCESS(
+            "init_global_buff error: dr_raw_mem_alloc fail gloabl_hndl_call_num");
     }
 }
 
@@ -111,7 +114,7 @@ ClientInit(int argc, const char *argv[])
     cerr << "Creating log file at:" << name << endl;
 
     gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
-    
+
     DR_ASSERT(gTraceFile != INVALID_FILE);
     // print the arguments passed
     dr_fprintf(gTraceFile, "\n");
@@ -131,15 +134,15 @@ ClientExit(void)
 {
     vector<pair<context_handle_t, int>> tmp;
     context_handle_t max_ctxt_hndl = drcctlib_get_global_context_handle_num();
-    for(context_handle_t i = 0; i < max_ctxt_hndl; i++){
+    for (context_handle_t i = 0; i < max_ctxt_hndl; i++) {
         tmp.push_back(make_pair(i, gloabl_hndl_call_num[i]));
     }
     sort(tmp.begin(), tmp.end(),
          [=](pair<context_handle_t, int> &a, pair<context_handle_t, int> &b) {
              return a.second > b.second;
-             });
-    vector<HPCRunCCT_t*> hpcRunNodes;
-    for(uint i = 0; i < TOP_REACH__NUM_SHOW; i++) {
+         });
+    vector<HPCRunCCT_t *> hpcRunNodes;
+    for (uint i = 0; i < TOP_REACH__NUM_SHOW; i++) {
         HPCRunCCT_t *hpcRunNode = new HPCRunCCT_t();
         hpcRunNode->ctxt_hndl_list.push_back(tmp[i].first);
         hpcRunNode->metric_list.push_back(tmp[i].second);
@@ -161,11 +164,12 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Client 'drcctlib_instr_statistics_hpc_fmt'",
                        "http://dynamorio.org/issues");
-    
+
     ClientInit(argc, argv);
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL,
-                     NULL, NULL, InstrumentPerBBCache, NULL, NULL, NULL, DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL,
+                     InstrumentPerBBCache, NULL, NULL, NULL,
+                     DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
     init_hpcrun_format(dr_get_application_name(), false);
     ins_metric_id = hpcrun_create_metric("TOT_CALLS");
     dr_register_exit_event(ClientExit);

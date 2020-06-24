@@ -19,8 +19,6 @@
 
 #define SHADOW_MEMORY_TEST 0
 
-
-
 // unit size
 #define PTR_SIZE (sizeof(void *))
 // 2 level page table
@@ -52,12 +50,10 @@ template <class T> class ConcurrentShadowMemory {
 public:
     inline ConcurrentShadowMemory()
     {
-        atomic<atomic<T *> *> * nullPd = 0;
-        pageDirectory = (atomic<atomic<T *> *> *)
-            dr_raw_mem_alloc(
-                LEVEL_1_PAGE_TABLE_SIZE,
-                DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-        
+        atomic<atomic<T *> *> *nullPd = 0;
+        pageDirectory = (atomic<atomic<T *> *> *)dr_raw_mem_alloc(
+            LEVEL_1_PAGE_TABLE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+
         if (pageDirectory == nullPd) {
             SHADOW_MEM_EXIT_PROCESS("dr_raw_mem_alloc fail pageDirectory");
         }
@@ -83,15 +79,12 @@ public:
     inline T *
     GetOrCreateShadowBaseAddress(const size_t address)
     {
-        atomic<atomic<T *> *> *l1Ptr =
-            &pageDirectory[LEVEL_1_PAGE_TABLE_SLOT(address)];
+        atomic<atomic<T *> *> *l1Ptr = &pageDirectory[LEVEL_1_PAGE_TABLE_SLOT(address)];
         atomic<T *> *v1;
         if ((v1 = l1Ptr->load(memory_order_consume)) == 0) {
             atomic<T *> *nullL1pg = 0;
-            atomic<T *> *l1pg = (atomic<T *> *)
-                dr_raw_mem_alloc(
-                    LEVEL_2_PAGE_TABLE_SIZE,
-                    DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+            atomic<T *> *l1pg = (atomic<T *> *)dr_raw_mem_alloc(
+                LEVEL_2_PAGE_TABLE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
             if (l1pg == nullL1pg) {
                 SHADOW_MEM_EXIT_PROCESS("dr_raw_mem_alloc fail l1pg");
             }
@@ -106,12 +99,11 @@ public:
         }
 
         atomic<T *> *l2Ptr = &v1[LEVEL_2_PAGE_TABLE_SLOT(address)];
-        T *v2; 
+        T *v2;
         if ((v2 = l2Ptr->load(memory_order_consume)) == 0) {
             T *nullVal = 0;
-            T *l2pg = (T *)dr_raw_mem_alloc(
-                    SHADOW_PAGE_SIZE * sizeof(T),
-                    DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+            T *l2pg = (T *)dr_raw_mem_alloc(SHADOW_PAGE_SIZE * sizeof(T),
+                                            DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
             if (l2pg == nullVal) {
                 SHADOW_MEM_EXIT_PROCESS("dr_raw_mem_alloc fail l2pg");
             }
@@ -129,32 +121,31 @@ public:
     inline T *
     GetOrCreateShadowAddress(const size_t address)
     {
-        T * shadowPage = GetOrCreateShadowBaseAddress(address);
+        T *shadowPage = GetOrCreateShadowBaseAddress(address);
         return &(shadowPage[PAGE_OFFSET((uint64_t)address)]);
     }
 
     inline T *
     GetShadowBaseAddress(const size_t address)
     {
-        atomic<atomic<T *> *> *l1Ptr =
-            &pageDirectory[LEVEL_1_PAGE_TABLE_SLOT(address)];
+        atomic<atomic<T *> *> *l1Ptr = &pageDirectory[LEVEL_1_PAGE_TABLE_SLOT(address)];
         atomic<T *> *v1;
         if ((v1 = l1Ptr->load(memory_order_consume)) == 0) {
             return NULL;
         }
 
         atomic<T *> *l2Ptr = &v1[LEVEL_2_PAGE_TABLE_SLOT(address)];
-        T *v2; 
+        T *v2;
         if ((v2 = l2Ptr->load(memory_order_consume)) == 0) {
             return NULL;
         }
         return v2;
     }
-    
-    inline T*
+
+    inline T *
     GetShadowAddress(const size_t address)
     {
-        T * shadowPage = GetOrCreateShadowBaseAddress(address);
+        T *shadowPage = GetOrCreateShadowBaseAddress(address);
         if (shadowPage == NULL) {
             return NULL;
         }

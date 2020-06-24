@@ -34,12 +34,9 @@ using namespace std;
     } while (0);                                                                      \
     dr_exit_process(-1)
 
-
-
 static void
 ClientThreadStart(void *drcontext)
 {
-
 }
 
 static void
@@ -51,7 +48,6 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
-
 }
 
 static void
@@ -77,21 +73,23 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
     if (!drmgr_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_instr_statistics unable to initialize drmgr");
+        DRCCTLIB_EXIT_PROCESS(
+            "ERROR: drcctlib_instr_statistics unable to initialize drmgr");
     }
-   drmgr_priority_t thread_init_pri = {sizeof(thread_init_pri),
-                                                "drcctlib_reuse-thread_init",
-                                                NULL, NULL, DRCCTLIB_THREAD_EVENT_PRI + 1};
-    drmgr_priority_t thread_exit_pri = {sizeof(thread_exit_pri),
-                                                "drcctlib_reuse-thread-exit",
-                                                NULL, NULL, DRCCTLIB_THREAD_EVENT_PRI + 1};
+    drmgr_priority_t thread_init_pri = { sizeof(thread_init_pri),
+                                         "drcctlib_reuse-thread_init", NULL, NULL,
+                                         DRCCTLIB_THREAD_EVENT_PRI + 1 };
+    drmgr_priority_t thread_exit_pri = { sizeof(thread_exit_pri),
+                                         "drcctlib_reuse-thread-exit", NULL, NULL,
+                                         DRCCTLIB_THREAD_EVENT_PRI + 1 };
     drmgr_register_thread_init_event_ex(ClientThreadStart, &thread_init_pri);
     drmgr_register_thread_exit_event_ex(ClientThreadEnd, &thread_exit_pri);
-    
+
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, DRCCTLIB_CACHE_MODE|DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
+                     NULL, NULL, NULL, NULL,
+                     DRCCTLIB_CACHE_MODE | DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
     init_hpcrun_format(dr_get_application_name(), true);
-    dr_register_exit_event(ClientExit);    
+    dr_register_exit_event(ClientExit);
 }
 
 #ifdef __cplusplus
