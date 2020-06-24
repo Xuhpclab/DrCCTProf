@@ -2,26 +2,16 @@
 
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
-BUILD_LOG_PATH=${CUR_DIR}/logs
-echo -e "Remove \033[34m${BUILD_LOG_PATH}\033[0m.."
-rm -rf ${BUILD_LOG_PATH}
+echo -e "clean logs..."
+$CUR_DIR/scripts/build_tool/clean_logs.sh
 
-BUILD_PATH=${CUR_DIR}/build
-echo -e "Remove \033[34m${BUILD_PATH}\033[0m.."
-rm -rf ${BUILD_PATH}
+echo -e "make clean..."
+$CUR_DIR/scripts/build_tool/make_clean.sh
 
-BUILD_DEBUG_PATH=${CUR_DIR}/build_debug
-echo -e "Remove \033[34m${BUILD_DEBUG_PATH}\033[0m.."
-rm -rf ${BUILD_DEBUG_PATH}
+echo -e "make debug clean..."
+$CUR_DIR/scripts/build_tool/make_clean.sh -DEBUG
 
-APPSAMPLES_BUILD=${CUR_DIR}/appsamples/build
-echo -e "Remove \033[34m${APPSAMPLES_BUILD}\033[0m.."
-rm -rf ${APPSAMPLES_BUILD}
+echo -e "clean env config..."
+$CUR_DIR/scripts/build_tool/env_clean.sh
 
-DR_EXT_SRC_PATH=${CUR_DIR}/dynamorio/ext/drcctlib
-echo -e "Remove \033[34m${DR_EXT_SRC_PATH}\033[0m.."
-rm -rf ${DR_EXT_SRC_PATH}
 
-DR_CLIENT_SRC_PATH=${CUR_DIR}/dynamorio/clients/drcctlib
-echo -e "Remove \033[34m${DR_CLIENT_SRC_PATH}*\033[0m.."
-rm -rf ${DR_CLIENT_SRC_PATH}*
