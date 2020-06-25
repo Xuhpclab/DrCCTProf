@@ -47,13 +47,13 @@ static inline void
 DoWhatClientWantTodo(void *drcontext, context_handle_t cur_ctxt_hndl, app_pc addr)
 {
     // use {cur_ctxt_hndl}
-    // data_handle_t data_hndl = drcctlib_get_data_hndl_runtime(drcontext, addr);
-    // context_handle_t data_ctxt_hndl = 0;
-    // if (data_hndl.object_type == DYNAMIC_OBJECT) {
-    //     data_ctxt_hndl = data_hndl.path_handle;
-    // } else if (data_hndl.object_type == STATIC_OBJECT) {
-    //     data_ctxt_hndl = - data_hndl.sym_name;
-    // }
+    data_handle_t data_hndl = drcctlib_get_data_hndl_runtime(drcontext, addr);
+    context_handle_t data_ctxt_hndl = 0;
+    if (data_hndl.object_type == DYNAMIC_OBJECT) {
+        data_ctxt_hndl = data_hndl.path_handle;
+    } else if (data_hndl.object_type == STATIC_OBJECT) {
+        data_ctxt_hndl = - data_hndl.sym_name;
+    }
 }
 
 static inline void

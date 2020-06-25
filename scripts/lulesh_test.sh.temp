@@ -44,9 +44,8 @@ if [ ! -d $LOG_PATH ]; then
     mkdir $LOG_PATH
 fi
 
-
-INPUT=5
-LULESH_FULL_PATH=/home/ubuntu/DrCCTProf-ARM-samples/lulesh/build/lulesh-par-original
+INPUT=${LULESH_INPUT_DEFAULT_45}
+LULESH_FULL_PATH=${LULESH_FULL_PATH_NOT_DEFINE}
 
 cd $LOG_PATH
 export OMP_NUM_THREADS=1
