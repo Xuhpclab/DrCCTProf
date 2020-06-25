@@ -1,8 +1,8 @@
 #! /bin/bash
 
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
-# MODE=-RELEASE
-MODE=-DEBUG
+MODE=-RELEASE
+# MODE=-DEBUG
 DEBUG_MODE=false
 if [ "$MODE" == "-DEBUG" ]; then
     DEBUG_MODE=true

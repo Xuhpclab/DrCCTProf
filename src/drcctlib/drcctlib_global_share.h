@@ -3,10 +3,12 @@
 
 #include "dr_api.h"
 
-#ifdef X64
+#if defined(X86_64) || defined(ARM_64) || defined(AARCH64)
 #    define CCTLIB_64
+#    define IF_CCTLIB_64_CCTLIB(value) value
 #else
 #    define CCTLIB_32
+#    define IF_CCTLIB_64_CCTLIB(value)
 #endif
 
 #if defined(ARM) || defined(AARCH64)

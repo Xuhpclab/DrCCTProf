@@ -39,10 +39,9 @@ using namespace std;
     } while (0);                                                                         \
     dr_exit_process(-1)
 
-// dr clean call per ins cache
+// client want to do
 static inline void
-InstrumentPerInsCache(void *drcontext, context_handle_t ctxt_hndl, int32_t mem_ref_num,
-                      mem_ref_msg_t *mem_ref_start, void *data)
+DoWhatClientWantTodo(void *drcontext, context_handle_t cur_ctxt_hndl, app_pc addr)
 {
 }
 
@@ -50,22 +49,12 @@ static inline void
 InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_num,
                      int32_t mem_ref_num, mem_ref_msg_t *mem_ref_start, void **data)
 {
-    int32_t temp_index = 0;
-    for (int32_t i = 0; i < slot_num; i++) {
-        int32_t ins_ref_number = 0;
-        mem_ref_msg_t *ins_cache_mem_start = NULL;
-        for (; temp_index < mem_ref_num; temp_index++) {
-            if (mem_ref_start[temp_index].slot == i) {
-                if (ins_cache_mem_start == NULL) {
-                    ins_cache_mem_start = mem_ref_start + temp_index;
-                }
-                ins_ref_number++;
-            } else if (mem_ref_start[temp_index].slot > i) {
-                break;
-            }
+    for (int32_t i = 0; i < mem_ref_num; i++) {
+        if (mem_ref_start[i].slot >= slot_num) {
+            break;
         }
-        InstrumentPerInsCache(drcontext, ctxt_hndl + i, ins_ref_number,
-                              ins_cache_mem_start, data);
+        DoWhatClientWantTodo(drcontext, ctxt_hndl + mem_ref_start[i].slot,
+                             mem_ref_start[i].addr);
     }
 }
 
@@ -93,7 +82,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, NULL, NULL, NULL,
                      NULL, InstrumentPerBBCache, NULL, NULL, NULL,
-                     DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE | DRCCTLIB_CACHE_MODE);
+                     DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE | DRCCTLIB_CACHE_MODE |
+                         DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR);
     dr_register_exit_event(ClientExit);
 }
 

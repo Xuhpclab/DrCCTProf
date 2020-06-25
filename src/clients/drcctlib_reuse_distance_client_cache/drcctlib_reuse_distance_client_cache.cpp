@@ -40,7 +40,6 @@ using namespace std;
     } while (0);                                                                      \
     dr_exit_process(-1)
 
-static file_t gTraceFile;
 static int tls_idx;
 
 enum {
@@ -120,6 +119,7 @@ typedef struct _per_thread_t {
     map<uint64_t, use_node_t> *tls_use_map;
     multimap<uint64_t, reuse_node_t> *tls_reuse_map;
     bool sample_mem;
+    file_t output_file;
 // #define DEBUG_REUSE
 #ifdef DEBUG_REUSE
     file_t log_file;
@@ -242,40 +242,36 @@ PrintTopN(per_thread_t *pt, uint64_t print_num)
             }
         }
     }
-    dr_fprintf(gTraceFile, "max memory idx %llu\n", pt->cur_mem_idx);
+    dr_fprintf(pt->output_file, "max memory idx %llu\n", pt->cur_mem_idx);
     // output the selected reuse pairs
     uint64_t no = 0;
     for (uint64_t i = 0; i < print_num; i++) {
         if (output_format_list[i].count == 0)
             continue;
         no++;
-        dr_fprintf(gTraceFile, "No.%u counts(%llu) avg distance(%llu)\n", no,
+        dr_fprintf(pt->output_file, "No.%u counts(%llu) avg distance(%llu)\n", no,
                    output_format_list[i].count, output_format_list[i].distance);
-        dr_fprintf(gTraceFile,
-                   "====================================create==========================="
-                   "============\n");
+        dr_fprintf(pt->output_file,
+                   "=========================create=========================\n");
         if (output_format_list[i].create_hndl > 0) {
-            drcctlib_print_full_cct(gTraceFile, output_format_list[i].create_hndl, true,
+            drcctlib_print_full_cct(pt->output_file, output_format_list[i].create_hndl, true,
                                     true, MAX_CLIENT_CCT_PRINT_DEPTH);
         } else if (output_format_list[i].create_hndl < 0) {
-            dr_fprintf(gTraceFile, "STATIC_OBJECT %s\n",
+            dr_fprintf(pt->output_file, "STATIC_OBJECT %s\n",
                        drcctlib_get_str_from_strpool(-output_format_list[i].create_hndl));
         } else {
-            dr_fprintf(gTraceFile, "STACK_OBJECT/UNKNOWN_OBJECT\n");
+            dr_fprintf(pt->output_file, "STACK_OBJECT/UNKNOWN_OBJECT\n");
         }
-        dr_fprintf(gTraceFile,
-                   "====================================use=============================="
-                   "=========\n");
-        drcctlib_print_full_cct(gTraceFile, output_format_list[i].use_hndl, true, true,
+        dr_fprintf(pt->output_file,
+                   "===========================use===========================\n");
+        drcctlib_print_full_cct(pt->output_file, output_format_list[i].use_hndl, true, true,
                                 MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile,
-                   "====================================reuse============================"
-                   "=============\n");
-        drcctlib_print_full_cct(gTraceFile, output_format_list[i].reuse_hndl, true, true,
+        dr_fprintf(pt->output_file,
+                   "==========================reuse==========================\n");
+        drcctlib_print_full_cct(pt->output_file, output_format_list[i].reuse_hndl, true, true,
                                 MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile,
-                   "====================================================================="
-                   "===========\n\n\n");
+        dr_fprintf(pt->output_file,
+                   "=========================================================\n\n\n");
     }
     dr_global_free(output_format_list, print_num * sizeof(output_format_t));
 }
@@ -442,6 +438,41 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
 static int global_thread_id_max = 0;
 #endif
 
+
+static void
+ThreadOutputFileInit(per_thread_t *pt)
+{
+    int32_t id = drcctlib_get_per_thread_data_id();
+    pid_t pid = getpid();
+#ifdef ARM_CCTLIB
+    char name[MAXIMUM_PATH] = "arm.";
+#else
+    char name[MAXIMUM_PATH] = "x86.";
+#endif
+    gethostname(name + strlen(name),
+                MAXIMUM_PATH - strlen(name));
+    sprintf(name + strlen(name),
+            "%d.drcctlib_reuse_distance.thread-%d.topn.log", pid, id);
+    pt->output_file = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+    DR_ASSERT(pt->output_file != INVALID_FILE);
+
+#ifdef DEBUG_REUSE
+#ifdef ARM_CCTLIB
+    char debug_file_name[MAXIMUM_PATH] = "arm.";
+#else
+    char debug_file_name[MAXIMUM_PATH] = "x86.";
+#endif
+    gethostname(debug_file_name + strlen(debug_file_name),
+                MAXIMUM_PATH - strlen(debug_file_name));
+    sprintf(debug_file_name + strlen(debug_file_name),
+            "%d.drcctlib_reuse_distance.thread-%d.debug.log", pid, id);
+    pt->log_file = dr_open_file(debug_file_name,
+                                DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
+    DR_ASSERT(pt->log_file != INVALID_FILE);
+#endif
+
+}
+
 static void
 ClientThreadStart(void *drcontext)
 {
@@ -463,29 +494,7 @@ ClientThreadStart(void *drcontext)
     pt->tls_reuse_map = new multimap<uint64_t, reuse_node_t>();
     pt->sample_mem = false;
 
-#ifdef DEBUG_REUSE
-    int id = ATOM_ADD_THREAD_ID_MAX(global_thread_id_max);
-    id--;
-    if (id > THREAD_MAX_NUM) {
-        DRCCTLIB_EXIT_PROCESS(
-            "Thread num > THREAD_MAX_NUM(%d), please change the value of THREAD_MAX_NUM.",
-            THREAD_MAX_NUM);
-    }
-#    ifdef ARM_CCTLIB
-    char reuse_tread_log_file_name[MAXIMUM_PATH] = "arm.";
-#    else
-    char reuse_tread_log_file_name[MAXIMUM_PATH] = "x86.";
-#    endif
-    gethostname(reuse_tread_log_file_name + strlen(reuse_tread_log_file_name),
-                MAXIMUM_PATH - strlen(reuse_tread_log_file_name));
-    pid_t pid = getpid();
-
-    sprintf(reuse_tread_log_file_name + strlen(reuse_tread_log_file_name),
-            "%d.reuse.thread-%d.log", pid, id);
-    pt->log_file = dr_open_file(reuse_tread_log_file_name,
-                                DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
-    DR_ASSERT(pt->log_file != INVALID_FILE);
-#endif
+    ThreadOutputFileInit(pt);
 }
 
 static void
@@ -500,6 +509,7 @@ ClientThreadEnd(void *drcontext)
     delete pt->tls_use_map;
     delete pt->tls_reuse_map;
 
+    dr_close_file(pt->output_file);
 #ifdef DEBUG_REUSE
     dr_close_file(pt->log_file);
 #endif
@@ -510,33 +520,6 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib_reuse_distance_client_cache.topn.out.log";
-#else
-    char name[MAXIMUM_PATH] = "x86.drcctlib_reuse_distance_client_cache.topn.out.log";
-#endif
-    char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
-
-    if (envPath) {
-        // assumes max of MAXIMUM_PATH
-        strcpy(name, envPath);
-    }
-
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    pid_t pid = getpid();
-    sprintf(name + strlen(name), "%d", pid);
-    cerr << "Creating log file at:" << name << endl;
-
-    gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
-    DR_ASSERT(gTraceFile != INVALID_FILE);
-    // print the arguments passed
-    dr_fprintf(gTraceFile, "\n");
-
-    for (int i = 0; i < argc; i++) {
-        dr_fprintf(gTraceFile, "%d %s \n", i, argv[i]);
-    }
-
-    dr_fprintf(gTraceFile, "\n");
 }
 
 static void
@@ -560,7 +543,6 @@ ClientExit(void)
         DRCCTLIB_PRINTF("failed to exit drreg");
     }
     drutil_exit();
-    dr_close_file(gTraceFile);
 }
 
 #ifdef __cplusplus
@@ -587,8 +569,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS(
             "ERROR: drcctlib_reuse_distance_client_cache unable to initialize drutil");
     }
-    drmgr_register_thread_init_event(ClientThreadStart);
-    drmgr_register_thread_exit_event(ClientThreadEnd);
+    drmgr_priority_t thread_init_pri = { sizeof(thread_init_pri),
+                                         "drcctlib_reuse-thread_init", NULL, NULL,
+                                         DRCCTLIB_THREAD_EVENT_PRI + 1 };
+    drmgr_priority_t thread_exit_pri = { sizeof(thread_exit_pri),
+                                         "drcctlib_reuse-thread-exit", NULL, NULL,
+                                         DRCCTLIB_THREAD_EVENT_PRI + 1 };
+    drmgr_register_thread_init_event_ex(ClientThreadStart, &thread_init_pri);
+    drmgr_register_thread_exit_event_ex(ClientThreadEnd, &thread_exit_pri);
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1) {
