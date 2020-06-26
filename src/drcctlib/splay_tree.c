@@ -130,7 +130,7 @@ splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *d
 int32_t
 splay_tree_size(splay_node_t *root)
 {
-    if(root == NULL) {
+    if (root == NULL) {
         return 0;
     } else {
         return 1 + splay_tree_size(root->left) + splay_tree_size(root->right);
