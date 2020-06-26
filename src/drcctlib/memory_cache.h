@@ -109,7 +109,7 @@ memory_cache_t<T>::memory_cache_t(int32_t page1_bit, int32_t page2_bit,
                                   void (*init_object_index)(T *, int32_t index))
 {
     if (page1_bit + page2_bit > 31) {
-        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t max cache 1^31 objects\n");
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t max cache 1^31 objects");
     }
     page1_bit_ = page1_bit;
     page1_size_ = 1 << page1_bit_;
@@ -124,6 +124,11 @@ memory_cache_t<T>::memory_cache_t(int32_t page1_bit, int32_t page2_bit,
 
     page1_cache_ = (T **)dr_raw_mem_alloc(page1_size_ * sizeof(T *),
                                           DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    if (page1_cache_ == NULL) {
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t page1_cache_ init error");
+    } else {
+        // MEMORY_CACHE_PRINTF("LOG:memory_cache_t page1_cache_ alloc %lld", page1_size_ * sizeof(T *));
+    }
     init_object_index_ = init_object_index;
 
     cur_page1_index_ = -1;
@@ -141,13 +146,15 @@ memory_cache_t<T>::init_new_page2()
 {
     cur_page1_index_++;
     if (cur_page1_index_ >= page1_size_) {
-        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t full_error \n");
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t full_error");
     }
     T *page2_cache = (T *)dr_raw_mem_alloc(page2_size_ * sizeof(T),
                                            DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     if (page2_cache == NULL) {
-        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t page2_cache add error %d\n",
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t page2_cache add error %d",
                                   cur_page1_index_);
+    } else {
+        // MEMORY_CACHE_PRINTF("LOG:memory_cache_t page2_cache add alloc %lld", page2_size_ * sizeof(T));
     }
     for (int32_t i = 0; i < page2_size_; i++) {
         if (init_object_index_ != NULL) {
@@ -177,7 +184,7 @@ memory_cache_t<T>::add_debris(T *debris_start, int32_t debris_size)
     }
     debris_vector_.push_back(debris_start);
     debris_size_vector_.push_back(debris_size);
-    // MEMORY_CACHE_PRINTF("DEBUG:memory_cache_t add_debris debris_size %d\n",
+    // MEMORY_CACHE_PRINTF("DEBUG:memory_cache_t add_debris debris_size %d",
     // debris_size);
 }
 
@@ -243,6 +250,10 @@ memory_cache_t<T>::get_object_by_index(int32_t index)
 {
     int32_t page1_index = (index >> page2_bit_) & page1_mask_;
     int32_t page2_index = index & page2_mask_;
+    if (page1_index >= page1_size_) {
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:memory_cache_t get_object_by_index page1_index(%d) >= page1_size_(%d)",
+                                  page1_index, page1_size_);
+    }
     return page1_cache_[page1_index] + page2_index;
 }
 
@@ -269,7 +280,7 @@ tls_memory_cache_t<T>::tls_memory_cache_t(memory_cache_t<T> *memory_cache,
     cache_min_num_ = cache_min_num;
     if (cache_min_num_ > memory_cache->get_page2_size()) {
         MEMORY_CACHE_EXIT_PROCESS("ERROR:tls_memory_cache_t cache_min_num_(%d) > "
-                                  "memory_cache->page2_size_(%d)\n",
+                                  "memory_cache->page2_size_(%d)",
                                   cache_min_num_, memory_cache->get_page2_size());
     }
     cache_frame_min_size_ = memory_cache->get_debris_min_size();
@@ -281,6 +292,17 @@ tls_memory_cache_t<T>::tls_memory_cache_t(memory_cache_t<T> *memory_cache,
         cache_frame_num_ * sizeof(T *), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     cache_frame_size_vector_ = (int32_t *)dr_raw_mem_alloc(
         cache_frame_num_ * sizeof(int32_t), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    if (cache_frame_vector_ == NULL) {
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:tls_memory_cache_t cache_frame_vector_ init error");
+    } else {
+        // MEMORY_CACHE_PRINTF("LOG:tls_memory_cache_t cache_frame_vector_ alloc %lld", cache_frame_num_ * sizeof(T *));
+    }
+    if (cache_frame_size_vector_ == NULL) {
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:tls_memory_cache_t cache_frame_size_vector_ init error");
+    } else {
+        // MEMORY_CACHE_PRINTF("LOG:tls_memory_cache_t cache_frame_size_vector_ alloc %lld", cache_frame_num_ * sizeof(int32_t));
+    }
+    
     for (int32_t i = 0; i < cache_frame_num_; i++) {
         cache_frame_vector_[i] = NULL;
         cache_frame_size_vector_[i] = 0;
@@ -311,7 +333,7 @@ tls_memory_cache_t<T>::get_next_object()
             last_use_num_ = 0;
         }
     }
-    // MEMORY_CACHE_PRINTF("DEBUG:last_use_frame_id_ %d, last_use_num_ %d\n",
+    // MEMORY_CACHE_PRINTF("DEBUG:last_use_frame_id_ %d, last_use_num_ %d",
     // last_use_frame_id_,
     //                 last_use_num_);
     return cache_frame_vector_[last_use_frame_id_] + last_use_num_;
@@ -398,7 +420,7 @@ thread_shared_memory_cache_t<T>::thread_shared_memory_cache_t(
 {
     if (page1_bit + page2_bit > 31) {
         MEMORY_CACHE_EXIT_PROCESS(
-            "ERROR:thread_shared_memory_cache_t max cache 1^31 objects\n");
+            "ERROR:thread_shared_memory_cache_t max cache 1^31 objects");
     }
     page1_bit_ = page1_bit;
     page1_size_ = 1 << page1_bit_;
@@ -409,7 +431,7 @@ thread_shared_memory_cache_t<T>::thread_shared_memory_cache_t(
     page2_mask_ = page2_size_ - 1;
     if (page2_size_ < THREAD_MAX_NUM) {
         MEMORY_CACHE_EXIT_PROCESS("ERROR:thread_shared_memory_cache_t page2_size_(%d) = "
-                                  "2^page2_bit_(%d) < THREAD_MAX_NUM(%d) \n",
+                                  "2^page2_bit_(%d) < THREAD_MAX_NUM(%d)",
                                   page2_size_, page2_bit_, THREAD_MAX_NUM);
     }
     uint32_t max_size = 1 << (page1_bit_ + page2_bit_);
@@ -420,6 +442,11 @@ thread_shared_memory_cache_t<T>::thread_shared_memory_cache_t(
 
     page1_cache_ = (T **)dr_raw_mem_alloc(page1_size_ * sizeof(T *),
                                           DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    if (page1_cache_ == NULL) {
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:thread_shared_memory_cache_t page1_cache_ init error");
+    } else {
+        // MEMORY_CACHE_PRINTF("LOG:thread_shared_memory_cache_t page1_cache_ alloc %lld", page1_size_ * sizeof(T *));
+    }
     init_object_ = init_object;
     free_object_ = free_object;
     auto_add_lock_ = auto_add_lock;
@@ -452,14 +479,16 @@ thread_shared_memory_cache_t<T>::init_new_page2()
 {
     page1_last_index_++;
     if (page1_last_index_ >= page1_size_) {
-        MEMORY_CACHE_EXIT_PROCESS("ERROR:thread_shared_memory_cache_t full_error \n");
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:thread_shared_memory_cache_t full_error");
     }
     T *page2_cache = (T *)dr_raw_mem_alloc(page2_size_ * sizeof(T),
                                            DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     if (page2_cache == NULL) {
         MEMORY_CACHE_EXIT_PROCESS(
-            "ERROR:thread_shared_memory_cache_t page2_cache add error %d\n",
+            "ERROR:thread_shared_memory_cache_t page2_cache add error %d",
             page1_last_index_);
+    } else {
+        // MEMORY_CACHE_PRINTF("LOG:thread_shared_memory_cache_t add alloc %lld", page2_size_ * sizeof(T));
     }
     if (init_object_ != NULL) {
         for (int32_t i = 0; i < page2_size_; i++) {
@@ -498,6 +527,10 @@ thread_shared_memory_cache_t<T>::get_object_by_index(int32_t index)
 {
     int32_t page1_index = (index >> page2_bit_) & page1_mask_;
     int32_t page2_index = index & page2_mask_;
+    if (page1_index >= page1_size_) {
+        MEMORY_CACHE_EXIT_PROCESS("ERROR:thread_shared_memory_cache_t get_object_by_index page1_index(%d) >= page1_size_(%d)",
+                                  page1_index, page1_size_);
+    }
     // MEMORY_CACHE_PRINTF("page1_index %d page2_index %d", page1_index, page2_index);
     return page1_cache_[page1_index] + page2_index;
 }
