@@ -5,7 +5,6 @@ splay_node_init(splay_node_t *node, splay_node_key_t key)
 {
     node->left = NULL;
     node->right = NULL;
-    node->next = NULL;
     node->payload = NULL;
     node->key = key;
 }
@@ -126,4 +125,14 @@ splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *d
         root = new_node;
     }
     return root;
+}
+
+int32_t
+splay_tree_size(splay_node_t *root)
+{
+    if(root == NULL) {
+        return 0;
+    } else {
+        return 1 + splay_tree_size(root->left) + splay_tree_size(root->right);
+    }
 }
