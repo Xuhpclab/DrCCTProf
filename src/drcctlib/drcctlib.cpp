@@ -150,6 +150,9 @@ typedef struct _cct_bb_node_t {
     context_handle_t child_ctxt_start_idx;
     slot_t max_slots;
     splay_node_t *callee_splay_tree_root;
+#ifdef TEST_TREE_SIZE
+    int32_t callee_tree_size;
+#endif
 } cct_bb_node_t;
 
 typedef struct _cct_ip_node_t {
@@ -255,12 +258,13 @@ typedef struct _per_thread_t {
     void *ins_call_back_cache_data;
 
 #endif
-
-    IF_DRCCTLIB_DEBUG(uint64_t call_num;)
-    IF_DRCCTLIB_DEBUG(uint64_t return_num;)
     IF_DRCCTLIB_DEBUG(file_t log_file_bb;)
     IF_DRCCTLIB_DEBUG(file_t log_file_instr;)
 #ifdef TEST_TREE_SIZE
+    uint64_t call_num;
+    uint64_t return_num;
+    uint64_t tree_high;
+    uint64_t cur_tree_high;
     uint64_t ins_number;
     uint64_t bb_node_number;
     uint64_t real_node_number;
@@ -647,6 +651,9 @@ bb_node_create(tls_memory_cache_t<cct_bb_node_t> *tls_cache, bb_key_t key,
     new_node->child_ctxt_start_idx = cur_child_ctxt_start_idx(num);
     new_node->max_slots = num;
     new_node->callee_splay_tree_root = NULL;
+#ifdef TEST_TREE_SIZE
+    new_node->callee_tree_size = 0;
+#endif
     cct_ip_node_t *children = ctxt_hndl_to_ip_node(new_node->child_ctxt_start_idx);
     for (slot_t i = 0; i < num; ++i) {
         children[i].parent_bb_node_cache_index = new_node->cache_index;
@@ -664,6 +671,9 @@ bb_node_create(tls_memory_cache_t<cct_bb_node_t> *tls_cache, bb_key_t key,
     new_node->child_ctxt_start_idx = cur_child_ctxt_start_idx(num);
     new_node->max_slots = num;
     new_node->callee_splay_tree_root = NULL;
+#ifdef TEST_TREE_SIZE
+    new_node->callee_tree_size = 0;
+#endif
     cct_ip_node_t *children = ctxt_hndl_to_ip_node(new_node->child_ctxt_start_idx);
     for (slot_t i = 0; i < num; ++i) {
         children[i].parent_bb_node = new_node;
@@ -799,12 +809,13 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->log_file_instr =
         dr_open_file(instr_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file_instr != INVALID_FILE);
-
-    pt->call_num = 0;
-    pt->return_num = 0;
 #endif
 
 #ifdef TEST_TREE_SIZE
+    pt->call_num = 0;
+    pt->return_num = 0;
+    pt->tree_high = 0;
+    pt->cur_tree_high = 0;
     pt->ins_number = 0;
     pt->bb_node_number = 0;
     pt->real_node_number = 0;
@@ -883,15 +894,21 @@ thread_add_new_bb(void *drcontext, per_thread_t *pt, bb_key_t new_key, slot_t nu
         new_caller_bb_node = pt->root_bb_node;
     } else if (instr_state_contain(pt->pre_instr_state, INSTR_STATE_CALL_DIRECT) ||
                instr_state_contain(pt->pre_instr_state, INSTR_STATE_CALL_IN_DIRECT)) {
-        IF_DRCCTLIB_DEBUG(pt->call_num++;)
         new_caller_bb_node = pt->cur_bb_node;
+#ifdef TEST_TREE_SIZE
+        pt->call_num++;
+        pt->cur_tree_high++;
+#endif
     } else if (instr_state_contain(pt->pre_instr_state, INSTR_STATE_RETURN)) {
-        IF_DRCCTLIB_DEBUG(pt->return_num++;)
         if (bb_node_parent_bb(pt->cur_bb_node) == pt->root_bb_node) {
             new_caller_bb_node = bb_node_parent_bb(pt->cur_bb_node);
         } else {
             new_caller_bb_node = bb_node_parent_bb(bb_node_parent_bb(pt->cur_bb_node));
         }
+#ifdef TEST_TREE_SIZE
+        pt->return_num++;
+        pt->cur_tree_high--;
+#endif
     } else {
         new_caller_bb_node = bb_node_parent_bb(pt->cur_bb_node);
     }
@@ -899,6 +916,10 @@ thread_add_new_bb(void *drcontext, per_thread_t *pt, bb_key_t new_key, slot_t nu
 #ifdef TEST_TREE_SIZE
     pt->ins_number += num;
     pt->bb_node_number++;
+
+    if(pt->tree_high < pt->cur_tree_high) {
+        pt->tree_high = pt->cur_tree_high;
+    }
     int32_t o_num = 0;
     splay_node_t *new_root = splay_tree_update_test(
         new_caller_bb_node->callee_splay_tree_root, (splay_node_key_t)new_key,
@@ -920,6 +941,7 @@ thread_add_new_bb(void *drcontext, per_thread_t *pt, bb_key_t new_key, slot_t nu
         pt->next_splay_node = pt->splay_node_cache->get_next_object();
 #ifdef TEST_TREE_SIZE
         pt->real_node_number++;
+        new_caller_bb_node->callee_tree_size++;
 #endif
     }
     new_caller_bb_node->callee_splay_tree_root = new_root;
@@ -1983,13 +2005,14 @@ drcctlib_event_thread_end(void *drcontext)
     }
 #endif
 #ifdef DRCCTLIB_DEBUG
-    dr_fprintf(pt->log_file_bb, "call:%llu/return%llu\n", pt->call_num, pt->return_num);
     dr_close_file(pt->log_file_bb);
     dr_close_file(pt->log_file_instr);
 #endif
 
 #ifdef TEST_TREE_SIZE
     dr_mutex_lock(test_lock);
+    DRCCTLIB_PRINTF("Thread[%d]:call:%llu/return%llu/tree_high%llu", 
+        pt->id, pt->call_num, pt->return_num, pt->tree_high);
     real_node_number += pt->real_node_number;
     bb_node_number += pt->bb_node_number;
     ins_number += pt->ins_number;
