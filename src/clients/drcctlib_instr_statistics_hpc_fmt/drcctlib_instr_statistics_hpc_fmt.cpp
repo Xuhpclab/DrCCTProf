@@ -167,8 +167,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     ClientInit(argc, argv);
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL,
-                     InstrumentPerBBCache, NULL, NULL, NULL,
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE,
+                     NULL, NULL, InstrumentPerBBCache,
                      DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
     init_hpcrun_format(dr_get_application_name(), false);
     ins_metric_id = hpcrun_create_metric("TOT_CALLS");

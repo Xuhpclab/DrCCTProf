@@ -113,7 +113,7 @@ InstrumentIns(void *drcontext, instrlist_t *bb, instr_t *instr, int32_t slot)
 
 // analysis
 void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
+InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
 
     instrlist_t *bb = instrument_msg->bb;
@@ -197,7 +197,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             "ERROR: drcctlib_memory_only_clean_call drmgr_register_tls_field fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
-                     InstrumentInsCallback, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                     InstrumentInsCallback, NULL, NULL,
                      DRCCTLIB_DEFAULT);
     dr_register_exit_event(ClientExit);
 }

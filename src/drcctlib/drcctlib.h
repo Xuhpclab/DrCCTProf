@@ -74,14 +74,10 @@ typedef struct _data_handle_t {
 DR_EXPORT
 bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
-                 void (*func1)(void *, instr_instrument_msg_t *, void *), void *data1,
-                 void (*func2)(void *, int32_t, int32_t, void *), void *data2,
+                 void (*func1)(void *, instr_instrument_msg_t *),
+                 void (*func2)(void *, int32_t, int32_t),
                  void (*func3)(void *, context_handle_t, int32_t, int32_t,
-                               mem_ref_msg_t *, void **),
-                 void *data3,
-                 void (*func4)(void *, context_handle_t, int32_t, mem_ref_msg_t *,
-                               void **),
-                 void *data4, char flag);
+                               mem_ref_msg_t *, void **), char flag);
 
 DR_EXPORT
 void
@@ -94,15 +90,10 @@ drcctlib_register_instr_filter(bool (*filter)(instr_t *));
 DR_EXPORT
 void
 drcctlib_register_client_cb(
-    void (*func_instr_analysis)(void *, instr_instrument_msg_t *, void *),
-    void *analysis_data, void (*func_insert_bb_start)(void *, int32_t, int32_t, void *),
-    void *insert_data,
-    void (*func_insert_bb_post)(void *, context_handle_t, int32_t, int32_t,
-                                mem_ref_msg_t *, void **),
-    void *insert_bb_data,
-    void (*func_insert_ins_post)(void *, context_handle_t, int32_t, mem_ref_msg_t *,
-                                 void **),
-    void *insert_ins_data);
+    void (*func_instr_analysis)(void *, instr_instrument_msg_t *),
+    void (*func_insert_bb_start)(void *, int32_t, int32_t),
+    void (*func_insert_bb_end)(void *, context_handle_t, int32_t, int32_t,
+                                mem_ref_msg_t *, void **));
 
 DR_EXPORT
 void

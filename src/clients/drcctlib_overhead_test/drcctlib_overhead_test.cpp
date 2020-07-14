@@ -33,7 +33,7 @@ using namespace std;
     } while (0);                                                        \
     dr_exit_process(-1)
 
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
 #    define OPND_CREATE_BB_KEY OPND_CREATE_INT32
 #    define OPND_CREATE_SLOT OPND_CREATE_INT32
 #    define OPND_CREATE_STATE OPND_CREATE_INT32

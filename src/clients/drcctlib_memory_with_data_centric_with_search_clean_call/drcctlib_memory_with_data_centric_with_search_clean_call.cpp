@@ -167,14 +167,14 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
 
 // analysis
 void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
+InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
 
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
     int32_t slot = instrument_msg->slot;
     int num = 0;
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
     if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
                               "drreg_reserve_aflags != DRREG_SUCCESS");
@@ -208,7 +208,7 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
         DRCCTLIB_EXIT_PROCESS(
             "InstrumentInsCallback drreg_unreserve_register != DRREG_SUCCESS");
     }
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
     if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
     }
@@ -312,7 +312,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             "dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
-                     InstrumentInsCallback, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                     InstrumentInsCallback, NULL, NULL,
                      DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     dr_register_exit_event(ClientExit);
 }

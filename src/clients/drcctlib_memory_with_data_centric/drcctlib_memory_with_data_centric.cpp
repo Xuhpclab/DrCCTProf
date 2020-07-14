@@ -80,8 +80,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, NULL, NULL, NULL,
-                     NULL, InstrumentPerBBCache, NULL, NULL, NULL,
+    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
+                     NULL, NULL, InstrumentPerBBCache,
                      DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE | DRCCTLIB_CACHE_MODE |
                          DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR);
     dr_register_exit_event(ClientExit);

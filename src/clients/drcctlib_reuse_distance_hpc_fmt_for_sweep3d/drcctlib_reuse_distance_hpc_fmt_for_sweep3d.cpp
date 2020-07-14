@@ -394,7 +394,7 @@ BBMemRefNum(instrlist_t *instrlits)
 }
 
 void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
+InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
 
     instrlist_t *bb = instrument_msg->bb;
@@ -406,7 +406,7 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
                              1, OPND_CREATE_CCT_INT(bb_num));
     }
 
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
     if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
                               "drreg_reserve_aflags != DRREG_SUCCESS");
@@ -438,7 +438,7 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
         DRCCTLIB_EXIT_PROCESS(
             "InstrumentInsCallback drreg_unreserve_register != DRREG_SUCCESS");
     }
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
     if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
     }
@@ -547,7 +547,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             "ERROR: drcctlib_reuse_distance_hpc_fmt_for_sweep3d dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
-                     InstrumentInsCallback, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                     InstrumentInsCallback, NULL, NULL,
                      DRCCTLIB_SAVE_HPCTOOLKIT_FILE |
                          DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     init_hpcrun_format(dr_get_application_name(), false);

@@ -108,7 +108,7 @@ InstrumentIns(void *drcontext, instrlist_t *bb, instr_t *instr, int32_t slot)
 
 // analysis
 void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
+InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
     
     instrlist_t *bb = instrument_msg->bb;
@@ -194,8 +194,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_cct_only_no_cache drmgr_register_tls_field fail");
     }
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, NULL, NULL, NULL,
-                    NULL, NULL, NULL, NULL, DRCCTLIB_DEFAULT);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE,
+                     InstrumentInsCallback, NULL, NULL,
+                     DRCCTLIB_DEFAULT);
     dr_register_exit_event(ClientExit);
 }
 

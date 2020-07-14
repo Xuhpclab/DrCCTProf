@@ -284,8 +284,7 @@ ResetPtMap(per_thread_t *pt)
 }
 
 void
-InstrumentBBStartInsertCallback(void *drcontext, int32_t slot_num, int32_t mem_ref_num,
-                                void *data)
+InstrumentBBStartInsertCallback(void *drcontext, int32_t slot_num, int32_t mem_ref_num)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     int32_t next_buf_max_idx = pt->cur_buf_fill_num + mem_ref_num;
@@ -389,12 +388,12 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
 }
 
 void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
+InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
     int32_t slot = instrument_msg->slot;
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
     if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
                               "drreg_reserve_aflags != DRREG_SUCCESS");
@@ -426,7 +425,7 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
         DRCCTLIB_EXIT_PROCESS(
             "InstrumentInsCallback drreg_unreserve_register != DRREG_SUCCESS");
     }
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
     if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
     }
@@ -434,7 +433,7 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
 }
 
 #ifdef DEBUG_REUSE
-#    define ATOM_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
+#    define ATOMIC_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
 static int global_thread_id_max = 0;
 #endif
 
@@ -502,7 +501,7 @@ ClientThreadEnd(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    InstrumentBBStartInsertCallback(drcontext, 0, TLS_MEM_REF_BUFF_SIZE, NULL);
+    InstrumentBBStartInsertCallback(drcontext, 0, TLS_MEM_REF_BUFF_SIZE);
     PrintTopN(pt, OUTPUT_SIZE);
 
     dr_global_free(pt->cur_buf_list, TLS_MEM_REF_BUFF_SIZE * sizeof(mem_ref_t));
@@ -588,8 +587,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             "ERROR: drcctlib_reuse_distance_client_cache dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
-                     InstrumentInsCallback, NULL, InstrumentBBStartInsertCallback, NULL,
-                     NULL, NULL, NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                     InstrumentInsCallback, InstrumentBBStartInsertCallback, NULL,
+                     DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     dr_register_exit_event(ClientExit);
 }
 

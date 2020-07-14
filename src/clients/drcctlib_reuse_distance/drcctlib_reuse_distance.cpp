@@ -282,7 +282,7 @@ InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_n
 }
 
 #ifdef DEBUG_REUSE
-#    define ATOM_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
+#    define ATOMIC_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
 static int global_thread_id_max = 0;
 #endif
 
@@ -399,8 +399,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS(
             "ERROR: drcctlib_reuse_distance drmgr_register_tls_field fail");
     }
-    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, NULL, NULL, NULL,
-                     NULL, InstrumentPerBBCache, NULL, NULL, NULL,
+    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
+                     NULL, NULL, InstrumentPerBBCache,
                      DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE | DRCCTLIB_CACHE_MODE |
                          DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR);
     dr_register_exit_event(ClientExit);
