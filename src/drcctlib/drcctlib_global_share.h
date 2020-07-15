@@ -52,7 +52,7 @@
 #    define IF_DRCCTLIB_DEBUG(value)
 #endif
 
-#define DRCCTLIB_DEBUG_LOG_CCT_INFO
+// #define DRCCTLIB_DEBUG_LOG_CCT_INFO
 // #define IPNODE_STORE_BNODE_IDX
 #define IN_PROCESS_SPEEDUP
 
