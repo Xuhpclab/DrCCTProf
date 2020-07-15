@@ -1113,10 +1113,13 @@ instrument_before_every_bb_first(void *drcontext, instr_instrument_msg_t *instru
 #    else
     // bb_cache[cur_index]->bb_shadow init
     MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                                OPND_CREATE_INTPTR(bb_msg->bb_shadow)));
+    MINSERT(ilist, where,
             XINST_CREATE_store(
                 drcontext,
                 OPND_CREATE_MEMPTR(reg_1, offsetof(bb_cache_message_t, bb_shadow)),
-                OPND_CREATE_IMMEDIATE_INT(bb_msg->bb_shadow)));
+                opnd_create_reg(reg_2)));
 
     // get bb_cache[cur_index]->index
     MINSERT(ilist, where,
@@ -1375,10 +1378,13 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
 #    else
     // bb_cache[cur_index]->bb_shadow init
     MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                                OPND_CREATE_INTPTR((uint64_t)(void *)bb_msg->bb_shadow)));
+    MINSERT(ilist, where,
             XINST_CREATE_store(
                 drcontext,
                 OPND_CREATE_MEMPTR(reg_1, offsetof(bb_cache_message_t, bb_shadow)),
-                OPND_CREATE_IMMEDIATE_INT(bb_msg->bb_shadow)));
+                opnd_create_reg(reg_2)));
 
     // get bb_cache[cur_index]->index
     MINSERT(ilist, where,
