@@ -546,6 +546,9 @@ bb_shadow_init_config(bb_shadow_t *bb_shadow, slot_t slot_num, state_t end_ins_s
 static inline void
 bb_shadow_create_cache(bb_shadow_t *bb_shadow)
 {
+    if(bb_shadow->slot_num <= 0) {
+        return;
+    }
     bb_shadow->ip_shadow = (app_pc *)dr_raw_mem_alloc(
         bb_shadow->slot_num * sizeof(app_pc), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     bb_shadow->state_shadow = (state_t *)dr_raw_mem_alloc(
@@ -558,6 +561,9 @@ bb_shadow_create_cache(bb_shadow_t *bb_shadow)
 static inline void
 bb_shadow_free_cache(bb_shadow_t *bb_shadow)
 {
+    if(bb_shadow->slot_num <= 0 || bb_shadow->ip_shadow == NULL) {
+        return;
+    }
     dr_raw_mem_free(bb_shadow->ip_shadow, bb_shadow->slot_num * sizeof(app_pc));
     dr_raw_mem_free(bb_shadow->state_shadow, bb_shadow->slot_num * sizeof(state_t));
     dr_raw_mem_free(bb_shadow->disasm_shadow,
@@ -642,122 +648,6 @@ bb_instrument_msg_delete(bb_instrument_msg_t *bb_msg)
         return;
     }
     dr_global_free(bb_msg, sizeof(bb_instrument_msg_t));
-}
-
-static inline void
-pt_init(void *drcontext, per_thread_t *const pt, int id)
-{
-    pt->id = id;
-    pt->bb_node_cache = new tls_memory_cache_t<cct_bb_node_t>(
-        global_bb_node_cache, bb_node_cache_lock, TLS_MEM_CACHE_MIN_NUM);
-    pt->splay_node_cache = new tls_memory_cache_t<splay_node_t>(
-        global_splay_node_cache, splay_node_cache_lock, TLS_MEM_CACHE_MIN_NUM);
-    pt->dummy_splay_node = pt->splay_node_cache->get_next_object();
-    pt->next_splay_node = pt->splay_node_cache->get_next_object();
-    cct_bb_node_t *root_bb_node =
-        bb_node_create(pt->bb_node_cache, THREAD_ROOT_BB_SHARED_BB_KEY, NULL, 1);
-    pt->root_bb_node = root_bb_node;
-
-    pt->cur_bb_node = root_bb_node;
-    pt->pre_instr_state = INSTR_STATE_THREAD_ROOT_VIRTUAL;
-    pt->cur_slot = 0;
-    pt->cur_state = INSTR_STATE_CLIENT_INTEREST;
-
-    pt->cur_buf1 = dr_get_dr_segment_base(tls_seg1);
-
-    pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
-    BUF_PTR1(pt->cur_buf1, INSTRACE_TLS_OFFS_BUF_PTR) =
-        &(pt->cur_bb_child_ctxt_start_idx);
-
-    pt->signal_raise_bb_node = NULL;
-    pt->signal_raise_slot = 0;
-    pt->signal_raise_state = INSTR_STATE_CLIENT_INTEREST;
-
-    if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
-        // Set stack sizes if data-centric is needed
-        struct rlimit rlim;
-        if (getrlimit(RLIMIT_STACK, &rlim)) {
-            DRCCTLIB_EXIT_PROCESS("Failed to getrlimit()");
-        }
-        if (getrlimit(RLIMIT_STACK, &rlim)) {
-            DRCCTLIB_EXIT_PROCESS("Failed to getrlimit()");
-        }
-        pt->stack_base = (void *)(ptr_int_t)0;
-        if (rlim.rlim_cur == RLIM_INFINITY) {
-            pt->stack_unlimited = true;
-            pt->init_stack_cache = true;
-            pt->stack_size = (void *)(ptr_int_t)0;
-        } else {
-            pt->stack_unlimited = false;
-            pt->init_stack_cache = false;
-            pt->stack_size = (void *)(ptr_int_t)rlim.rlim_cur;
-        }
-        pt->dmem_alloc_size = 0;
-        pt->dmem_alloc_ctxt_hndl = 0;
-    } else {
-        pt->stack_unlimited = false;
-        pt->init_stack_cache = true;
-        pt->stack_base = (void *)(ptr_int_t)0;
-        pt->stack_size = (void *)(ptr_int_t)0;
-        pt->dmem_alloc_size = 0;
-        pt->dmem_alloc_ctxt_hndl = 0;
-    }
-
-#ifdef CCTLIB_64
-    if ((global_flags & DRCCTLIB_CACHE_MODE) != 0) {
-        pt->bb_cache = (bb_cache_message_t *)dr_global_alloc(BB_CACHE_MESSAGE_MAX_NUM *
-                                                             sizeof(bb_cache_message_t));
-        for (thread_aligned_num_t i = 0; i < BB_CACHE_MESSAGE_MAX_NUM; i++) {
-            pt->bb_cache[i].index = i + 1;
-            pt->bb_cache[i].bb_shadow = NULL;
-        }
-        pt->cur_buf2 = dr_get_dr_segment_base(tls_seg2);
-        BUF_PTR2(pt->cur_buf2, INSTRACE_TLS_OFFS_BUF_PTR) = pt->bb_cache;
-        if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
-            pt->inner_mem_ref_cache = (mem_ref_msg_t *)dr_global_alloc(
-                INNER_MEM_REF_CACHE_MAX * sizeof(mem_ref_msg_t));
-            for (thread_aligned_num_t i = 0; i < INNER_MEM_REF_CACHE_MAX; i++) {
-                pt->inner_mem_ref_cache[i].index = i + 1;
-            }
-            pt->cur_buf3 = dr_get_dr_segment_base(tls_seg3);
-            BUF_PTR3(pt->cur_buf3, INSTRACE_TLS_OFFS_BUF_PTR) = pt->inner_mem_ref_cache;
-        } else {
-            pt->inner_mem_ref_cache = NULL;
-            pt->cur_buf3 = NULL;
-        }
-    }
-    pt->pre_bb_shadow =
-        global_bb_shadow_cache->get_object_by_index(THREAD_ROOT_BB_SHARED_BB_KEY);
-    pt->bb_call_back_cache_data = NULL;
-#endif
-
-#ifdef DRCCTLIB_DEBUG
-#    ifdef ARM_CCTLIB
-    char bb_file_name[MAXIMUM_PATH] = "arm.";
-    char instr_file_name[MAXIMUM_PATH] = "arm.";
-#    else
-    char bb_file_name[MAXIMUM_PATH] = "x86.";
-    char instr_file_name[MAXIMUM_PATH] = "x86.";
-#    endif
-    gethostname(bb_file_name + strlen(bb_file_name), MAXIMUM_PATH - strlen(bb_file_name));
-    gethostname(instr_file_name + strlen(instr_file_name),
-                MAXIMUM_PATH - strlen(instr_file_name));
-    pid_t pid = getpid();
-
-    sprintf(bb_file_name + strlen(bb_file_name), "%d.bb.thread%d.log", pid, id);
-    pt->log_file_bb =
-        dr_open_file(bb_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
-    DR_ASSERT(pt->log_file_bb != INVALID_FILE);
-
-    sprintf(instr_file_name + strlen(instr_file_name), "%d.instr.thread%d.log", pid, id);
-    pt->log_file_instr =
-        dr_open_file(instr_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
-    DR_ASSERT(pt->log_file_instr != INVALID_FILE);
-#endif
-
-#ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
-    pt->cct_info = { 0 };
-#endif
 }
 
 #ifdef CCTLIB_64
@@ -1969,6 +1859,122 @@ drcctlib_event_signal(void *drcontext, dr_siginfo_t *siginfo)
     return DR_SIGNAL_DELIVER;
 }
 
+static inline void
+pt_init(void *drcontext, per_thread_t *const pt, int id)
+{
+    pt->id = id;
+    pt->bb_node_cache = new tls_memory_cache_t<cct_bb_node_t>(
+        global_bb_node_cache, bb_node_cache_lock, TLS_MEM_CACHE_MIN_NUM);
+    pt->splay_node_cache = new tls_memory_cache_t<splay_node_t>(
+        global_splay_node_cache, splay_node_cache_lock, TLS_MEM_CACHE_MIN_NUM);
+    pt->dummy_splay_node = pt->splay_node_cache->get_next_object();
+    pt->next_splay_node = pt->splay_node_cache->get_next_object();
+    cct_bb_node_t *root_bb_node =
+        bb_node_create(pt->bb_node_cache, THREAD_ROOT_BB_SHARED_BB_KEY, NULL, 1);
+    pt->root_bb_node = root_bb_node;
+
+    pt->cur_bb_node = root_bb_node;
+    pt->pre_instr_state = INSTR_STATE_THREAD_ROOT_VIRTUAL;
+    pt->cur_slot = 0;
+    pt->cur_state = INSTR_STATE_CLIENT_INTEREST;
+
+    pt->cur_buf1 = dr_get_dr_segment_base(tls_seg1);
+
+    pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
+    BUF_PTR1(pt->cur_buf1, INSTRACE_TLS_OFFS_BUF_PTR) =
+        &(pt->cur_bb_child_ctxt_start_idx);
+
+    pt->signal_raise_bb_node = NULL;
+    pt->signal_raise_slot = 0;
+    pt->signal_raise_state = INSTR_STATE_CLIENT_INTEREST;
+
+    if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
+        // Set stack sizes if data-centric is needed
+        struct rlimit rlim;
+        if (getrlimit(RLIMIT_STACK, &rlim)) {
+            DRCCTLIB_EXIT_PROCESS("Failed to getrlimit()");
+        }
+        if (getrlimit(RLIMIT_STACK, &rlim)) {
+            DRCCTLIB_EXIT_PROCESS("Failed to getrlimit()");
+        }
+        pt->stack_base = (void *)(ptr_int_t)0;
+        if (rlim.rlim_cur == RLIM_INFINITY) {
+            pt->stack_unlimited = true;
+            pt->init_stack_cache = true;
+            pt->stack_size = (void *)(ptr_int_t)0;
+        } else {
+            pt->stack_unlimited = false;
+            pt->init_stack_cache = false;
+            pt->stack_size = (void *)(ptr_int_t)rlim.rlim_cur;
+        }
+        pt->dmem_alloc_size = 0;
+        pt->dmem_alloc_ctxt_hndl = 0;
+    } else {
+        pt->stack_unlimited = false;
+        pt->init_stack_cache = true;
+        pt->stack_base = (void *)(ptr_int_t)0;
+        pt->stack_size = (void *)(ptr_int_t)0;
+        pt->dmem_alloc_size = 0;
+        pt->dmem_alloc_ctxt_hndl = 0;
+    }
+
+#ifdef CCTLIB_64
+    if ((global_flags & DRCCTLIB_CACHE_MODE) != 0) {
+        pt->bb_cache = (bb_cache_message_t *)dr_global_alloc(BB_CACHE_MESSAGE_MAX_NUM *
+                                                             sizeof(bb_cache_message_t));
+        for (thread_aligned_num_t i = 0; i < BB_CACHE_MESSAGE_MAX_NUM; i++) {
+            pt->bb_cache[i].index = i + 1;
+            pt->bb_cache[i].bb_shadow = NULL;
+        }
+        pt->cur_buf2 = dr_get_dr_segment_base(tls_seg2);
+        BUF_PTR2(pt->cur_buf2, INSTRACE_TLS_OFFS_BUF_PTR) = pt->bb_cache;
+        if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+            pt->inner_mem_ref_cache = (mem_ref_msg_t *)dr_global_alloc(
+                INNER_MEM_REF_CACHE_MAX * sizeof(mem_ref_msg_t));
+            for (thread_aligned_num_t i = 0; i < INNER_MEM_REF_CACHE_MAX; i++) {
+                pt->inner_mem_ref_cache[i].index = i + 1;
+            }
+            pt->cur_buf3 = dr_get_dr_segment_base(tls_seg3);
+            BUF_PTR3(pt->cur_buf3, INSTRACE_TLS_OFFS_BUF_PTR) = pt->inner_mem_ref_cache;
+        } else {
+            pt->inner_mem_ref_cache = NULL;
+            pt->cur_buf3 = NULL;
+        }
+    }
+    pt->pre_bb_shadow =
+        global_bb_shadow_cache->get_object_by_index(THREAD_ROOT_BB_SHARED_BB_KEY);
+    pt->bb_call_back_cache_data = NULL;
+#endif
+
+#ifdef DRCCTLIB_DEBUG
+#    ifdef ARM_CCTLIB
+    char bb_file_name[MAXIMUM_PATH] = "arm.";
+    char instr_file_name[MAXIMUM_PATH] = "arm.";
+#    else
+    char bb_file_name[MAXIMUM_PATH] = "x86.";
+    char instr_file_name[MAXIMUM_PATH] = "x86.";
+#    endif
+    gethostname(bb_file_name + strlen(bb_file_name), MAXIMUM_PATH - strlen(bb_file_name));
+    gethostname(instr_file_name + strlen(instr_file_name),
+                MAXIMUM_PATH - strlen(instr_file_name));
+    pid_t pid = getpid();
+
+    sprintf(bb_file_name + strlen(bb_file_name), "%d.bb.thread%d.log", pid, id);
+    pt->log_file_bb =
+        dr_open_file(bb_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
+    DR_ASSERT(pt->log_file_bb != INVALID_FILE);
+
+    sprintf(instr_file_name + strlen(instr_file_name), "%d.instr.thread%d.log", pid, id);
+    pt->log_file_instr =
+        dr_open_file(instr_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
+    DR_ASSERT(pt->log_file_instr != INVALID_FILE);
+#endif
+
+#ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
+    pt->cct_info = { 0 };
+#endif
+}
+
 static void
 drcctlib_event_thread_start(void *drcontext)
 {
@@ -2019,11 +2025,11 @@ drcctlib_event_thread_end(void *drcontext)
     DRCCTLIB_PRINTF("Thread[%d]:call:%llu/return%llu/tree_high%llu", pt->id,
                         pt->cct_info.call_num, pt->cct_info.return_num,
                         pt->cct_info.tree_high);
-    global_cct_info->real_node_num += pt->cct_info.real_node_num;
-    global_cct_info->bb_node_num += pt->cct_info.bb_node_num;
-    global_cct_info->ins_num += pt->cct_info.ins_num;
-    global_cct_info->splay_tree_search_num += pt->cct_info.splay_tree_search_num;
-    global_cct_info->cct_create_clean_call_num += pt->cct_info.cct_create_clean_call_num;
+    global_cct_info.real_node_num += pt->cct_info.real_node_num;
+    global_cct_info.bb_node_num += pt->cct_info.bb_node_num;
+    global_cct_info.ins_num += pt->cct_info.ins_num;
+    global_cct_info.splay_tree_search_num += pt->cct_info.splay_tree_search_num;
+    global_cct_info.cct_create_clean_call_num += pt->cct_info.cct_create_clean_call_num;
     dr_mutex_unlock(global_cct_info_lock);
 #endif
     pt->bb_node_cache->free_unuse_object();
@@ -2631,9 +2637,9 @@ drcctlib_exit(void)
                         "global_real_node_num %llu "
                         "global_search_num %llu "
                         "global_cct_create_clean_call_num %llu",
-                        global_cct_info->ins_num, global_cct_info->bb_node_num,
-                        global_cct_info->real_node_num, global_cct_info->search_num,
-                        global_cct_info->cct_create_clean_call_num);
+                        global_cct_info.ins_num, global_cct_info.bb_node_num,
+                        global_cct_info.real_node_num, global_cct_info.search_num,
+                        global_cct_info.cct_create_clean_call_num);
 #endif
 
     if (!dr_raw_tls_cfree(tls_offs1, INSTRACE_TLS_COUNT)) {
