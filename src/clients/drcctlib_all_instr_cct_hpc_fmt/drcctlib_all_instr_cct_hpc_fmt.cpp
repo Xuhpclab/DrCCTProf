@@ -10,8 +10,10 @@
 #include <sys/mman.h>
 
 #include "dr_api.h"
-#include "drcctlib.h"
 #include "drmgr.h"
+
+#include "drcctlib.h"
+#include "drcctlib_hpcviewer_format.h"
 
 using namespace std;
 
@@ -53,13 +55,14 @@ ClientInit(int argc, const char *argv[])
 static void
 ClientExit(void)
 {
-    drcctlib_exit();
-
     if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
         !drmgr_unregister_thread_exit_event(ClientThreadEnd)) {
         DRCCTLIB_PRINTF("failed to unregister in ClientExit");
     }
     drmgr_exit();
+
+    drcctlib_exit();
+    hpcrun_format_exit();
 }
 
 #ifdef __cplusplus
@@ -87,8 +90,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE,
                      NULL, NULL, NULL,
-                     DRCCTLIB_CACHE_MODE | DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
-    init_hpcrun_format(dr_get_application_name(), true);
+                     DRCCTLIB_CACHE_MODE);
+    hpcrun_format_init(dr_get_application_name(), true);
     dr_register_exit_event(ClientExit);
 }
 

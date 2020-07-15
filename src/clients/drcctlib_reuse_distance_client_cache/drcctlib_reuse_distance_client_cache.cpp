@@ -432,16 +432,10 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
 #endif
 }
 
-#ifdef DEBUG_REUSE
-#    define ATOMIC_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
-static int global_thread_id_max = 0;
-#endif
-
-
 static void
 ThreadOutputFileInit(per_thread_t *pt)
 {
-    int32_t id = drcctlib_get_per_thread_data_id();
+    int32_t id = drcctlib_get_thread_id();
     pid_t pid = getpid();
 #ifdef ARM_CCTLIB
     char name[MAXIMUM_PATH] = "arm.";

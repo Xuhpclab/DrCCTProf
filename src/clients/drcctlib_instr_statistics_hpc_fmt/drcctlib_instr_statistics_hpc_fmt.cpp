@@ -12,7 +12,9 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
+
 #include "drcctlib.h"
+#include "drcctlib_hpcviewer_format.h"
 
 using namespace std;
 
@@ -152,7 +154,9 @@ ClientExit(void)
     write_progress_custom_cct_hpurun_format();
 
     FreeGlobalBuff();
+
     drcctlib_exit();
+    hpcrun_format_exit();
 }
 
 #ifdef __cplusplus
@@ -169,8 +173,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE,
                      NULL, NULL, InstrumentPerBBCache,
-                     DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
-    init_hpcrun_format(dr_get_application_name(), false);
+                     DRCCTLIB_CACHE_MODE);
+    hpcrun_format_init(dr_get_application_name(), false);
     ins_metric_id = hpcrun_create_metric("TOT_CALLS");
     dr_register_exit_event(ClientExit);
 }

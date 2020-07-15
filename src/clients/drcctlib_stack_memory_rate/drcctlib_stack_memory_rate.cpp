@@ -17,6 +17,7 @@
 #include "drreg.h"
 #include "drutil.h"
 #include "drcctlib.h"
+#include "drcctlib_ext.h"
 
 using namespace std;
 
