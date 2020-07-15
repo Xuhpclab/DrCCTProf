@@ -20,26 +20,12 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                             \
-    do {                                                                             \
-        char name[MAXIMUM_PATH] = "";                                                \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));               \
-        pid_t pid = getpid();                                                        \
-        dr_printf("[(%s%d)drcctlib_memory_with_data_centric_with_search_clean_call " \
-                  "msg]====" format "\n",                                            \
-                  name, pid, ##args);                                                \
-    } while (0)
-
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                          \
-    do {                                                                                \
-        char name[MAXIMUM_PATH] = "";                                                   \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                  \
-        pid_t pid = getpid();                                                           \
-        dr_printf("[(%s%d)drcctlib_memory_with_data_centric_with_search_clean_call(%s%" \
-                  "d) msg]====" format "\n",                                            \
-                  name, pid, ##args);                                                   \
-    } while (0);                                                                        \
-    dr_exit_process(-1)
+#define DRCCTLIB_PRINTF(format, args...)                                                \
+    DRCCTLIB_PRINTF_TEMPLATE("memory_with_data_centric_with_search_clean_call", format, \
+                             ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE(     \
+        "memory_with_data_centric_with_search_clean_call", format, ##args)
 
 static int tls_idx;
 

@@ -22,27 +22,11 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                               \
-    do {                                                                               \
-        char name[MAXIMUM_PATH] = "";                                                  \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                 \
-        pid_t pid = getpid();                                                          \
-        dr_printf("[(%s%d)drcctlib_reuse_distance_hpc_fmt_for_sweep3d msg]====" format \
-                  "\n",                                                                \
-                  name, pid, ##args);                                                  \
-    } while (0)
-
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                         \
-    do {                                                                               \
-        char name[MAXIMUM_PATH] = "";                                                  \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                 \
-        pid_t pid = getpid();                                                          \
-        dr_printf(                                                                     \
-            "[(%s%d)drcctlib_reuse_distance_hpc_fmt_for_sweep3d(%s%d) msg]====" format \
-            "\n",                                                                      \
-            name, pid, ##args);                                                        \
-    } while (0);                                                                       \
-    dr_exit_process(-1)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("reuse_distance_hpc_fmt_for_sweep3d", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...)                                          \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_distance_hpc_fmt_for_sweep3d", format, \
+                                          ##args)
 
 static int tls_idx;
 
@@ -508,7 +492,7 @@ ClientExit(void)
         DRCCTLIB_PRINTF("failed to exit drreg");
     }
     drutil_exit();
-    
+
     drcctlib_exit();
     hpcrun_format_exit();
 }

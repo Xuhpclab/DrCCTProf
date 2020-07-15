@@ -24,22 +24,10 @@
 #include "shadow_memory.h"
 #include "memory_cache.h"
 
-#define DRCCTLIB_PRINTF(format, args...)                                      \
-    do {                                                                      \
-        char name[MAXIMUM_PATH] = "";                                         \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));        \
-        pid_t pid = getpid();                                                 \
-        dr_printf("[drcctlib[fwk](%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0)
-
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                \
-    do {                                                                      \
-        char name[MAXIMUM_PATH] = "";                                         \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));        \
-        pid_t pid = getpid();                                                 \
-        dr_printf("[drcctlib[fwk](%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0);                                                              \
-    dr_exit_process(-1)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("fwk", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("fwk", format, ##args)
 
 #ifdef ARM32_CCTLIB
 #    define DR_DISASM_DRCCTLIB DR_DISASM_ARM
@@ -88,11 +76,11 @@
 // mem_cache and tls_mem_cache config (bb_node_cache && splay_node_cache)
 #define FOR_SPEC_TEST
 #ifdef FOR_SPEC_TEST
-#    define MEM_CACHE_PAGE1_BIT 11         // 8KB max cost 56GB
-#    define MEM_CACHE_PAGE2_BIT 20         // 28MB
+#    define MEM_CACHE_PAGE1_BIT 11 // 8KB max cost 56GB
+#    define MEM_CACHE_PAGE2_BIT 20 // 28MB
 #else
-#    define MEM_CACHE_PAGE1_BIT 4        // 128B max cost 447MB
-#    define MEM_CACHE_PAGE2_BIT 20       // 28MB
+#    define MEM_CACHE_PAGE1_BIT 4  // 128B max cost 447MB
+#    define MEM_CACHE_PAGE2_BIT 20 // 28MB
 #endif
 #define TLS_MEM_CACHE_MIN_NUM 8192 // 2^13
 #define MEM_CACHE_DEBRIS_SIZE 1024 // 2^0
@@ -103,11 +91,10 @@
 
 // cache global 100KB per thread (pt->bb_cache && pt->inner_mem_ref_cache)
 #define BB_CACHE_MESSAGE_MAX_NUM 256 // 2^8 * 16B = 4KB
-#define INNER_MEM_REF_CACHE_MAX 4096       // 2^12 * 24B = 96KB
+#define INNER_MEM_REF_CACHE_MAX 4096 // 2^12 * 24B = 96KB
 
 #define DISASM_CACHE_SIZE 80
 #define MAXIMUM_SYMNAME 256
-
 
 #define INVALID_CTXT_HNDL 0
 #define THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE 1
@@ -388,9 +375,8 @@ cur_child_ctxt_start_idx(slot_t num)
     context_handle_t next_start_idx =
         ATOMIC_ADD_CTXT_HNDL(global_ip_node_buff_idle_idx, num);
     if (next_start_idx >= CONTEXT_HANDLE_MAX) {
-        DRCCTLIB_EXIT_PROCESS(
-            "Preallocated IPNodes exhausted. CCTLib couldn't fit your "
-            "application in its memory. Try a smaller program.");
+        DRCCTLIB_EXIT_PROCESS("Preallocated IPNodes exhausted. CCTLib couldn't fit your "
+                              "application in its memory. Try a smaller program.");
     }
 
     return next_start_idx - num;
@@ -546,7 +532,7 @@ bb_shadow_init_config(bb_shadow_t *bb_shadow, slot_t slot_num, state_t end_ins_s
 static inline void
 bb_shadow_create_cache(bb_shadow_t *bb_shadow)
 {
-    if(bb_shadow->slot_num <= 0) {
+    if (bb_shadow->slot_num <= 0) {
         return;
     }
     bb_shadow->ip_shadow = (app_pc *)dr_raw_mem_alloc(
@@ -561,7 +547,7 @@ bb_shadow_create_cache(bb_shadow_t *bb_shadow)
 static inline void
 bb_shadow_free_cache(bb_shadow_t *bb_shadow)
 {
-    if(bb_shadow->slot_num <= 0 || bb_shadow->ip_shadow == NULL) {
+    if (bb_shadow->slot_num <= 0 || bb_shadow->ip_shadow == NULL) {
         return;
     }
     dr_raw_mem_free(bb_shadow->ip_shadow, bb_shadow->slot_num * sizeof(app_pc));
@@ -675,8 +661,8 @@ per_thread_init_stack_cache(void *drcontext, per_thread_t *pt)
             dr_get_mcontext(drcontext, &mcontext);
             pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_STACK_REG, &mcontext);
             DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id,
-                                pt->stack_base, (ptr_int_t)pt->stack_size,
-                                (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
+                            pt->stack_base, (ptr_int_t)pt->stack_size,
+                            (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
             pt->init_stack_cache = true;
         }
         pt->bb_cache[1].bb_shadow = pt->bb_cache[0].bb_shadow;
@@ -696,6 +682,7 @@ per_thread_refresh_bb_cache(void *drcontext, per_thread_t *pt)
     bb_shadow_t *pre_bb_shadow = pt->pre_bb_shadow;
 #    ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     per_thread_cct_info_t temp_cct_info = pt->cct_info;
+    int64_t splay_tree_search_num = 0;
 #    endif
 
     // read only
@@ -757,7 +744,7 @@ per_thread_refresh_bb_cache(void *drcontext, per_thread_t *pt)
                     new_caller_bb_node) {
                     cur_bb_node = cur_bb_shadow->last_same_key_bb;
 #        ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
-                    temp_cct_info.splay_tree_search_num++;
+                    splay_tree_search_num++;
 #        endif
                     pre_bb_shadow = cur_bb_shadow;
                     bb_cache[i].bb_shadow = NULL;
@@ -769,7 +756,7 @@ per_thread_refresh_bb_cache(void *drcontext, per_thread_t *pt)
             splay_node_t *new_root = splay_tree_update_test(
                 new_caller_bb_node->callee_splay_tree_root,
                 (splay_node_key_t)cur_bb_shadow->key, dummy_splay_node, next_splay_node,
-                &temp_cct_info.splay_tree_search_num);
+                &splay_tree_search_num);
 #    else
             splay_node_t *new_root = splay_tree_update(
                 new_caller_bb_node->callee_splay_tree_root,
@@ -801,6 +788,7 @@ per_thread_refresh_bb_cache(void *drcontext, per_thread_t *pt)
     pt->pre_bb_shadow = pre_bb_shadow;
 #    ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     temp_cct_info.cct_create_clean_call_num++;
+    temp_cct_info.splay_tree_search_num += splay_tree_search_num;
     pt->cct_info = temp_cct_info;
 #    endif
 
@@ -830,6 +818,7 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
     bb_shadow_t *pre_bb_shadow = pt->pre_bb_shadow;
 #    ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     per_thread_cct_info_t temp_cct_info = pt->cct_info;
+    int64_t splay_tree_search_num = 0;
 #    endif
 
     // read only
@@ -897,7 +886,7 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
                     new_caller_bb_node) {
                     cur_bb_node = cur_bb_shadow->last_same_key_bb;
 #        ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
-                    temp_cct_info.splay_tree_search_num++;
+                    splay_tree_search_num++;
 #        endif
                     pre_bb_shadow = cur_bb_shadow;
                     bb_cache[i].bb_shadow = NULL;
@@ -909,7 +898,7 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
             splay_node_t *new_root = splay_tree_update_test(
                 new_caller_bb_node->callee_splay_tree_root,
                 (splay_node_key_t)cur_bb_shadow->key, dummy_splay_node, next_splay_node,
-                &temp_cct_info.splay_tree_search_num);
+                &splay_tree_search_num);
 #    else
             splay_node_t *new_root = splay_tree_update(
                 new_caller_bb_node->callee_splay_tree_root,
@@ -941,6 +930,7 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
     pt->pre_bb_shadow = pre_bb_shadow;
 #    ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     temp_cct_info.cct_create_clean_call_num++;
+    temp_cct_info.splay_tree_search_num += splay_tree_search_num;
     pt->cct_info = temp_cct_info;
 #    endif
 
@@ -950,8 +940,9 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
 
     thread_aligned_num_t pre_bb_end_index =
         pre_bb_start_index + pre_bb_shadow->mem_ref_num;
-    thread_aligned_num_t max_index =
-        INNER_MEM_REF_CACHE_MAX >= pre_bb_end_index ? pre_bb_end_index : INNER_MEM_REF_CACHE_MAX;
+    thread_aligned_num_t max_index = INNER_MEM_REF_CACHE_MAX >= pre_bb_end_index
+        ? pre_bb_end_index
+        : INNER_MEM_REF_CACHE_MAX;
     thread_aligned_num_t last_index = pre_bb_start_index;
     for (; last_index < max_index; last_index++) {
         if (inner_mem_ref_cache[last_index].addr != 0) {
@@ -1114,7 +1105,7 @@ instrument_before_every_bb_first(void *drcontext, instr_instrument_msg_t *instru
     // bb_cache[cur_index]->bb_shadow init
     MINSERT(ilist, where,
             XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
-                                OPND_CREATE_INTPTR(bb_msg->bb_shadow)));
+                                  OPND_CREATE_INTPTR(bb_msg->bb_shadow)));
     MINSERT(ilist, where,
             XINST_CREATE_store(
                 drcontext,
@@ -1251,7 +1242,7 @@ instrument_memory_cache_every_memory_instr(void *drcontext,
 #    ifndef ARM64_CCTLIB
     if (drreg_reserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_memory_cache_every_memory_instr "
-                                  "drreg_reserve_aflags != DRREG_SUCCESS");
+                              "drreg_reserve_aflags != DRREG_SUCCESS");
     }
 #    endif
     reg_id_t reg_1, reg_2, reg_mem_ref_ptr;
@@ -1260,7 +1251,7 @@ instrument_memory_cache_every_memory_instr(void *drcontext,
         drreg_reserve_register(drcontext, ilist, where, NULL, &reg_mem_ref_ptr) !=
             DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_memory_cache_every_memory_instr "
-                                  "drreg_reserve_register != DRREG_SUCCESS");
+                              "drreg_reserve_register != DRREG_SUCCESS");
     }
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg3,
                            tls_offs3 + INSTRACE_TLS_OFFS_BUF_PTR, reg_mem_ref_ptr);
@@ -1285,12 +1276,12 @@ instrument_memory_cache_every_memory_instr(void *drcontext,
         drreg_unreserve_register(drcontext, ilist, where, reg_mem_ref_ptr) !=
             DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_memory_cache_every_memory_instr "
-                                  "drreg_unreserve_register != DRREG_SUCCESS");
+                              "drreg_unreserve_register != DRREG_SUCCESS");
     }
 #    ifndef ARM64_CCTLIB
     if (drreg_unreserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_memory_cache_every_memory_instr "
-                                  "drreg_unreserve_aflags != DRREG_SUCCESS");
+                              "drreg_unreserve_aflags != DRREG_SUCCESS");
     }
 #    endif
 }
@@ -1309,7 +1300,7 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
     instr_t *skip_clean_call = INSTR_CREATE_label(drcontext);
     if (drreg_reserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_memory_cache_before_every_bb_first "
-                                  "drreg_reserve_aflags != DRREG_SUCCESS");
+                              "drreg_reserve_aflags != DRREG_SUCCESS");
     }
     if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_1) != DRREG_SUCCESS ||
         drreg_reserve_register(drcontext, ilist, where, NULL, &reg_2) != DRREG_SUCCESS ||
@@ -1317,7 +1308,7 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
         drreg_reserve_register(drcontext, ilist, where, NULL, &reg_mem_ref_ptr) !=
             DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_memory_cache_before_every_bb_first "
-                                  "drreg_reserve_register != DRREG_SUCCESS");
+                              "drreg_reserve_register != DRREG_SUCCESS");
     }
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg2,
                            tls_offs2 + INSTRACE_TLS_OFFS_BUF_PTR, reg_1);
@@ -1352,8 +1343,8 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
     MINSERT(ilist, where,
             INSTR_CREATE_cbz(drcontext, opnd_create_instr(skip_to_call),
                              opnd_create_reg(reg_3)));
-    // inner_mem_ref_cache[cur_index]->index + bb_msg->mem_ref_num > INNER_MEM_REF_CACHE_MAX
-    // jump to clean call
+    // inner_mem_ref_cache[cur_index]->index + bb_msg->mem_ref_num >
+    // INNER_MEM_REF_CACHE_MAX jump to clean call
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg3,
                            tls_offs3 + INSTRACE_TLS_OFFS_BUF_PTR, reg_mem_ref_ptr);
     MINSERT(ilist, where,
@@ -1377,9 +1368,10 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
             XINST_CREATE_add(drcontext, opnd_create_reg(reg_1), opnd_create_reg(reg_2)));
 #    else
     // bb_cache[cur_index]->bb_shadow init
-    MINSERT(ilist, where,
-            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
-                                OPND_CREATE_INTPTR((uint64_t)(void *)bb_msg->bb_shadow)));
+    MINSERT(
+        ilist, where,
+        XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                              OPND_CREATE_INTPTR((uint64_t)(void *)bb_msg->bb_shadow)));
     MINSERT(ilist, where,
             XINST_CREATE_store(
                 drcontext,
@@ -1403,8 +1395,8 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
     MINSERT(
         ilist, where,
         XINST_CREATE_jump_cond(drcontext, DR_PRED_Z, opnd_create_instr(skip_to_call)));
-    // inner_mem_ref_cache[cur_index]->index + bb_msg->mem_ref_num > INNER_MEM_REF_CACHE_MAX
-    // jump to clean call
+    // inner_mem_ref_cache[cur_index]->index + bb_msg->mem_ref_num >
+    // INNER_MEM_REF_CACHE_MAX jump to clean call
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg3,
                            tls_offs3 + INSTRACE_TLS_OFFS_BUF_PTR, reg_mem_ref_ptr);
     MINSERT(ilist, where,
@@ -1466,11 +1458,11 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
         drreg_unreserve_register(drcontext, ilist, where, reg_mem_ref_ptr) !=
             DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_memory_cache_before_every_bb_first "
-                                  "drreg_unreserve_register != DRREG_SUCCESS");
+                              "drreg_unreserve_register != DRREG_SUCCESS");
     }
     if (drreg_unreserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_memory_cache_before_every_bb_first "
-                                  "drreg_unreserve_aflags != DRREG_SUCCESS");
+                              "drreg_unreserve_aflags != DRREG_SUCCESS");
     }
 }
 #endif
@@ -1492,8 +1484,8 @@ instrument_before_bb_first_instr(bb_key_t new_key, slot_t slot_num, state_t end_
         dr_get_mcontext(drcontext, &mcontext);
         pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_STACK_REG, &mcontext);
         DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id,
-                            pt->stack_base, (ptr_int_t)pt->stack_size,
-                            (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
+                        pt->stack_base, (ptr_int_t)pt->stack_size,
+                        (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
         pt->init_stack_cache = true;
     }
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, "+%d/%d/%d+|%d(Ox%p)/", new_key,
@@ -1578,14 +1570,14 @@ instrument_before_every_instr_meta_instr(void *drcontext,
     if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_store_imm) !=
         DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
-                                  "drreg_reserve_register != DRREG_SUCCESS");
+                              "drreg_reserve_register != DRREG_SUCCESS");
     }
     opnd_t opnd_reg_store_imm = opnd_create_reg(reg_store_imm);
 #endif
     reg_id_t reg_tls;
     if (drreg_reserve_register(drcontext, bb, instr, NULL, &reg_tls) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
-                                  "drreg_reserve_register != DRREG_SUCCESS");
+                              "drreg_reserve_register != DRREG_SUCCESS");
     }
     drmgr_insert_read_tls_field(drcontext, tls_idx, bb, instr, reg_tls);
 
@@ -1615,12 +1607,12 @@ instrument_before_every_instr_meta_instr(void *drcontext,
 #ifdef ARM_CCTLIB
     if (drreg_unreserve_register(drcontext, bb, instr, reg_store_imm) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
-                                  "drreg_unreserve_register != DRREG_SUCCESS");
+                              "drreg_unreserve_register != DRREG_SUCCESS");
     }
 #endif
     if (drreg_unreserve_register(drcontext, bb, instr, reg_tls) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
-                                  "drreg_unreserve_register != DRREG_SUCCESS");
+                              "drreg_unreserve_register != DRREG_SUCCESS");
     }
 }
 
@@ -2029,8 +2021,8 @@ drcctlib_event_thread_end(void *drcontext)
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     dr_mutex_lock(global_cct_info_lock);
     DRCCTLIB_PRINTF("Thread[%d]:call:%llu/return%llu/tree_high%llu", pt->id,
-                        pt->cct_info.call_num, pt->cct_info.return_num,
-                        pt->cct_info.tree_high);
+                    pt->cct_info.call_num, pt->cct_info.return_num,
+                    pt->cct_info.tree_high);
     global_cct_info.real_node_num += pt->cct_info.real_node_num;
     global_cct_info.bb_node_num += pt->cct_info.bb_node_num;
     global_cct_info.ins_num += pt->cct_info.ins_num;
@@ -2575,8 +2567,7 @@ drcctlib_init(char flag)
     }
     if (!drmgr_register_bb_instrumentation_event(drcctlib_event_bb_analysis,
                                                  drcctlib_event_bb_insert, NULL)) {
-        DRCCTLIB_PRINTF(
-            "WARNING: drcctlib fail to register bb instrumentation event");
+        DRCCTLIB_PRINTF("WARNING: drcctlib fail to register bb instrumentation event");
         return false;
     }
     if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
@@ -2639,13 +2630,13 @@ drcctlib_exit(void)
         return;
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     DRCCTLIB_PRINTF("+++++++++++++++global_ins_num %llu "
-                        "global_bb_node_num %llu "
-                        "global_real_node_num %llu "
-                        "global_search_num %llu "
-                        "global_cct_create_clean_call_num %llu",
-                        global_cct_info.ins_num, global_cct_info.bb_node_num,
-                        global_cct_info.real_node_num, global_cct_info.search_num,
-                        global_cct_info.cct_create_clean_call_num);
+                    "global_bb_node_num %llu "
+                    "global_real_node_num %llu "
+                    "global_search_num %llu "
+                    "global_cct_create_clean_call_num %llu",
+                    global_cct_info.ins_num, global_cct_info.bb_node_num,
+                    global_cct_info.real_node_num, global_cct_info.splay_tree_search_num,
+                    global_cct_info.cct_create_clean_call_num);
 #endif
 
     if (!dr_raw_tls_cfree(tls_offs1, INSTRACE_TLS_COUNT)) {

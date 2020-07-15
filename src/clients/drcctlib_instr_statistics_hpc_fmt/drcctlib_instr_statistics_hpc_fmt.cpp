@@ -18,24 +18,10 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                                 \
-    do {                                                                                 \
-        char name[MAXIMUM_PATH] = "";                                                    \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                   \
-        pid_t pid = getpid();                                                            \
-        dr_printf("[(%s%d)drcctlib_instr_statistics_hpc_fmt msg]====" format "\n", name, \
-                  pid, ##args);                                                          \
-    } while (0)
-
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                           \
-    do {                                                                                 \
-        char name[MAXIMUM_PATH] = "";                                                    \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                   \
-        pid_t pid = getpid();                                                            \
-        dr_printf("[(%s%d)drcctlib_instr_statistics_hpc_fmt(%s%d) msg]====" format "\n", \
-                  name, pid, ##args);                                                    \
-    } while (0);                                                                         \
-    dr_exit_process(-1)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("instr_statistics_hpc_fmt", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("instr_statistics_hpc_fmt", format, ##args)
 
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 #define TOP_REACH__NUM_SHOW 200
@@ -171,9 +157,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     ClientInit(argc, argv);
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE,
-                     NULL, NULL, InstrumentPerBBCache,
-                     DRCCTLIB_CACHE_MODE);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL,
+                     InstrumentPerBBCache, DRCCTLIB_CACHE_MODE);
     hpcrun_format_init(dr_get_application_name(), false);
     ins_metric_id = hpcrun_create_metric("TOT_CALLS");
     dr_register_exit_event(ClientExit);
