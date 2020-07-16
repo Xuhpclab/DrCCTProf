@@ -54,13 +54,13 @@
 
 // #define DRCCTLIB_DEBUG_LOG_CCT_INFO
 // #define IPNODE_STORE_BNODE_IDX
-#define IN_PROCESS_SPEEDUP
+// #define IN_PROCESS_SPEEDUP
 
 #define context_handle_t int32_t
 #define aligned_ctxt_hndl_t int64_t
 
 #define THREAD_MAX_NUM 8192
-#define FOR_SPEC_TEST
+// #define FOR_SPEC_TEST
 #ifdef FOR_SPEC_TEST
 #    define CONTEXT_HANDLE_MAX 2147483647L // max context handle num (1^31 - 1) cost 8GB()/16GB
 #else
