@@ -17,6 +17,7 @@
 #include "drreg.h"
 #include "drutil.h"
 #include "drcctlib.h"
+#include "shadow_memory.h"
 
 using namespace std;
 
@@ -78,7 +79,7 @@ typedef struct _per_thread_t {
 #else
     uint64_t cur_mem_idx;
 #endif
-    map<uint64_t, use_node_t> *tls_use_map;
+    TlsShadowMemory<use_node_t> *tls_use_map;
     multimap<uint64_t, reuse_node_t> *tls_reuse_map;
     file_t output_file;
 // #define DEBUG_REUSE
@@ -91,22 +92,31 @@ void
 UpdateUseAndReuseMap(void *drcontext, per_thread_t *pt, uint64_t cur_mem_idx,
                      context_handle_t cur_ctxt_hndl, app_pc addr)
 {
-    map<uint64_t, use_node_t> *use_map = pt->tls_use_map;
-    map<uint64_t, use_node_t>::iterator it = (*use_map).find((uint64_t)addr);
-
-    if (it != (*use_map).end()) {
+#ifdef DEBUG_REUSE
+    dr_fprintf(pt->log_file, "+(%p)", addr);
+#endif
+    use_node_t *ptr = pt->tls_use_map->GetOrCreateShadowAddress((size_t)addr);
+    return;
+    // use_node_t *ptr = pt->tls_use_map->GetOrCreateShadowAddress((size_t)addr);
+#ifdef DEBUG_REUSE
+    dr_fprintf(pt->log_file, "-(%p)\n", addr);
+#endif
+    if (ptr->use_hndl != 0) {
+#ifdef DEBUG_REUSE
+        
+#endif
 #ifdef SAMPLE_RUN
-        if (it->second.sample_run_index != pt->sample_run_index) {
-            it->second.sample_run_index = pt->sample_run_index;
-            it->second.use_hndl = cur_ctxt_hndl;
-            it->second.last_reuse_mem_idx = cur_mem_idx;
-            it->second.create_hndl = 0;
+        if (ptr->sample_run_index != pt->sample_run_index) {
+            ptr->sample_run_index = pt->sample_run_index;
+            ptr->use_hndl = cur_ctxt_hndl;
+            ptr->last_reuse_mem_idx = cur_mem_idx;
+            ptr->create_hndl = 0;
             return;
         }
 #endif
-        uint64_t reuse_distance = cur_mem_idx - it->second.last_reuse_mem_idx;
+        uint64_t reuse_distance = cur_mem_idx - ptr->last_reuse_mem_idx;
         if (reuse_distance > REUSED_THRES) {
-            if(it->second.create_hndl >= 0) {
+            if(ptr->create_hndl >= 0) {
                 data_handle_t data_hndl =
                     drcctlib_get_data_hndl_ignore_stack_data(drcontext, addr);
                 context_handle_t create_hndl = 0;
@@ -115,38 +125,37 @@ UpdateUseAndReuseMap(void *drcontext, per_thread_t *pt, uint64_t cur_mem_idx,
                 } else if (data_hndl.object_type == STATIC_OBJECT) {
                     create_hndl = -data_hndl.sym_name;
                 }
-                it->second.create_hndl = create_hndl;
+                ptr->create_hndl = create_hndl;
             }
-            uint64_t new_pair = (((uint64_t)it->second.use_hndl) << 32) + cur_ctxt_hndl;
+            uint64_t new_pair = (((uint64_t)ptr->use_hndl) << 32) + cur_ctxt_hndl;
+
             multimap<uint64_t, reuse_node_t> *pair_map = pt->tls_reuse_map;
             multimap<uint64_t, reuse_node_t>::iterator pair_it;
             pair<multimap<uint64_t, reuse_node_t>::iterator,
-                    multimap<uint64_t, reuse_node_t>::iterator>
+                 multimap<uint64_t, reuse_node_t>::iterator>
                 pair_range_it;
             pair_range_it = (*pair_map).equal_range(new_pair);
             for (pair_it = pair_range_it.first; pair_it != pair_range_it.second; ++pair_it) {
-                if (pair_it->second.create_hndl == it->second.create_hndl) {
+                if (pair_it->second.create_hndl == ptr->create_hndl) {
                     pair_it->second.count++;
                     pair_it->second.distance += reuse_distance;
                     break;
                 }
             }
             if (pair_it == pair_range_it.second) {
-                reuse_node_t val(it->second.create_hndl, reuse_distance, 1);
+                reuse_node_t val(ptr->create_hndl, reuse_distance, 1);
                 (*pair_map).insert(pair<uint64_t, reuse_node_t>(new_pair, val));
             }
         }
-        it->second.use_hndl = cur_ctxt_hndl;
-        it->second.last_reuse_mem_idx = cur_mem_idx;
+        ptr->use_hndl = cur_ctxt_hndl;
+        ptr->last_reuse_mem_idx = cur_mem_idx;
     } else {
-        use_node_t new_entry;
-        new_entry.create_hndl = 0;
-        new_entry.use_hndl = cur_ctxt_hndl;
-        new_entry.last_reuse_mem_idx = cur_mem_idx;
+        ptr->create_hndl = 0;
+        ptr->use_hndl = cur_ctxt_hndl;
+        ptr->last_reuse_mem_idx = cur_mem_idx;
 #ifdef SAMPLE_RUN
-        new_entry.sample_run_index = pt->sample_run_index;
+        ptr->sample_run_index = pt->sample_run_index;
 #endif
-        (*use_map).insert(pair<uint64_t, use_node_t>((uint64_t)(addr), new_entry));
     }
 }
 
@@ -250,6 +259,7 @@ DoWhatClientWantTodo(void *drcontext, per_thread_t *pt, context_handle_t cur_ctx
     pt->cur_mem_idx++;
 #ifdef SAMPLE_RUN
     if (pt->cur_mem_idx > 0 && pt->cur_mem_idx % UNITE_NUM == 0) {
+        pt->cur_mem_idx = 1;
         pt->sample_run_index ++;
     }
     if (pt->cur_mem_idx % UNITE_NUM <= SAMPLE_NUM) {
@@ -332,7 +342,7 @@ ClientThreadStart(void *drcontext)
 #ifdef SAMPLE_RUN
     pt->sample_run_index = 0;
 #endif
-    pt->tls_use_map = new map<uint64_t, use_node_t>();
+    pt->tls_use_map = new TlsShadowMemory<use_node_t>();
     pt->tls_reuse_map = new multimap<uint64_t, reuse_node_t>();
 #ifdef DEBUG_REUSE
     ThreadDebugFileInit(pt);
@@ -367,7 +377,7 @@ ClientExit(void)
         !drmgr_unregister_thread_exit_event(ClientThreadEnd) ||
         !drmgr_unregister_tls_field(tls_idx)) {
         DRCCTLIB_PRINTF(
-            "ERROR: drcctlib_reuse_distance failed to unregister in ClientExit");
+            "ERROR: drcctlib_reuse_distance_mpi failed to unregister in ClientExit");
     }
     drmgr_exit();
 }
@@ -379,13 +389,13 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_distance'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_distance_mpi'",
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
     if (!drmgr_init()) {
         DRCCTLIB_EXIT_PROCESS(
-            "ERROR: drcctlib_reuse_distance unable to initialize drmgr");
+            "ERROR: drcctlib_reuse_distance_mpi unable to initialize drmgr");
     }
     drmgr_priority_t thread_init_pri = { sizeof(thread_init_pri),
                                          "drcctlib_reuse-thread_init", NULL, NULL,
@@ -398,7 +408,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1) {
         DRCCTLIB_EXIT_PROCESS(
-            "ERROR: drcctlib_reuse_distance drmgr_register_tls_field fail");
+            "ERROR: drcctlib_reuse_distance_mpi drmgr_register_tls_field fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, NULL, NULL,
                      InstrumentPerBBCache,

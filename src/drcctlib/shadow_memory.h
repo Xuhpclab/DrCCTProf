@@ -145,12 +145,94 @@ public:
     inline T *
     GetShadowAddress(const size_t address)
     {
-        T *shadowPage = GetOrCreateShadowBaseAddress(address);
+        T *shadowPage = GetShadowBaseAddress(address);
         if (shadowPage == NULL) {
             return NULL;
         }
         return &(shadowPage[PAGE_OFFSET((uint64_t)address)]);
     }
 };
+
+template <class T> class TlsShadowMemory {
+    T *** pageDirectory;
+public:
+    inline TlsShadowMemory()
+    {
+        pageDirectory = (T ***)dr_raw_mem_alloc(
+            LEVEL_1_PAGE_TABLE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+
+        if (pageDirectory == NULL) {
+            SHADOW_MEM_EXIT_PROCESS("TlsShadowMemory dr_raw_mem_alloc fail pageDirectory");
+        }
+    }
+
+    inline ~TlsShadowMemory()
+    {
+        for (uint64_t i = 0; i < LEVEL_1_PAGE_TABLE_ENTRIES; i++) {
+            T ** l1Page = pageDirectory[i];
+            if (l1Page != NULL) {
+                for (uint64_t j = 0; j < LEVEL_2_PAGE_TABLE_ENTRIES; j++) {
+                    T *l2Page;
+                    if ((l2Page = l1Page[j].load(memory_order_relaxed)) != 0) {
+                        dr_raw_mem_free(l2Page, SHADOW_PAGE_SIZE * sizeof(T));
+                    }
+                }
+                dr_raw_mem_free(l1Page, LEVEL_2_PAGE_TABLE_SIZE);
+            }
+        }
+        dr_raw_mem_free(pageDirectory, LEVEL_1_PAGE_TABLE_SIZE);
+    }
+
+    inline T *
+    GetOrCreateShadowBaseAddress(const size_t address)
+    {
+        T ** l1pg = pageDirectory[LEVEL_1_PAGE_TABLE_SLOT(address)];
+        if (l1pg == NULL) {
+            l1pg = (T **)dr_raw_mem_alloc(
+                LEVEL_2_PAGE_TABLE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+            if (l1pg == NULL) {
+                SHADOW_MEM_EXIT_PROCESS("TlsShadowMemory dr_raw_mem_alloc fail l1pg");
+            }
+            pageDirectory[LEVEL_1_PAGE_TABLE_SLOT(address)] = l1pg;
+        }
+        T* l2pg = l1pg[LEVEL_2_PAGE_TABLE_SLOT(address)];
+        if (l2pg == NULL) {
+            l2pg = (T *)dr_raw_mem_alloc(
+                SHADOW_PAGE_SIZE * sizeof(T), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+            if (l2pg == NULL) {
+                SHADOW_MEM_EXIT_PROCESS("TlsShadowMemory dr_raw_mem_alloc fail l2pg");
+            }
+            l1pg[LEVEL_2_PAGE_TABLE_SLOT(address)] = l2pg;
+        }
+        return l2pg;
+    }
+
+    inline T *
+    GetOrCreateShadowAddress(const size_t address)
+    {
+        T *shadowPage = GetOrCreateShadowBaseAddress(address);
+        return &(shadowPage[PAGE_OFFSET((uint64_t)address)]);
+    }
+
+    inline T *
+    GetShadowBaseAddress(const size_t address)
+    {
+        if (pageDirectory[LEVEL_1_PAGE_TABLE_SLOT(address)] == NULL) {
+            return NULL;
+        }
+        return pageDirectory[LEVEL_1_PAGE_TABLE_SLOT(address)][LEVEL_2_PAGE_TABLE_SLOT(address)];
+    }
+
+    inline T *
+    GetShadowAddress(const size_t address)
+    {
+        T *shadowPage = GetShadowBaseAddress(address);
+        if (shadowPage == NULL) {
+            return NULL;
+        }
+        return &(shadowPage[PAGE_OFFSET((uint64_t)address)]);
+    }
+};
+
 
 #endif // __SHADOW_MEMORY__
