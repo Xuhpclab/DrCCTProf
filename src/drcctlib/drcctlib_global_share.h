@@ -60,6 +60,7 @@
 #define aligned_ctxt_hndl_t int64_t
 
 #define THREAD_MAX_NUM 8192
+#define SPEEDUP_SUPPORT_THREAD_MAX_NUM 32
 // #define FOR_SPEC_TEST
 #ifdef FOR_SPEC_TEST
 #    define CONTEXT_HANDLE_MAX 2147483647L // max context handle num (1^31 - 1) cost 8GB()/16GB

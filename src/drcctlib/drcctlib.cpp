@@ -114,7 +114,7 @@ typedef struct _bb_shadow_t {
     state_t *state_shadow;
     char *disasm_shadow;
 #ifdef IN_PROCESS_SPEEDUP
-    cct_bb_node_t *last_same_key_bb;
+    cct_bb_node_t **last_same_key_bb_pt_list;
 #endif
 } bb_shadow_t;
 
@@ -216,7 +216,9 @@ typedef struct _per_thread_t {
     // For cache run
     bb_shadow_t *pre_bb_shadow;
     void *bb_call_back_cache_data;
-
+#endif
+#ifdef IN_PROCESS_SPEEDUP
+    int speedup_cache_index;
 #endif
     IF_DRCCTLIB_DEBUG(file_t log_file_bb;)
     IF_DRCCTLIB_DEBUG(file_t log_file_instr;)
@@ -512,7 +514,7 @@ bb_shadow_create(bb_shadow_t *bb_shadow, int32_t index)
     bb_shadow->state_shadow = NULL;
     bb_shadow->disasm_shadow = NULL;
 #ifdef IN_PROCESS_SPEEDUP
-    bb_shadow->last_same_key_bb = NULL;
+    bb_shadow->last_same_key_bb_pt_list = NULL;
 #endif
 }
 
@@ -538,6 +540,11 @@ bb_shadow_create_cache(bb_shadow_t *bb_shadow)
     bb_shadow->disasm_shadow =
         (char *)dr_raw_mem_alloc(bb_shadow->slot_num * DISASM_CACHE_SIZE * sizeof(char),
                                  DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+#ifdef IN_PROCESS_SPEEDUP
+    bb_shadow->last_same_key_bb_pt_list = (cct_bb_node_t **)dr_raw_mem_alloc(
+        SPEEDUP_SUPPORT_THREAD_MAX_NUM * sizeof(cct_bb_node_t *),
+        DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+#endif
 }
 
 static inline void
@@ -550,6 +557,10 @@ bb_shadow_free_cache(bb_shadow_t *bb_shadow)
     dr_raw_mem_free(bb_shadow->state_shadow, bb_shadow->slot_num * sizeof(state_t));
     dr_raw_mem_free(bb_shadow->disasm_shadow,
                     bb_shadow->slot_num * DISASM_CACHE_SIZE * sizeof(char));
+#ifdef IN_PROCESS_SPEEDUP
+    dr_raw_mem_free(bb_shadow->last_same_key_bb_pt_list,
+                    SPEEDUP_SUPPORT_THREAD_MAX_NUM * sizeof(cct_bb_node_t *));
+#endif
 }
 
 static inline cct_bb_node_t *
@@ -688,6 +699,9 @@ per_thread_refresh_bb_cache(void *drcontext, per_thread_t *pt)
     tls_memory_cache_t<cct_bb_node_t> *bb_node_cache = pt->bb_node_cache;
     tls_memory_cache_t<splay_node_t> *splay_node_cache = pt->splay_node_cache;
     splay_node_t *dummy_splay_node = pt->dummy_splay_node;
+#    ifdef IN_PROCESS_SPEEDUP
+    int speedup_cache_index = pt->speedup_cache_index;
+#    endif
 
     for (thread_aligned_num_t i = 1; i < BB_CACHE_MESSAGE_MAX_NUM; i++) {
         if (bb_cache[i].bb_shadow != NULL) {
@@ -735,10 +749,13 @@ per_thread_refresh_bb_cache(void *drcontext, per_thread_t *pt)
             }
 #    endif
 #    ifdef IN_PROCESS_SPEEDUP
-            if (cur_bb_shadow->last_same_key_bb != NULL) {
-                if (bb_node_parent_bb(cur_bb_shadow->last_same_key_bb) ==
+            if (speedup_cache_index >= 0 &&
+                cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index] != NULL) {
+                if (bb_node_parent_bb(
+                        cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index]) ==
                     new_caller_bb_node) {
-                    cur_bb_node = cur_bb_shadow->last_same_key_bb;
+                    cur_bb_node =
+                        cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index];
 #        ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
                     splay_tree_search_num++;
 #        endif
@@ -771,7 +788,10 @@ per_thread_refresh_bb_cache(void *drcontext, per_thread_t *pt)
             new_caller_bb_node->callee_splay_tree_root = new_root;
             cur_bb_node = (cct_bb_node_t *)(new_root->payload);
 #    ifdef IN_PROCESS_SPEEDUP
-            cur_bb_shadow->last_same_key_bb = cur_bb_node;
+            if (speedup_cache_index >= 0) {
+                cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index] =
+                    cur_bb_node;
+            }
 #    endif
             pre_bb_shadow = cur_bb_shadow;
             bb_cache[i].bb_shadow = NULL;
@@ -826,6 +846,9 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
     tls_memory_cache_t<cct_bb_node_t> *bb_node_cache = pt->bb_node_cache;
     tls_memory_cache_t<splay_node_t> *splay_node_cache = pt->splay_node_cache;
     splay_node_t *dummy_splay_node = pt->dummy_splay_node;
+#    ifdef IN_PROCESS_SPEEDUP
+    int speedup_cache_index = pt->speedup_cache_index;
+#    endif
 
     thread_aligned_num_t pre_bb_start_index = 0;
 
@@ -877,10 +900,13 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
             }
 #    endif
 #    ifdef IN_PROCESS_SPEEDUP
-            if (cur_bb_shadow->last_same_key_bb != NULL) {
-                if (bb_node_parent_bb(cur_bb_shadow->last_same_key_bb) ==
+            if (speedup_cache_index >= 0 &&
+                cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index] != NULL) {
+                if (bb_node_parent_bb(
+                        cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index]) ==
                     new_caller_bb_node) {
-                    cur_bb_node = cur_bb_shadow->last_same_key_bb;
+                    cur_bb_node =
+                        cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index];
 #        ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
                     splay_tree_search_num++;
 #        endif
@@ -913,7 +939,10 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
             new_caller_bb_node->callee_splay_tree_root = new_root;
             cur_bb_node = (cct_bb_node_t *)(new_root->payload);
 #    ifdef IN_PROCESS_SPEEDUP
-            cur_bb_shadow->last_same_key_bb = cur_bb_node;
+            if (speedup_cache_index >= 0) {
+                cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index] =
+                    cur_bb_node;
+            }
 #    endif
             pre_bb_shadow = cur_bb_shadow;
             bb_cache[i].bb_shadow = NULL;
@@ -1364,10 +1393,9 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
             XINST_CREATE_add(drcontext, opnd_create_reg(reg_1), opnd_create_reg(reg_2)));
 #    else
     // bb_cache[cur_index]->bb_shadow init
-    MINSERT(
-        ilist, where,
-        XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
-                              OPND_CREATE_SHADOWPRT(bb_msg->bb_shadow)));
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_2),
+                                  OPND_CREATE_SHADOWPRT(bb_msg->bb_shadow)));
     MINSERT(ilist, where,
             XINST_CREATE_store(
                 drcontext,
@@ -1524,9 +1552,14 @@ instrument_before_bb_first_instr(bb_shadow_t *cur_bb_shadow)
 #endif
 
 #ifdef IN_PROCESS_SPEEDUP
-    if (cur_bb_shadow->last_same_key_bb != NULL) {
-        if (bb_node_parent_bb(cur_bb_shadow->last_same_key_bb) == new_caller_bb_node) {
-            pt->cur_bb_node = cur_bb_shadow->last_same_key_bb;
+    int speedup_cache_index = pt->speedup_cache_index;
+    if (speedup_cache_index >= 0 &&
+        cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index] != NULL) {
+        if (bb_node_parent_bb(
+                cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index]) ==
+            new_caller_bb_node) {
+            pt->cur_bb_node =
+                cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index];
 #    ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
             pt->cct_info.splay_tree_search_num++;
 #    endif
@@ -1568,6 +1601,11 @@ instrument_before_bb_first_instr(bb_shadow_t *cur_bb_shadow)
     pt->cur_bb_node = (cct_bb_node_t *)(new_root->payload);
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_instr_state = cur_bb_shadow->end_ins_state;
+#ifdef IN_PROCESS_SPEEDUP
+    if (speedup_cache_index >= 0) {
+        cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index] = pt->cur_bb_node;
+    }
+#endif
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, "%d(Ox%p)/%d(Ox%p)|\n",
                                  pt->cur_bb_node->key, pt->cur_bb_node,
                                  new_caller_bb_node->key, new_caller_bb_node);)
@@ -1958,7 +1996,9 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
         global_bb_shadow_cache->get_object_by_index(THREAD_ROOT_BB_SHARED_BB_KEY);
     pt->bb_call_back_cache_data = NULL;
 #endif
-
+#ifdef IN_PROCESS_SPEEDUP
+    pt->speedup_cache_index = pt->id > SPEEDUP_SUPPORT_THREAD_MAX_NUM ? -1 : pt->id;
+#endif
 #ifdef DRCCTLIB_DEBUG
 #    ifdef ARM_CCTLIB
     char bb_file_name[MAXIMUM_PATH] = "arm.";
