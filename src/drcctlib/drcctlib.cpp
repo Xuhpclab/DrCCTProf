@@ -79,7 +79,7 @@
 #    define MEM_CACHE_PAGE2_BIT 20 // 28MB
 #endif
 #define TLS_MEM_CACHE_MIN_NUM 8192 // 2^13
-#define MEM_CACHE_DEBRIS_SIZE 1024 // 2^0
+#define MEM_CACHE_DEBRIS_SIZE 1024 // 2^10
 
 // THREAD_SHARED_MEMORY(TSM) (bb_shadow_t)
 #define TSM_CACHE_PAGE1_BIT 4  // max support 1,048,576
@@ -667,9 +667,9 @@ per_thread_init_stack_cache(void *drcontext, per_thread_t *pt)
             };
             dr_get_mcontext(drcontext, &mcontext);
             pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_STACK_REG, &mcontext);
-            DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id,
-                            pt->stack_base, (ptr_int_t)pt->stack_size,
-                            (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
+            // DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id,
+            //                 pt->stack_base, (ptr_int_t)pt->stack_size,
+            //                 (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
             pt->init_stack_cache = true;
         }
         pt->bb_cache[1].bb_shadow = pt->bb_cache[0].bb_shadow;
@@ -1506,9 +1506,9 @@ instrument_before_bb_first_instr(bb_shadow_t *cur_bb_shadow)
         };
         dr_get_mcontext(drcontext, &mcontext);
         pt->stack_base = (void *)(ptr_int_t)reg_get_value(DR_STACK_REG, &mcontext);
-        DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id,
-                        pt->stack_base, (ptr_int_t)pt->stack_size,
-                        (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
+        // DRCCTLIB_PRINTF("pt %d stack_base %p stack size %p stack_end %p", pt->id,
+        //                 pt->stack_base, (ptr_int_t)pt->stack_size,
+        //                 (ptr_int_t)pt->stack_base - (ptr_int_t)pt->stack_size);
         pt->init_stack_cache = true;
     }
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, "+%d/%d/%d+|%d(Ox%p)/",
@@ -1602,9 +1602,13 @@ instrument_before_bb_first_instr(bb_shadow_t *cur_bb_shadow)
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_instr_state = cur_bb_shadow->end_ins_state;
 #ifdef IN_PROCESS_SPEEDUP
+<<<<<<< HEAD
     if (speedup_cache_index >= 0) {
         cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index] = pt->cur_bb_node;
     }
+=======
+    cur_bb_shadow->last_same_key_bb = pt->cur_bb_node;
+>>>>>>> ca950c43060b3fccd17dab5fdf26f2e86c0c8d01
 #endif
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, "%d(Ox%p)/%d(Ox%p)|\n",
                                  pt->cur_bb_node->key, pt->cur_bb_node,
@@ -2202,7 +2206,9 @@ datacentric_static_alloc(const module_data_t *info)
     file_t fd = dr_open_file(info->full_path, DR_FILE_READ);
     uint64 file_size;
     if (fd == INVALID_FILE) {
-        DRCCTLIB_PRINTF("------ unable to open %s", info->full_path);
+        if (strcmp(info->full_path, "[vdso]") != 0) {
+            DRCCTLIB_PRINTF("------ unable to open %s", info->full_path);
+        }
         return;
     }
     if (!dr_file_size(fd, &file_size)) {
