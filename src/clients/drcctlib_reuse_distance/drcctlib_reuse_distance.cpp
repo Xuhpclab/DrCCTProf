@@ -343,9 +343,9 @@ static void
 ClientThreadEnd(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    // ThreadOutputFileInit(pt);
-    // PrintTopN(pt, OUTPUT_SIZE);
-    // dr_close_file(pt->output_file);
+    ThreadOutputFileInit(pt);
+    PrintTopN(pt, OUTPUT_SIZE);
+    dr_close_file(pt->output_file);
     delete pt->tls_use_map;
     delete pt->tls_reuse_map;
 #ifdef DEBUG_REUSE

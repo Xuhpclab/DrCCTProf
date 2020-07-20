@@ -172,8 +172,8 @@ public:
             T ** l1Page = pageDirectory[i];
             if (l1Page != NULL) {
                 for (uint64_t j = 0; j < LEVEL_2_PAGE_TABLE_ENTRIES; j++) {
-                    T *l2Page;
-                    if ((l2Page = l1Page[j].load(memory_order_relaxed)) != 0) {
+                    T *l2Page = l1Page[j];
+                    if (l2Page != 0) {
                         dr_raw_mem_free(l2Page, SHADOW_PAGE_SIZE * sizeof(T));
                     }
                 }
