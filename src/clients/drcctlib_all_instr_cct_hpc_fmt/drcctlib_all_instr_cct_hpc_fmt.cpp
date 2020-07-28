@@ -10,29 +10,17 @@
 #include <sys/mman.h>
 
 #include "dr_api.h"
-#include "drcctlib.h"
 #include "drmgr.h"
+
+#include "drcctlib.h"
+#include "drcctlib_hpcviewer_format.h"
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                              \
-    do {                                                                              \
-        char name[MAXIMUM_PATH] = "";                                                 \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                \
-        pid_t pid = getpid();                                                         \
-        dr_printf("[(%s%d)drcctlib_all_instr_cct_hpc_fmt msg]====" format "\n", name, \
-                  pid, ##args);                                                       \
-    } while (0)
-
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                        \
-    do {                                                                              \
-        char name[MAXIMUM_PATH] = "";                                                 \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                \
-        pid_t pid = getpid();                                                         \
-        dr_printf("[(%s%d)drcctlib_all_instr_cct_hpc_fmt(%s%d) msg]====" format "\n", \
-                  name, pid, ##args);                                                 \
-    } while (0);                                                                      \
-    dr_exit_process(-1)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("all_instr_cct_hpc_fmt", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("all_instr_cct_hpc_fmt", format, ##args)
 
 static void
 ClientThreadStart(void *drcontext)
@@ -53,13 +41,14 @@ ClientInit(int argc, const char *argv[])
 static void
 ClientExit(void)
 {
-    drcctlib_exit();
-
     if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
         !drmgr_unregister_thread_exit_event(ClientThreadEnd)) {
         DRCCTLIB_PRINTF("failed to unregister in ClientExit");
     }
     drmgr_exit();
+
+    drcctlib_exit();
+    hpcrun_format_exit();
 }
 
 #ifdef __cplusplus
@@ -85,10 +74,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmgr_register_thread_init_event_ex(ClientThreadStart, &thread_init_pri);
     drmgr_register_thread_exit_event_ex(ClientThreadEnd, &thread_exit_pri);
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL,
-                     NULL, NULL, NULL, NULL,
-                     DRCCTLIB_CACHE_MODE | DRCCTLIB_SAVE_HPCTOOLKIT_FILE);
-    init_hpcrun_format(dr_get_application_name(), true);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL,
+                     DRCCTLIB_CACHE_MODE);
+    hpcrun_format_init(dr_get_application_name(), true);
     dr_register_exit_event(ClientExit);
 }
 

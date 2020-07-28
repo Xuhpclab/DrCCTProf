@@ -427,7 +427,7 @@ thread_shared_memory_cache_t<T>::thread_shared_memory_cache_t(
 {
     if (page1_bit + page2_bit > 31) {
         MEMORY_CACHE_EXIT_PROCESS(
-            "ERROR:thread_shared_memory_cache_t max cache 1^31 objects");
+            "ERROR:thread_shared_memory_cache_t max cache 2^31 objects");
     }
     page1_bit_ = page1_bit;
     page1_size_ = 1 << page1_bit_;

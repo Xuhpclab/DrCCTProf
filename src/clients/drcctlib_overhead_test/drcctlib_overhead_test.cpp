@@ -16,24 +16,12 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                \
-    do {                                                                \
-        char name[MAXIMUM_PATH] = "";                                   \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));  \
-        pid_t pid = getpid();                                           \
-        dr_printf("[dr(%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("overhead", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("overhead", format, ##args)
 
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                          \
-    do {                                                                \
-        char name[MAXIMUM_PATH] = "";                                   \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));  \
-        pid_t pid = getpid();                                           \
-        dr_printf("[dr(%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0);                                                        \
-    dr_exit_process(-1)
-
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
 #    define OPND_CREATE_BB_KEY OPND_CREATE_INT32
 #    define OPND_CREATE_SLOT OPND_CREATE_INT32
 #    define OPND_CREATE_STATE OPND_CREATE_INT32

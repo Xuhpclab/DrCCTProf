@@ -20,27 +20,10 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                                 \
-    do {                                                                                 \
-        char name[MAXIMUM_PATH] = "";                                                    \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                   \
-        pid_t pid = getpid();                                                            \
-        dr_printf("[(%s%d)drcctlib_memory_with_data_centric_with_search msg]====" format \
-                  "\n",                                                                  \
-                  name, pid, ##args);                                                    \
-    } while (0)
-
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                           \
-    do {                                                                                 \
-        char name[MAXIMUM_PATH] = "";                                                    \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                   \
-        pid_t pid = getpid();                                                            \
-        dr_printf(                                                                       \
-            "[(%s%d)drcctlib_memory_with_data_centric_with_search(%s%d) msg]====" format \
-            "\n",                                                                        \
-            name, pid, ##args);                                                          \
-    } while (0);                                                                         \
-    dr_exit_process(-1)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("memory_with_data_centric_with_search", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("memory_with_data_centric_with_search", format, ##args)
 
 // client want to do
 static inline void
@@ -52,7 +35,7 @@ DoWhatClientWantTodo(void *drcontext, context_handle_t cur_ctxt_hndl, app_pc add
     if (data_hndl.object_type == DYNAMIC_OBJECT) {
         data_ctxt_hndl = data_hndl.path_handle;
     } else if (data_hndl.object_type == STATIC_OBJECT) {
-        data_ctxt_hndl = - data_hndl.sym_name;
+        data_ctxt_hndl = -data_hndl.sym_name;
     }
 }
 
@@ -92,8 +75,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, NULL, NULL, NULL,
-                     NULL, InstrumentPerBBCache, NULL, NULL, NULL,
+    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, NULL, NULL,
+                     InstrumentPerBBCache,
                      DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE | DRCCTLIB_CACHE_MODE |
                          DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR);
     dr_register_exit_event(ClientExit);

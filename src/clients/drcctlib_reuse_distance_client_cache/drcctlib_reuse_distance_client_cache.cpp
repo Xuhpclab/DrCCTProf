@@ -20,25 +20,10 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                              \
-    do {                                                                              \
-        char name[MAXIMUM_PATH] = "";                                                 \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                \
-        pid_t pid = getpid();                                                         \
-        dr_printf("[(%s%d)drcctlib_reuse_distance_client_cache msg]====" format "\n", \
-                  name, pid, ##args);                                                 \
-    } while (0)
-
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                        \
-    do {                                                                              \
-        char name[MAXIMUM_PATH] = "";                                                 \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                \
-        pid_t pid = getpid();                                                         \
-        dr_printf("[(%s%d)drcctlib_reuse_distance_client_cache(%s%d) msg]====" format \
-                  "\n",                                                               \
-                  name, pid, ##args);                                                 \
-    } while (0);                                                                      \
-    dr_exit_process(-1)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("reuse_distance_client_cache", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_distance_client_cache", format, ##args)
 
 static int tls_idx;
 
@@ -254,8 +239,8 @@ PrintTopN(per_thread_t *pt, uint64_t print_num)
         dr_fprintf(pt->output_file,
                    "=========================create=========================\n");
         if (output_format_list[i].create_hndl > 0) {
-            drcctlib_print_full_cct(pt->output_file, output_format_list[i].create_hndl, true,
-                                    true, MAX_CLIENT_CCT_PRINT_DEPTH);
+            drcctlib_print_full_cct(pt->output_file, output_format_list[i].create_hndl,
+                                    true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
         } else if (output_format_list[i].create_hndl < 0) {
             dr_fprintf(pt->output_file, "STATIC_OBJECT %s\n",
                        drcctlib_get_str_from_strpool(-output_format_list[i].create_hndl));
@@ -264,12 +249,12 @@ PrintTopN(per_thread_t *pt, uint64_t print_num)
         }
         dr_fprintf(pt->output_file,
                    "===========================use===========================\n");
-        drcctlib_print_full_cct(pt->output_file, output_format_list[i].use_hndl, true, true,
-                                MAX_CLIENT_CCT_PRINT_DEPTH);
+        drcctlib_print_full_cct(pt->output_file, output_format_list[i].use_hndl, true,
+                                true, MAX_CLIENT_CCT_PRINT_DEPTH);
         dr_fprintf(pt->output_file,
                    "==========================reuse==========================\n");
-        drcctlib_print_full_cct(pt->output_file, output_format_list[i].reuse_hndl, true, true,
-                                MAX_CLIENT_CCT_PRINT_DEPTH);
+        drcctlib_print_full_cct(pt->output_file, output_format_list[i].reuse_hndl, true,
+                                true, MAX_CLIENT_CCT_PRINT_DEPTH);
         dr_fprintf(pt->output_file,
                    "=========================================================\n\n\n");
     }
@@ -284,8 +269,7 @@ ResetPtMap(per_thread_t *pt)
 }
 
 void
-InstrumentBBStartInsertCallback(void *drcontext, int32_t slot_num, int32_t mem_ref_num,
-                                void *data)
+InstrumentBBStartInsertCallback(void *drcontext, int32_t slot_num, int32_t mem_ref_num)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     int32_t next_buf_max_idx = pt->cur_buf_fill_num + mem_ref_num;
@@ -389,12 +373,12 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
 }
 
 void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
+InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
     int32_t slot = instrument_msg->slot;
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
     if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
                               "drreg_reserve_aflags != DRREG_SUCCESS");
@@ -426,51 +410,43 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, v
         DRCCTLIB_EXIT_PROCESS(
             "InstrumentInsCallback drreg_unreserve_register != DRREG_SUCCESS");
     }
-#ifdef INTEL_CCTLIB
+#ifdef x86_CCTLIB
     if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
         DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
     }
 #endif
 }
 
-#ifdef DEBUG_REUSE
-#    define ATOM_ADD_THREAD_ID_MAX(origin) dr_atomic_add32_return_sum(&origin, 1)
-static int global_thread_id_max = 0;
-#endif
-
-
 static void
 ThreadOutputFileInit(per_thread_t *pt)
 {
-    int32_t id = drcctlib_get_per_thread_data_id();
+    int32_t id = drcctlib_get_thread_id();
     pid_t pid = getpid();
 #ifdef ARM_CCTLIB
     char name[MAXIMUM_PATH] = "arm.";
 #else
     char name[MAXIMUM_PATH] = "x86.";
 #endif
-    gethostname(name + strlen(name),
-                MAXIMUM_PATH - strlen(name));
-    sprintf(name + strlen(name),
-            "%d.drcctlib_reuse_distance.thread-%d.topn.log", pid, id);
+    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
+    sprintf(name + strlen(name), "%d.drcctlib_reuse_distance.thread-%d.topn.log", pid,
+            id);
     pt->output_file = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->output_file != INVALID_FILE);
 
 #ifdef DEBUG_REUSE
-#ifdef ARM_CCTLIB
+#    ifdef ARM_CCTLIB
     char debug_file_name[MAXIMUM_PATH] = "arm.";
-#else
+#    else
     char debug_file_name[MAXIMUM_PATH] = "x86.";
-#endif
+#    endif
     gethostname(debug_file_name + strlen(debug_file_name),
                 MAXIMUM_PATH - strlen(debug_file_name));
     sprintf(debug_file_name + strlen(debug_file_name),
             "%d.drcctlib_reuse_distance.thread-%d.debug.log", pid, id);
-    pt->log_file = dr_open_file(debug_file_name,
-                                DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
+    pt->log_file =
+        dr_open_file(debug_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file != INVALID_FILE);
 #endif
-
 }
 
 static void
@@ -502,7 +478,7 @@ ClientThreadEnd(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
-    InstrumentBBStartInsertCallback(drcontext, 0, TLS_MEM_REF_BUFF_SIZE, NULL);
+    InstrumentBBStartInsertCallback(drcontext, 0, TLS_MEM_REF_BUFF_SIZE);
     PrintTopN(pt, OUTPUT_SIZE);
 
     dr_global_free(pt->cur_buf_list, TLS_MEM_REF_BUFF_SIZE * sizeof(mem_ref_t));
@@ -588,8 +564,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             "ERROR: drcctlib_reuse_distance_client_cache dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
-                     InstrumentInsCallback, NULL, InstrumentBBStartInsertCallback, NULL,
-                     NULL, NULL, NULL, NULL, DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+                     InstrumentInsCallback, InstrumentBBStartInsertCallback, NULL,
+                     DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     dr_register_exit_event(ClientExit);
 }
 

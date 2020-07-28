@@ -7,6 +7,7 @@ set(DynamoRIO_USE_LIBC OFF)
 set(srcs
   splay_tree.c
   drcctlib.cpp
+  drcctlib_hpcviewer_format.cpp
   # add more here
   )
 
@@ -16,6 +17,10 @@ set(srcs_static ${srcs})
 if (WIN32)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 endif ()
+
+#if (UNIX)
+#  add_compile_options(-O3)
+#endif (UNIX)
 
 add_library(drcctlib SHARED ${srcs})
 set(PREFERRED_BASE 0x79000000)
@@ -38,9 +43,10 @@ use_DynamoRIO_extension(drcctlib_static drsyms_static)
 use_DynamoRIO_extension(drcctlib_static drwrap_static)
 use_DynamoRIO_extension(drcctlib_static drreg_static)
 
-install_ext_header(drcctlib_filter_func_list.h)
 install_ext_header(drcctlib_global_share.h)
+install_ext_header(drcctlib_filter_func_list.h)
 install_ext_header(drcctlib.h)
-install_ext_header(splay_tree.h)
+install_ext_header(drcctlib_ext.h)
+install_ext_header(drcctlib_hpcviewer_format.h)
 install_ext_header(shadow_memory.h)
 install_ext_header(memory_cache.h)

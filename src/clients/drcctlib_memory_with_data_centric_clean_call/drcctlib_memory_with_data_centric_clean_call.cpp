@@ -20,27 +20,11 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                                \
-    do {                                                                                \
-        char name[MAXIMUM_PATH] = "";                                                   \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                  \
-        pid_t pid = getpid();                                                           \
-        dr_printf("[(%s%d)drcctlib_memory_with_data_centric_clean_call msg]====" format \
-                  "\n",                                                                 \
-                  name, pid, ##args);                                                   \
-    } while (0)
-
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                          \
-    do {                                                                                \
-        char name[MAXIMUM_PATH] = "";                                                   \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                  \
-        pid_t pid = getpid();                                                           \
-        dr_printf(                                                                      \
-            "[(%s%d)drcctlib_memory_with_data_centric_clean_call(%s%d) msg]====" format \
-            "\n",                                                                       \
-            name, pid, ##args);                                                         \
-    } while (0);                                                                        \
-    dr_exit_process(-1)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("memory_with_data_centric_clean_call", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...)                                           \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("memory_with_data_centric_clean_call", format, \
+                                          ##args)
 
 static file_t gTraceFile;
 static int tls_idx;
@@ -155,7 +139,7 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
 
 // analysis
 void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg, void *data)
+InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
 
     instrlist_t *bb = instrument_msg->bb;
@@ -266,7 +250,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             "ERROR: drcctlib_memory_with_data_centric_clean_call dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
-                     InstrumentInsCallback, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                     InstrumentInsCallback, NULL, NULL,
                      DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     dr_register_exit_event(ClientExit);
 }

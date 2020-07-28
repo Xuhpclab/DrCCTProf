@@ -15,13 +15,16 @@ typedef struct _splay_node_t {
     struct _splay_node_t *right;
 } splay_node_t;
 
+void
+splay_node_init_cache_index(splay_node_t *node, int32_t index);
+
 splay_node_t *
 splay_tree_update(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_node,
                   splay_node_t *new_node);
 
 splay_node_t *
 splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_node,
-                       splay_node_t *new_node, int32_t *o_num);
+                       splay_node_t *new_node, int64_t *o_num);
 int32_t
 splay_tree_size(splay_node_t *root);
 

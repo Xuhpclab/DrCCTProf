@@ -5,3 +5,5 @@ test_apps/build
 .clang-format
 scripts/build_tool/machine_custom_hpc_fmt.sh
 server_cfg*
+debug.sh
+scripts/lulesh_test.sh

@@ -1,6 +1,15 @@
 #include "splay_tree.h"
 
+
 void
+splay_node_init_cache_index(splay_node_t *node, int32_t index)
+{
+    node->left = NULL;
+    node->right = NULL;
+    node->payload = NULL;
+}
+
+inline void
 splay_node_init(splay_node_t *node, splay_node_key_t key)
 {
     node->left = NULL;
@@ -14,13 +23,14 @@ splay_tree_update(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_
                   splay_node_t *new_node)
 {
     if (root != NULL) {
-        splay_node_init(dummy_node, -1);
+        dummy_node->left = NULL;
+        dummy_node->right = NULL;
         splay_node_t *ltree_max_node, *rtree_min_node, *temp_node;
         ltree_max_node = rtree_min_node = dummy_node;
         while (key != root->key) {
             if (key < root->key) {
                 if (root->left == NULL) {
-                    splay_node_init(new_node, key);
+                    new_node->key = key;
                     root->left = new_node;
                 }
                 if (key < root->left->key) {
@@ -29,7 +39,7 @@ splay_tree_update(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_
                     temp_node->right = root;
                     root = temp_node;
                     if (root->left == NULL) {
-                        splay_node_init(new_node, key);
+                        new_node->key = key;
                         root->left = new_node;
                     }
                 }
@@ -38,7 +48,7 @@ splay_tree_update(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_
                 root = root->left;
             } else if (key > root->key) {
                 if (root->right == NULL) {
-                    splay_node_init(new_node, key);
+                    new_node->key = key;
                     root->right = new_node;
                 }
                 if (key > root->right->key) {
@@ -47,7 +57,7 @@ splay_tree_update(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_
                     temp_node->left = root;
                     root = temp_node;
                     if (root->right == NULL) {
-                        splay_node_init(new_node, key);
+                        new_node->key = key;
                         root->right = new_node;
                     }
                 }
@@ -61,7 +71,7 @@ splay_tree_update(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_
         root->left = dummy_node->right;
         root->right = dummy_node->left;
     } else {
-        splay_node_init(new_node, key);
+        new_node->key = key;
         root = new_node;
     }
     return root;
@@ -69,16 +79,18 @@ splay_tree_update(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_
 
 splay_node_t *
 splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *dummy_node,
-                       splay_node_t *new_node, int32_t *o_num)
+                       splay_node_t *new_node, int64_t *o_num)
 {
     if (root != NULL) {
-        splay_node_init(dummy_node, -1);
+        dummy_node->left = NULL;
+        dummy_node->right = NULL;
         splay_node_t *ltree_max_node, *rtree_min_node, *temp_node;
         ltree_max_node = rtree_min_node = dummy_node;
+        (*o_num)++;
         while (key != root->key) {
             if (key < root->key) {
                 if (root->left == NULL) {
-                    splay_node_init(new_node, key);
+                    new_node->key = key;
                     root->left = new_node;
                 }
                 if (key < root->left->key) {
@@ -87,7 +99,7 @@ splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *d
                     temp_node->right = root;
                     root = temp_node;
                     if (root->left == NULL) {
-                        splay_node_init(new_node, key);
+                        new_node->key = key;
                         root->left = new_node;
                     }
                 }
@@ -96,7 +108,7 @@ splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *d
                 root = root->left;
             } else if (key > root->key) {
                 if (root->right == NULL) {
-                    splay_node_init(new_node, key);
+                    new_node->key = key;
                     root->right = new_node;
                 }
                 if (key > root->right->key) {
@@ -105,7 +117,7 @@ splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *d
                     temp_node->left = root;
                     root = temp_node;
                     if (root->right == NULL) {
-                        splay_node_init(new_node, key);
+                        new_node->key = key;
                         root->right = new_node;
                     }
                 }
@@ -121,7 +133,7 @@ splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *d
         root->right = dummy_node->left;
     } else {
         (*o_num)++;
-        splay_node_init(new_node, key);
+        new_node->key = key;
         root = new_node;
     }
     return root;

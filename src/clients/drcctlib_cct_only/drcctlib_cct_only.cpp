@@ -20,23 +20,10 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                               \
-    do {                                                                               \
-        char name[MAXIMUM_PATH] = "";                                                  \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));                 \
-        pid_t pid = getpid();                                                          \
-        dr_printf("[(%s%d)drcctlib_cct_only msg]====" format "\n", name, pid, ##args); \
-    } while (0)
-
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                      \
-    do {                                                                            \
-        char name[MAXIMUM_PATH] = "";                                               \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));              \
-        pid_t pid = getpid();                                                       \
-        dr_printf("[(%s%d)drcctlib_cct_only(%s%d) msg]====" format "\n", name, pid, \
-                  ##args);                                                          \
-    } while (0);                                                                    \
-    dr_exit_process(-1)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("cct_only", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("cct_only", format, ##args)
 
 // dr clean call per ins cache
 static inline void
@@ -90,8 +77,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL, NULL, NULL,
-                     InstrumentPerBBCache, NULL, NULL, NULL, DRCCTLIB_CACHE_MODE);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL,
+                     InstrumentPerBBCache, DRCCTLIB_CACHE_MODE);
     dr_register_exit_event(ClientExit);
 }
 
