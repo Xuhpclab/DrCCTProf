@@ -20,9 +20,7 @@ enum {
     INSTR_STATE_RETURN = 0x08,
     INSTR_STATE_MEM_ACCESS = 0X10,
     INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x20,
-#ifdef ARM32_CCTLIB
     INSTR_STATE_BB_START_NOP = 0X40
-#endif
 };
 
 typedef struct _instr_instrument_msg_t {

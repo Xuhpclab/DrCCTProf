@@ -160,6 +160,7 @@ typedef struct _per_thread_cct_info_t {
     uint64_t ins_num;
     uint64_t bb_node_num;
     uint64_t real_node_num;
+    uint64_t mem_ref_num;
     uint64_t splay_tree_search_num;
     uint64_t cct_create_clean_call_num;
 } per_thread_cct_info_t;
@@ -168,6 +169,7 @@ typedef struct _cct_info_t {
     uint64_t ins_num;
     uint64_t bb_node_num;
     uint64_t real_node_num;
+    uint64_t mem_ref_num;
     uint64_t splay_tree_search_num;
     uint64_t cct_create_clean_call_num;
 } cct_info_t;
@@ -840,7 +842,6 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
     // read only
     bb_cache_message_t *bb_cache = pt->bb_cache;
     mem_ref_msg_t *inner_mem_ref_cache = pt->inner_mem_ref_cache;
-    ;
     cct_bb_node_t *root_node = pt->root_bb_node;
     void **bb_call_back_cache_data_ptr = &pt->bb_call_back_cache_data;
     tls_memory_cache_t<cct_bb_node_t> *bb_node_cache = pt->bb_node_cache;
@@ -894,6 +895,7 @@ per_thread_refresh_bb_cache_and_mem_ref_cache(void *drcontext, per_thread_t *pt)
 
 #    ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
             temp_cct_info.ins_num += cur_bb_shadow->slot_num;
+            temp_cct_info.mem_ref_num += cur_bb_shadow->mem_ref_num;
             temp_cct_info.bb_node_num++;
             if (temp_cct_info.tree_high < temp_cct_info.cur_tree_high) {
                 temp_cct_info.tree_high = temp_cct_info.cur_tree_high;
@@ -1458,19 +1460,20 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg3,
                            tls_offs3 + INSTRACE_TLS_OFFS_BUF_PTR, reg_mem_ref_ptr);
     MINSERT(ilist, where, skip_clean_call);
-
-    for (int i = 0; i < instr_num_srcs(where); i++) {
-        if (opnd_is_memory_reference(instr_get_src(where, i))) {
-            instrument_memory_cache_every_mem_access(drcontext, ilist, where, 0,
-                                                     instr_get_src(where, i),
-                                                     reg_mem_ref_ptr, reg_1, reg_2);
+    if (instr_state_contain(instrument_msg->state, INSTR_STATE_CLIENT_INTEREST)) {
+        for (int i = 0; i < instr_num_srcs(where); i++) {
+            if (opnd_is_memory_reference(instr_get_src(where, i))) {
+                instrument_memory_cache_every_mem_access(drcontext, ilist, where, 0,
+                                                        instr_get_src(where, i),
+                                                        reg_mem_ref_ptr, reg_1, reg_2);
+            }
         }
-    }
-    for (int i = 0; i < instr_num_dsts(where); i++) {
-        if (opnd_is_memory_reference(instr_get_dst(where, i))) {
-            instrument_memory_cache_every_mem_access(drcontext, ilist, where, 0,
-                                                     instr_get_dst(where, i),
-                                                     reg_mem_ref_ptr, reg_1, reg_2);
+        for (int i = 0; i < instr_num_dsts(where); i++) {
+            if (opnd_is_memory_reference(instr_get_dst(where, i))) {
+                instrument_memory_cache_every_mem_access(drcontext, ilist, where, 0,
+                                                        instr_get_dst(where, i),
+                                                        reg_mem_ref_ptr, reg_1, reg_2);
+            }
         }
     }
     dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg3,
@@ -1537,7 +1540,6 @@ instrument_before_bb_first_instr(bb_shadow_t *cur_bb_shadow)
         }
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
         pt->cct_info.return_num++;
-        pt->cct_info.cur_tree_high--;
 #endif
     } else {
         new_caller_bb_node = bb_node_parent_bb(pt->cur_bb_node);
@@ -1602,13 +1604,9 @@ instrument_before_bb_first_instr(bb_shadow_t *cur_bb_shadow)
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_instr_state = cur_bb_shadow->end_ins_state;
 #ifdef IN_PROCESS_SPEEDUP
-<<<<<<< HEAD
     if (speedup_cache_index >= 0) {
         cur_bb_shadow->last_same_key_bb_pt_list[speedup_cache_index] = pt->cur_bb_node;
     }
-=======
-    cur_bb_shadow->last_same_key_bb = pt->cur_bb_node;
->>>>>>> ca950c43060b3fccd17dab5fdf26f2e86c0c8d01
 #endif
     IF_DRCCTLIB_DEBUG(dr_fprintf(pt->log_file_bb, "%d(Ox%p)/%d(Ox%p)|\n",
                                  pt->cur_bb_node->key, pt->cur_bb_node,
@@ -1706,57 +1704,54 @@ instr_exlusive_check(void *drcontext, bb_key_t bb_key,
 #endif
 
 static void
-drcctlib_event_pre_instr(void *drcontext, bb_instrument_msg_t *bb_msg,
+drcctlib_event_pre_interest_bb(void *drcontext, bb_instrument_msg_t *bb_msg,
                          instr_instrument_msg_t *instrument_msg)
 {
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
-#ifdef ARM32_CCTLIB
-    if (instrument_msg->state == INSTR_STATE_BB_START_NOP) {
+#ifdef CCTLIB_64
+    if ((global_flags & DRCCTLIB_CACHE_MODE) != 0) {
+        if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+            instrument_memory_cache_before_every_bb_first(drcontext, instrument_msg,
+                                                            bb_msg);
+        } else {
+            instrument_before_every_bb_first(drcontext, instrument_msg, bb_msg);
+        }
+    } else {
         dr_insert_clean_call(drcontext, bb, instr,
+                                (void *)instrument_before_bb_first_instr, false, 1,
+                                OPND_CREATE_SHADOWPRT(bb_msg->bb_shadow));
+    }
+#else
+    dr_insert_clean_call(drcontext, bb, instr,
                              (void *)instrument_before_bb_first_instr, false, 1,
                              OPND_CREATE_SHADOWPRT(bb_msg->bb_shadow));
-    } else {
-        if ((global_flags & DRCCTLIB_CACHE_EXCEPTION) != 0) {
-            instrument_before_every_instr_meta_instr(drcontext, instrument_msg);
-        }
+#endif
+    if (instrument_msg->slot == 0) {
         IF_DRCCTLIB_DEBUG(
             instr_exlusive_check(drcontext, bb_msg->bb_key, instrument_msg);)
         instr_instrument_client_cb(drcontext, instrument_msg);
     }
-#else
-#    ifndef CCTLIB_64
-    if (instrument_msg->slot == 0) {
-        dr_insert_clean_call(drcontext, bb, instr,
-                             (void *)instrument_before_bb_first_instr, false, 1,
-                             OPND_CREATE_SHADOWPRT(bb_msg->bb_shadow));
-    }
-#    else
-    if (instrument_msg->slot == 0) {
-        if ((global_flags & DRCCTLIB_CACHE_MODE) != 0) {
-            if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
-                instrument_memory_cache_before_every_bb_first(drcontext, instrument_msg,
-                                                              bb_msg);
-            } else {
-                instrument_before_every_bb_first(drcontext, instrument_msg, bb_msg);
-            }
-        } else {
-            dr_insert_clean_call(drcontext, bb, instr,
-                                 (void *)instrument_before_bb_first_instr, false, 1,
-                                 OPND_CREATE_SHADOWPRT(bb_msg->bb_shadow));
-        }
-    } else {
-        if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+    instr_instrument_msg_delete(instrument_msg);
+}
+
+static void
+drcctlib_event_pre_instr(void *drcontext, bb_instrument_msg_t *bb_msg,
+                         instr_instrument_msg_t *instrument_msg)
+{
+#ifdef CCTLIB_64
+    if ((global_flags & DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR) != 0) {
+        if (instr_state_contain(instrument_msg->state, INSTR_STATE_CLIENT_INTEREST)) {
             instrument_memory_cache_every_memory_instr(drcontext, instrument_msg);
         }
     }
-#    endif
+#endif
     if ((global_flags & DRCCTLIB_CACHE_EXCEPTION) != 0) {
         instrument_before_every_instr_meta_instr(drcontext, instrument_msg);
     }
-    IF_DRCCTLIB_DEBUG(instr_exlusive_check(drcontext, bb_msg->bb_key, instrument_msg);)
+    IF_DRCCTLIB_DEBUG(
+        instr_exlusive_check(drcontext, bb_msg->bb_key, instrument_msg);)
     instr_instrument_client_cb(drcontext, instrument_msg);
-#endif
     instr_instrument_msg_delete(instrument_msg);
 }
 
@@ -1814,10 +1809,6 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
     bb_instrument_msg_t *bb_msg =
         bb_instrument_msg_create((uint64_t)(void *)bb_shadow, interest_instr_num,
                                  end_state, mem_ref_num, bb_shadow);
-    IF_ARM32_CCTLIB(
-        drcctlib_event_pre_instr(
-            drcontext, bb_msg,
-            instr_instrument_msg_create(bb, instr, false, 0, INSTR_STATE_BB_START_NOP));)
 
 #ifdef DRCCTLIB_DEBUG
     if (bb_shadow != NULL) {
@@ -1852,10 +1843,39 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
                     instr_state_contain(state_flag, INSTR_STATE_CLIENT_INTEREST)) {
                     interest_start = true;
                 }
-                drcctlib_event_pre_instr(drcontext, bb_msg,
+                if(slot == 0) {
+#ifdef ARM32_CCTLIB
+                    drcctlib_event_pre_interest_bb(drcontext, bb_msg,
+                                            instr_instrument_msg_create(bb, first_nop_instr,
+                                                                        false, -1,
+                                                                        INSTR_STATE_BB_START_NOP));
+                    drcctlib_event_pre_instr(drcontext, bb_msg,
+                                        instr_instrument_msg_create(bb, instr,
+                                                                    interest_start, 0,
+                                                                    state_flag));
+#else               
+                    if (instr != first_instr) {
+                        drcctlib_event_pre_interest_bb(drcontext, bb_msg,
+                                         instr_instrument_msg_create(bb, first_instr,
+                                                                     false, -1,
+                                                                     INSTR_STATE_BB_START_NOP));
+                        drcctlib_event_pre_instr(drcontext, bb_msg,
+                                         instr_instrument_msg_create(bb, instr,
+                                                                     interest_start, 0,
+                                                                     state_flag));
+                    } else {
+                        drcctlib_event_pre_interest_bb(drcontext, bb_msg,
+                                         instr_instrument_msg_create(bb, instr,
+                                                                     interest_start, 0,
+                                                                     state_flag));
+                    }
+#endif
+                } else {
+                    drcctlib_event_pre_instr(drcontext, bb_msg,
                                          instr_instrument_msg_create(bb, instr,
                                                                      interest_start, slot,
                                                                      state_flag));
+                }
                 slot++;
             }
 #ifdef ARM_CCTLIB
@@ -2084,6 +2104,7 @@ drcctlib_event_thread_end(void *drcontext)
                     pt->cct_info.tree_high);
     global_cct_info.real_node_num += pt->cct_info.real_node_num;
     global_cct_info.bb_node_num += pt->cct_info.bb_node_num;
+    global_cct_info.mem_ref_num += pt->cct_info.mem_ref_num;
     global_cct_info.ins_num += pt->cct_info.ins_num;
     global_cct_info.splay_tree_search_num += pt->cct_info.splay_tree_search_num;
     global_cct_info.cct_create_clean_call_num += pt->cct_info.cct_create_clean_call_num;
@@ -2694,9 +2715,11 @@ drcctlib_exit(void)
                     "global_bb_node_num %llu "
                     "global_real_node_num %llu "
                     "global_search_num %llu "
+                    "global_mem_ref_num %llu "
                     "global_cct_create_clean_call_num %llu",
                     global_cct_info.ins_num, global_cct_info.bb_node_num,
                     global_cct_info.real_node_num, global_cct_info.splay_tree_search_num,
+                    global_cct_info.mem_ref_num,
                     global_cct_info.cct_create_clean_call_num);
 #endif
 

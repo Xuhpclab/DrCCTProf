@@ -36,9 +36,9 @@ cd $BUILD_PATH
 # run cmake
 echo -e "Running Cmake .. (See \033[34m$CMAKE_LOG_FILE\033[0m for detail)"
 if [ "$DEBUG_MODE" == "true" ] ; then
-    cmake -DDEBUG=ON $DYNAMORIO_ROOT_PATH >$CMAKE_LOG_FILE 2>&1 && echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
+    cmake -DDEBUG=ON $DYNAMORIO_ROOT_PATH -DCMAKE_C_COMPILER=gcc >$CMAKE_LOG_FILE 2>&1 && echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
 else
-    cmake $DYNAMORIO_ROOT_PATH >$CMAKE_LOG_FILE 2>&1 && echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
+    cmake $DYNAMORIO_ROOT_PATH -DCMAKE_C_COMPILER=gcc >$CMAKE_LOG_FILE 2>&1 && echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
 fi
 
 # start make
