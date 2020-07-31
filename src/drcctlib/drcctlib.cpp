@@ -2854,6 +2854,16 @@ drcctlib_get_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t 
 
 DR_EXPORT
 context_handle_t
+drcctlib_get_context_handle(void *drcontext, int32_t slot){
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (slot >= pt->cur_bb_node->max_slots) {
+        DRCCTLIB_EXIT_PROCESS("slot > cur_bb_node->max_slots");
+    }
+    return pt->cur_bb_node->child_ctxt_start_idx + slot;
+}
+
+DR_EXPORT
+context_handle_t
 drcctlib_get_global_context_handle_num()
 {
     return global_ip_node_buff_idle_idx;
