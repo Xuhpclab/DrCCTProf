@@ -94,7 +94,7 @@ drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth);
 
 DR_EXPORT
 void
-drcctlib_get_full_cct(context_t *contxt_list);
+drcctlib_free_full_cct(context_t *contxt_list);
 
 DR_EXPORT
 void
