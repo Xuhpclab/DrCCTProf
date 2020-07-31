@@ -59,6 +59,9 @@
 #define context_handle_t int32_t
 #define aligned_ctxt_hndl_t int64_t
 
+#define DISASM_CACHE_SIZE 80
+#define MAXIMUM_SYMNAME 256
+
 #define THREAD_MAX_NUM 8192
 #define SPEEDUP_SUPPORT_THREAD_MAX_NUM 32
 // #define FOR_SPEC_TEST

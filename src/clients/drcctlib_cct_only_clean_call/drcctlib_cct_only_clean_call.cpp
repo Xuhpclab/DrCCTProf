@@ -58,9 +58,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_set_client_name("DynamoRIO Client 'drcctlib_cct_only_clean_call'",
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
-
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, NULL,
-                     NULL, DRCCTLIB_DEFAULT);
+    drcctlib_init(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, false);
+    dr_register_exit_event(ClientExit);
 }
 
 #ifdef __cplusplus
