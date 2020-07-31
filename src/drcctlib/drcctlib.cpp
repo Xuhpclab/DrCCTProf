@@ -3110,15 +3110,15 @@ drcctlib_have_same_source_line(context_handle_t ctxt_hndl1, context_handle_t ctx
     if (!ctxt_hndl_is_valid(ctxt_hndl1) || !ctxt_hndl_is_valid(ctxt_hndl2)) {
         DRCCTLIB_EXIT_PROCESS("drcctlib_get_full_cct !ctxt_hndl_is_valid");
     }
-    if (ctxt1 < VALID_START_CTXT_HNDL || ctxt2 < VALID_START_CTXT_HNDL) {
-        DRCCTLIB_PRINTF("drcctlib_have_same_source_line warning ctxt < VALID_START_CTXT_HNDL ");
+    if (ctxt_hndl1 < VALID_START_CTXT_HNDL || ctxt_hndl2 < VALID_START_CTXT_HNDL) {
+        DRCCTLIB_PRINTF("drcctlib_have_same_source_line warning ctxt_hndl < VALID_START_CTXT_HNDL ");
         return false;
     }
-    if (ctxt1 == ctxt2) {
+    if (ctxt_hndl1 == ctxt_hndl2) {
         return true;
     }
-    context_t *ctxt1 = ctxt_get_from_ctxt_hndl(ctxt_hndl);
-    context_t *ctxt2 = ctxt_get_from_ctxt_hndl(ctxt_hndl);
+    context_t *ctxt1 = ctxt_get_from_ctxt_hndl(ctxt_hndl1);
+    context_t *ctxt2 = ctxt_get_from_ctxt_hndl(ctxt_hndl2);
     int line_no1 = ctxt1->line_no;
     int line_no2 = ctxt2->line_no;
     ctxt_free(ctxt1);
