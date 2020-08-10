@@ -1076,7 +1076,7 @@ hpcrun_format_init(const char *app_name, bool metric_cct)
     hashtable_init_ex(&global_module_data_table, OFFLINE_MODULE_DATA_TABLE_HASH_BITS,
                           HASH_INTPTR, false /*!strdup*/, false /*!synch*/,
                           offline_module_data_free, NULL, NULL);
-
+    drmgr_init();
     drmgr_register_module_load_event(event_module_load_analysis);
     tls_idx = drmgr_register_tls_field();
     drmgr_priority_t thread_init_pri = { sizeof(thread_init_pri), "hpcviewer_format-thread_init",
@@ -1092,11 +1092,14 @@ void
 hpcrun_format_exit()
 {
     drmgr_unregister_module_load_event(event_module_load_analysis);
+    drmgr_unregister_tls_field(tls_idx);
     drmgr_unregister_thread_init_event(event_thread_start);
     drmgr_unregister_thread_exit_event(event_thread_end);
-    drmgr_unregister_tls_field(tls_idx);
+    drmgr_exit();
+
     hashtable_delete(&global_module_data_table);
     dr_mutex_destroy(module_data_lock);
+
 }
 
 /*
