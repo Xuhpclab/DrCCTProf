@@ -38,6 +38,16 @@ typedef struct _mem_ref_msg_t {
     app_pc addr;
 } mem_ref_msg_t;
 
+typedef struct _context_t {
+    char func_name[MAXIMUM_SYMNAME];
+    char file_path[MAXIMUM_PATH];
+    char code_asm[DISASM_CACHE_SIZE];
+    context_handle_t ctxt_hndl;
+    int line_no;
+    app_pc ip;
+    struct _context_t *pre_ctxt;
+} context_t;
+
 DR_EXPORT
 bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
@@ -45,6 +55,12 @@ drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
                  void (*func2)(void *, int32_t, int32_t),
                  void (*func3)(void *, context_handle_t, int32_t, int32_t,
                                mem_ref_msg_t *, void **), char flag);
+
+DR_EXPORT
+void
+drcctlib_init(bool (*filter)(instr_t *), file_t file,
+                 void (*func1)(void *, instr_instrument_msg_t *),
+                 bool do_data_centric);
 
 DR_EXPORT
 void
@@ -61,12 +77,24 @@ drcctlib_get_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t 
 
 DR_EXPORT
 context_handle_t
+drcctlib_get_context_handle(void *drcontext, int32_t slot);
+
+DR_EXPORT
+context_handle_t
 drcctlib_get_global_context_handle_num();
 
 // API for ctxt_hndl
 DR_EXPORT
 bool
 drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl);
+
+DR_EXPORT
+context_t *
+drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth);
+
+DR_EXPORT
+void
+drcctlib_free_full_cct(context_t *contxt_list);
 
 DR_EXPORT
 void
@@ -97,6 +125,9 @@ drcctlib_have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t c
 DR_EXPORT
 bool
 drcctlib_have_same_call_path(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2);
+DR_EXPORT
+bool
+drcctlib_have_same_source_line(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2);
 
 
 enum { UNKNOWN_OBJECT, STACK_OBJECT, DYNAMIC_OBJECT, STATIC_OBJECT };
@@ -119,6 +150,10 @@ drcctlib_get_data_hndl_ignore_stack_data(void *drcontext, void *address);
 DR_EXPORT
 data_handle_t
 drcctlib_get_data_hndl_runtime(void *drcontext, void *address);
+
+DR_EXPORT
+data_handle_t
+drcctlib_get_data_hndl(void *drcontext, void *address);
 
 DR_EXPORT
 char *
