@@ -89,9 +89,6 @@
 #define BB_CACHE_MESSAGE_MAX_NUM 256 // 2^8 * 16B = 4KB
 #define INNER_MEM_REF_CACHE_MAX 4096 // 2^12 * 24B = 96KB
 
-#define DISASM_CACHE_SIZE 80
-#define MAXIMUM_SYMNAME 256
-
 #define INVALID_CTXT_HNDL 0
 #define THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE 1
 #define VALID_START_CTXT_HNDL 2
@@ -117,16 +114,6 @@ typedef struct _bb_shadow_t {
     cct_bb_node_t **last_same_key_bb_pt_list;
 #endif
 } bb_shadow_t;
-
-typedef struct _context_t {
-    char func_name[MAXIMUM_SYMNAME];
-    char file_path[MAXIMUM_PATH];
-    char code_asm[DISASM_CACHE_SIZE];
-    context_handle_t ctxt_hndl;
-    int line_no;
-    app_pc ip;
-    struct _context_t *pre_ctxt;
-} context_t;
 
 typedef struct _client_cb_t {
     void (*func_instr_analysis)(void *, instr_instrument_msg_t *);
@@ -2599,7 +2586,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
 // }
 
 bool
-drcctlib_init(char flag)
+drcctlib_internal_init(char flag)
 {
     /* handle multiple sets of init/exit calls */
     int count = dr_atomic_add32_return_sum(&init_count, 1);
@@ -2804,13 +2791,26 @@ drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
                                mem_ref_msg_t *, void **),
                  char flag)
 {
-    if (!drcctlib_init(flag)) {
+    if (!drcctlib_internal_init(flag)) {
         return false;
     }
     drcctlib_register_instr_filter(filter);
     drcctlib_config_log_file(file);
     drcctlib_register_client_cb(func1, func2, func3);
     return true;
+}
+
+DR_EXPORT
+void
+drcctlib_init(bool (*filter)(instr_t *), file_t file,
+                 void (*func1)(void *, instr_instrument_msg_t *),
+                 bool do_data_centric)
+{
+    char flag = DRCCTLIB_DEFAULT;
+    if(do_data_centric) {
+        flag = DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE;
+    }
+    drcctlib_init_ex(filter, file, func1, NULL, NULL, flag);
 }
 
 DR_EXPORT
@@ -2854,6 +2854,16 @@ drcctlib_get_context_handle_in_reg(void *drcontext, instrlist_t *ilist, instr_t 
 
 DR_EXPORT
 context_handle_t
+drcctlib_get_context_handle(void *drcontext, int32_t slot){
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (slot >= pt->cur_bb_node->max_slots) {
+        DRCCTLIB_EXIT_PROCESS("slot > cur_bb_node->max_slots");
+    }
+    return pt->cur_bb_node->child_ctxt_start_idx + slot;
+}
+
+DR_EXPORT
+context_handle_t
 drcctlib_get_global_context_handle_num()
 {
     return global_ip_node_buff_idle_idx;
@@ -2864,6 +2874,67 @@ bool
 drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl)
 {
     return ctxt_hndl_is_valid(ctxt_hndl);
+}
+
+DR_EXPORT
+context_t *
+drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth)
+{
+    if (!ctxt_hndl_is_valid(ctxt_hndl)) {
+        DRCCTLIB_EXIT_PROCESS("drcctlib_get_full_cct !ctxt_hndl_is_valid");
+    }
+    bool get_all = false;
+    if (max_depth == 0) {
+        get_all = true;
+    }
+    context_t *start = NULL;
+    context_t *list_pre_ptr = NULL;
+    int depth = 0;
+    while (true) {
+        context_t *pre_ctxt = ctxt_get_from_ctxt_hndl(ctxt_hndl);
+        if (start == NULL) {
+            start = pre_ctxt;
+            list_pre_ptr = pre_ctxt;
+        } else {
+            list_pre_ptr->pre_ctxt = pre_ctxt;
+            list_pre_ptr = pre_ctxt;
+        }
+
+        if (ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
+            break;
+        }
+        if (!get_all && depth >= max_depth) {
+            context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
+            sprintf(ctxt->func_name,
+                    "Truncated call path (due to client deep call chain)");
+            sprintf(ctxt->file_path, " ");
+            sprintf(ctxt->code_asm, " ");
+            list_pre_ptr->pre_ctxt = ctxt;
+            list_pre_ptr = ctxt;
+            break;
+        }
+        if (!get_all && depth >= MAX_CCT_PRINT_DEPTH) {
+            context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
+            sprintf(ctxt->func_name,
+                    "Truncated call path (due to drcctlib deep call chain)");
+            sprintf(ctxt->file_path, " ");
+            sprintf(ctxt->code_asm, " ");
+            list_pre_ptr->pre_ctxt = ctxt;
+            list_pre_ptr = ctxt;
+            break;
+        }
+
+        ctxt_hndl = bb_node_caller_ctxt_hndl(ctxt_hndl_parent_bb_node(ctxt_hndl));
+        depth++;
+    }
+    return start;
+}
+
+DR_EXPORT
+void
+drcctlib_free_full_cct(context_t * contxt_list)
+{
+    ctxt_free(contxt_list);
 }
 
 DR_EXPORT
@@ -3032,6 +3103,29 @@ drcctlib_have_same_call_path(context_handle_t ctxt_hndl1, context_handle_t ctxt_
     return false;
 }
 
+DR_EXPORT
+bool
+drcctlib_have_same_source_line(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2)
+{
+    if (!ctxt_hndl_is_valid(ctxt_hndl1) || !ctxt_hndl_is_valid(ctxt_hndl2)) {
+        DRCCTLIB_EXIT_PROCESS("drcctlib_get_full_cct !ctxt_hndl_is_valid");
+    }
+    if (ctxt_hndl1 < VALID_START_CTXT_HNDL || ctxt_hndl2 < VALID_START_CTXT_HNDL) {
+        DRCCTLIB_PRINTF("drcctlib_have_same_source_line warning ctxt_hndl < VALID_START_CTXT_HNDL ");
+        return false;
+    }
+    if (ctxt_hndl1 == ctxt_hndl2) {
+        return true;
+    }
+    context_t *ctxt1 = ctxt_get_from_ctxt_hndl(ctxt_hndl1);
+    context_t *ctxt2 = ctxt_get_from_ctxt_hndl(ctxt_hndl2);
+    int line_no1 = ctxt1->line_no;
+    int line_no2 = ctxt2->line_no;
+    ctxt_free(ctxt1);
+    ctxt_free(ctxt2);
+    return line_no1 == line_no2;
+}
+
 /* ======drcctlib data centric api====== */
 DR_EXPORT
 data_handle_t
@@ -3067,6 +3161,13 @@ drcctlib_get_data_hndl_runtime(void *drcontext, void *address)
         data_hndl = *ptr;
     }
     return data_hndl;
+}
+
+DR_EXPORT
+data_handle_t
+drcctlib_get_data_hndl(void *drcontext, void *address)
+{
+    return drcctlib_get_data_hndl_runtime(drcontext, address);
 }
 
 DR_EXPORT
