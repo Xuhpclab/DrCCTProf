@@ -6,6 +6,12 @@ DEBUG_MODE=false
 if [ "$1" == "-DEBUG" ] ; then
     DEBUG_MODE=true
 fi
+GCC_VERSION=$($CUR_DIR/gcc_version.sh)
+DISABLE_WARNINGS_MIN_GCC_VERSION=10
+DISABLE_WARNINGS=
+if [ "$GCC_VERSION" -ge "$DISABLE_WARNINGS_MIN_GCC_VERSION" ] ; then
+    DISABLE_WARNINGS=-DDISABLE_WARNINGS=ON
+fi
 
 TIMESTAMP=$(date +%s)
 BUILD_PATH=$CUR_DIR/../../build
@@ -36,9 +42,9 @@ cd $BUILD_PATH
 # run cmake
 echo -e "Running Cmake .. (See \033[34m$CMAKE_LOG_FILE\033[0m for detail)"
 if [ "$DEBUG_MODE" == "true" ] ; then
-    cmake -DDEBUG=ON $DYNAMORIO_ROOT_PATH -DCMAKE_C_COMPILER=gcc >$CMAKE_LOG_FILE 2>&1 && echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
+    cmake -DDEBUG=ON $DYNAMORIO_ROOT_PATH -DCMAKE_C_COMPILER=gcc $DISABLE_WARNINGS >$CMAKE_LOG_FILE 2>&1 && echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
 else
-    cmake $DYNAMORIO_ROOT_PATH -DCMAKE_C_COMPILER=gcc >$CMAKE_LOG_FILE 2>&1 && echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
+    cmake $DYNAMORIO_ROOT_PATH -DCMAKE_C_COMPILER=gcc $DISABLE_WARNINGS >$CMAKE_LOG_FILE 2>&1 && echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
 fi
 
 # start make
