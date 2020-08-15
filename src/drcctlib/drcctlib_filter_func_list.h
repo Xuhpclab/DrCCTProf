@@ -1,3 +1,9 @@
+/* 
+ *  Copyright (c) 2020 Xuhpclab. All rights reserved.
+ *  Licensed under the MIT License.
+ *  See LICENSE file for more information.
+ */
+
 #ifndef _DRCCTLIB_FILETER_FUNC_LIST_H_
 #define _DRCCTLIB_FILETER_FUNC_LIST_H_
 #include "dr_api.h"

@@ -1,4 +1,11 @@
 #! /bin/bash
+
+# **********************************************************
+# Copyright (c) 2020 Xuhpclab. All rights reserved.
+# Licensed under the MIT License.
+# See LICENSE file for more information.
+# **********************************************************
+
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
 # set -euo pipefail
 # APP_FUN_PATH=$CUR_DIR/../../test_apps/build/test_app_cct

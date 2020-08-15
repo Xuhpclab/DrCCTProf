@@ -1,5 +1,11 @@
 #! /bin/bash
 
+# **********************************************************
+# Copyright (c) 2020 Xuhpclab. All rights reserved.
+# Licensed under the MIT License.
+# See LICENSE file for more information.
+# **********************************************************
+
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
 if [ ! -f "$CUR_DIR/machine_custom_hpc_fmt.sh" ]; then

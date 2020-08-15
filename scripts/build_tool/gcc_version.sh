@@ -1,5 +1,11 @@
 #! /bin/bash
 
+# **********************************************************
+# Copyright (c) 2020 Xuhpclab. All rights reserved.
+# Licensed under the MIT License.
+# See LICENSE file for more information.
+# **********************************************************
+
 ### configure C compiler
 export compiler=$(which gcc)
  
