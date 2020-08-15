@@ -1,3 +1,9 @@
+/* 
+ *  Copyright (c) 2020 Xuhpclab. All rights reserved.
+ *  Licensed under the MIT License.
+ *  See LICENSE file for more information.
+ */
+
 #ifndef _DRCCTLIB_EXT_H_
 #define _DRCCTLIB_EXT_H_
 
