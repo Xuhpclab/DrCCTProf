@@ -1,0 +1,2506 @@
+
+0 /home/ryedida/DrCCTProf/build/bin64/../clients/lib64/release/libdrcctlib_instr_statistics.so 
+NO. 1 ins call number 2222 ctxt handle 12573====t1_fun(25):"(0x00007feadef9d63e)"
+================================================================================
+t1_fun(25):"(0x00007feadef9d63e)call   0x00007feadef9d5fa"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 2 ins call number 2222 ctxt handle 12574====t1_sub_fun(13):"(0x00007feadef9d5fa)"
+================================================================================
+t1_sub_fun(13):"(0x00007feadef9d5fa)push   rbp"
+t1_fun(25):"(0x00007feadef9d63e)call   0x00007feadef9d5fa"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 3 ins call number 2222 ctxt handle 12575====t1_sub_fun(13):"(0x00007feadef9d5fb)"
+================================================================================
+t1_sub_fun(13):"(0x00007feadef9d5fb)mov    rbp, rsp"
+t1_fun(25):"(0x00007feadef9d63e)call   0x00007feadef9d5fa"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 4 ins call number 2222 ctxt handle 12576====t1_sub_fun(14):"(0x00007feadef9d5fe)"
+================================================================================
+t1_sub_fun(14):"(0x00007feadef9d5fe)mov    eax, <rel> dword ptr [0x00007feadf19e014]"
+t1_fun(25):"(0x00007feadef9d63e)call   0x00007feadef9d5fa"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 5 ins call number 2222 ctxt handle 12577====t1_sub_fun(14):"(0x00007feadef9d604)"
+================================================================================
+t1_sub_fun(14):"(0x00007feadef9d604)add    eax, 0x01"
+t1_fun(25):"(0x00007feadef9d63e)call   0x00007feadef9d5fa"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 6 ins call number 2222 ctxt handle 12578====t1_sub_fun(14):"(0x00007feadef9d607)"
+================================================================================
+t1_sub_fun(14):"(0x00007feadef9d607)mov    <rel> dword ptr [0x00007feadf19e014], eax"
+t1_fun(25):"(0x00007feadef9d63e)call   0x00007feadef9d5fa"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 7 ins call number 2222 ctxt handle 12579====t1_sub_fun(15):"(0x00007feadef9d60d)"
+================================================================================
+t1_sub_fun(15):"(0x00007feadef9d60d)nop"
+t1_fun(25):"(0x00007feadef9d63e)call   0x00007feadef9d5fa"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 8 ins call number 2222 ctxt handle 12580====t1_sub_fun(16):"(0x00007feadef9d60e)"
+================================================================================
+t1_sub_fun(16):"(0x00007feadef9d60e)pop    rbp"
+t1_fun(25):"(0x00007feadef9d63e)call   0x00007feadef9d5fa"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 9 ins call number 2222 ctxt handle 12581====t1_sub_fun(16):"(0x00007feadef9d60f)"
+================================================================================
+t1_sub_fun(16):"(0x00007feadef9d60f)ret"
+t1_fun(25):"(0x00007feadef9d63e)call   0x00007feadef9d5fa"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 10 ins call number 2222 ctxt handle 12582====t1_fun(24):"(0x00007feadef9d643)"
+================================================================================
+t1_fun(24):"(0x00007feadef9d643)add    dword ptr [rbp-0x04], 0x01"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 11 ins call number 2222 ctxt handle 12583====t1_fun(24):"(0x00007feadef9d647)"
+================================================================================
+t1_fun(24):"(0x00007feadef9d647)jmp    0x00007feadef9d635"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 12 ins call number 2222 ctxt handle 12584====t1_fun(24):"(0x00007feadef9d635)"
+================================================================================
+t1_fun(24):"(0x00007feadef9d635)cmp    dword ptr [rbp-0x04], 0x000008ad"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 13 ins call number 2222 ctxt handle 12585====t1_fun(24):"(0x00007feadef9d63c)"
+================================================================================
+t1_fun(24):"(0x00007feadef9d63c)jnle   0x00007feadef9d649"
+main(82):"(0x00007feadef9d688)call   0x00007feadef9d626"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 14 ins call number 1240 ctxt handle 7059====_dl_relocate_object(541):"(0x00007feae2f82346)"
+================================================================================
+_dl_relocate_object(541):"(0x00007feae2f82346)mov    qword ptr [rcx], rdx"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 15 ins call number 1240 ctxt handle 7060====_dl_relocate_object(111):"(0x00007feae2f82349)"
+================================================================================
+_dl_relocate_object(111):"(0x00007feae2f82349)jbe    0x00007feae2f819bf"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 16 ins call number 1240 ctxt handle 7056====_dl_relocate_object(111):"(0x00007feae2f8233c)"
+================================================================================
+_dl_relocate_object(111):"(0x00007feae2f8233c)add    rax, 0x18"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 17 ins call number 1240 ctxt handle 7057====_dl_relocate_object(541):"(0x00007feae2f82340)"
+================================================================================
+_dl_relocate_object(541):"(0x00007feae2f82340)add    rdx, r14"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 18 ins call number 1240 ctxt handle 7058====_dl_relocate_object(111):"(0x00007feae2f82343)"
+================================================================================
+_dl_relocate_object(111):"(0x00007feae2f82343)cmp    rbx, rax"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 19 ins call number 1240 ctxt handle 7048====_dl_relocate_object(535):"(0x00007feae2f8234f)"
+================================================================================
+_dl_relocate_object(535):"(0x00007feae2f8234f)mov    edx, dword ptr [rax+0x08]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 20 ins call number 1240 ctxt handle 7049====_dl_relocate_object(112):"(0x00007feae2f82352)"
+================================================================================
+_dl_relocate_object(112):"(0x00007feae2f82352)mov    rcx, qword ptr [rax]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 21 ins call number 1240 ctxt handle 7050====_dl_relocate_object(112):"(0x00007feae2f82355)"
+================================================================================
+_dl_relocate_object(112):"(0x00007feae2f82355)add    rcx, r14"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 22 ins call number 1240 ctxt handle 7051====_dl_relocate_object(535):"(0x00007feae2f82358)"
+================================================================================
+_dl_relocate_object(535):"(0x00007feae2f82358)cmp    rdx, 0x26"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 23 ins call number 1240 ctxt handle 7052====_dl_relocate_object(535):"(0x00007feae2f8235c)"
+================================================================================
+_dl_relocate_object(535):"(0x00007feae2f8235c)jz     0x00007feae2f82338"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 24 ins call number 1240 ctxt handle 7053====_dl_relocate_object(540):"(0x00007feae2f8235e)"
+================================================================================
+_dl_relocate_object(540):"(0x00007feae2f8235e)cmp    rdx, 0x08"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 25 ins call number 1240 ctxt handle 7054====_dl_relocate_object(540):"(0x00007feae2f82362)"
+================================================================================
+_dl_relocate_object(540):"(0x00007feae2f82362)jz     0x00007feae2f82338"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 26 ins call number 1240 ctxt handle 7055====_dl_relocate_object(541):"(0x00007feae2f82338)"
+================================================================================
+_dl_relocate_object(541):"(0x00007feae2f82338)mov    rdx, qword ptr [rax+0x10]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 27 ins call number 1111 ctxt handle 12604====t2_sub_fun(21):"(0x00007feadef9d625)"
+================================================================================
+t2_sub_fun(21):"(0x00007feadef9d625)ret"
+t2_fun(31):"(0x00007feadef9d664)call   0x00007feadef9d610"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 28 ins call number 1111 ctxt handle 12605====t2_fun(30):"(0x00007feadef9d669)"
+================================================================================
+t2_fun(30):"(0x00007feadef9d669)add    dword ptr [rbp-0x04], 0x01"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 29 ins call number 1111 ctxt handle 12606====t2_fun(30):"(0x00007feadef9d66d)"
+================================================================================
+t2_fun(30):"(0x00007feadef9d66d)jmp    0x00007feadef9d65b"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 30 ins call number 1111 ctxt handle 12607====t2_fun(30):"(0x00007feadef9d65b)"
+================================================================================
+t2_fun(30):"(0x00007feadef9d65b)cmp    dword ptr [rbp-0x04], 0x00000456"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 31 ins call number 1111 ctxt handle 12608====t2_fun(30):"(0x00007feadef9d662)"
+================================================================================
+t2_fun(30):"(0x00007feadef9d662)jnle   0x00007feadef9d66f"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 32 ins call number 1111 ctxt handle 12596====t2_fun(31):"(0x00007feadef9d664)"
+================================================================================
+t2_fun(31):"(0x00007feadef9d664)call   0x00007feadef9d610"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 33 ins call number 1111 ctxt handle 12597====t2_sub_fun(18):"(0x00007feadef9d610)"
+================================================================================
+t2_sub_fun(18):"(0x00007feadef9d610)push   rbp"
+t2_fun(31):"(0x00007feadef9d664)call   0x00007feadef9d610"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 34 ins call number 1111 ctxt handle 12598====t2_sub_fun(18):"(0x00007feadef9d611)"
+================================================================================
+t2_sub_fun(18):"(0x00007feadef9d611)mov    rbp, rsp"
+t2_fun(31):"(0x00007feadef9d664)call   0x00007feadef9d610"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 35 ins call number 1111 ctxt handle 12599====t2_sub_fun(19):"(0x00007feadef9d614)"
+================================================================================
+t2_sub_fun(19):"(0x00007feadef9d614)mov    eax, <rel> dword ptr [0x00007feadf19e018]"
+t2_fun(31):"(0x00007feadef9d664)call   0x00007feadef9d610"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 36 ins call number 1111 ctxt handle 12600====t2_sub_fun(19):"(0x00007feadef9d61a)"
+================================================================================
+t2_sub_fun(19):"(0x00007feadef9d61a)add    eax, 0x01"
+t2_fun(31):"(0x00007feadef9d664)call   0x00007feadef9d610"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 37 ins call number 1111 ctxt handle 12601====t2_sub_fun(19):"(0x00007feadef9d61d)"
+================================================================================
+t2_sub_fun(19):"(0x00007feadef9d61d)mov    <rel> dword ptr [0x00007feadf19e018], eax"
+t2_fun(31):"(0x00007feadef9d664)call   0x00007feadef9d610"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 38 ins call number 1111 ctxt handle 12602====t2_sub_fun(20):"(0x00007feadef9d623)"
+================================================================================
+t2_sub_fun(20):"(0x00007feadef9d623)nop"
+t2_fun(31):"(0x00007feadef9d664)call   0x00007feadef9d610"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 39 ins call number 1111 ctxt handle 12603====t2_sub_fun(21):"(0x00007feadef9d624)"
+================================================================================
+t2_sub_fun(21):"(0x00007feadef9d624)pop    rbp"
+t2_fun(31):"(0x00007feadef9d664)call   0x00007feadef9d610"
+main(83):"(0x00007feadef9d68d)call   0x00007feadef9d64c"
+__libc_start_main(310):"(0x00007fea0ca64b95)call   rax"
+_start(0):"(0x00007feadef9d514)call   <rel> qword ptr [0x00007feadf19dfe0]"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 40 ins call number 979 ctxt handle 7174====_dl_lookup_symbol_x(556):"(0x00007feae2f80153)"
+================================================================================
+_dl_lookup_symbol_x(556):"(0x00007feae2f80153)add    rbx, rax"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 41 ins call number 979 ctxt handle 7175====_dl_lookup_symbol_x(556):"(0x00007feae2f80156)"
+================================================================================
+_dl_lookup_symbol_x(556):"(0x00007feae2f80156)add    rbx, rdx"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 42 ins call number 979 ctxt handle 7176====_dl_lookup_symbol_x(555):"(0x00007feae2f80159)"
+================================================================================
+_dl_lookup_symbol_x(555):"(0x00007feae2f80159)movzx  edx, byte ptr [rcx]"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 43 ins call number 979 ctxt handle 7171====_dl_lookup_symbol_x(556):"(0x00007feae2f80148)"
+================================================================================
+_dl_lookup_symbol_x(556):"(0x00007feae2f80148)mov    rax, rbx"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 44 ins call number 979 ctxt handle 7172====_dl_lookup_symbol_x(555):"(0x00007feae2f8014b)"
+================================================================================
+_dl_lookup_symbol_x(555):"(0x00007feae2f8014b)add    rcx, 0x01"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 45 ins call number 979 ctxt handle 7178====_dl_lookup_symbol_x(555):"(0x00007feae2f8015e)"
+================================================================================
+_dl_lookup_symbol_x(555):"(0x00007feae2f8015e)jnz    0x00007feae2f80148"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 46 ins call number 979 ctxt handle 7177====_dl_lookup_symbol_x(555):"(0x00007feae2f8015c)"
+================================================================================
+_dl_lookup_symbol_x(555):"(0x00007feae2f8015c)test   dl, dl"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 47 ins call number 979 ctxt handle 7173====_dl_lookup_symbol_x(556):"(0x00007feae2f8014f)"
+================================================================================
+_dl_lookup_symbol_x(556):"(0x00007feae2f8014f)shl    rax, 0x05"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 48 ins call number 594 ctxt handle 508====__GI___tunables_init(312):"(0x00007feae2f8dde8)"
+================================================================================
+__GI___tunables_init(312):"(0x00007feae2f8dde8)cmp    r8d, 0x16"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 49 ins call number 594 ctxt handle 509====__GI___tunables_init(312):"(0x00007feae2f8ddec)"
+================================================================================
+__GI___tunables_init(312):"(0x00007feae2f8ddec)jnz    0x00007feae2f8dd90"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 50 ins call number 594 ctxt handle 503====__GI___tunables_init(318):"(0x00007feae2f8dd95)"
+================================================================================
+__GI___tunables_init(318):"(0x00007feae2f8dd95)mov    r9, qword ptr [rdi+0x08]"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 51 ins call number 594 ctxt handle 504====__GI___tunables_init(318):"(0x00007feae2f8dd99)"
+================================================================================
+__GI___tunables_init(318):"(0x00007feae2f8dd99)test   r9, r9"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 52 ins call number 594 ctxt handle 505====__GI___tunables_init(318):"(0x00007feae2f8dd9c)"
+================================================================================
+__GI___tunables_init(318):"(0x00007feae2f8dd9c)jz     0x00007feae2f8dde0"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 53 ins call number 594 ctxt handle 506====__GI___tunables_init(312):"(0x00007feae2f8dde0)"
+================================================================================
+__GI___tunables_init(312):"(0x00007feae2f8dde0)add    r8d, 0x01"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 54 ins call number 594 ctxt handle 507====__GI___tunables_init(312):"(0x00007feae2f8dde4)"
+================================================================================
+__GI___tunables_init(312):"(0x00007feae2f8dde4)add    rdi, 0x38"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 55 ins call number 567 ctxt handle 510====__GI___tunables_init(318):"(0x00007feae2f8dd90)"
+================================================================================
+__GI___tunables_init(318):"(0x00007feae2f8dd90)cmp    byte ptr [rdi], 0x00"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 56 ins call number 567 ctxt handle 511====__GI___tunables_init(318):"(0x00007feae2f8dd93)"
+================================================================================
+__GI___tunables_init(318):"(0x00007feae2f8dd93)jnz    0x00007feae2f8dde0"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 57 ins call number 267 ctxt handle 483====__GI___tunables_init(74):"(0x00007feae2f8dd13)"
+================================================================================
+__GI___tunables_init(74):"(0x00007feae2f8dd13)jz     0x00007feae2f8dd24"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 58 ins call number 267 ctxt handle 482====__GI___tunables_init(74):"(0x00007feae2f8dd10)"
+================================================================================
+__GI___tunables_init(74):"(0x00007feae2f8dd10)cmp    dl, 0x3d"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 59 ins call number 243 ctxt handle 512====__GI___tunables_init(120):"(0x00007feae2f8dd9e)"
+================================================================================
+__GI___tunables_init(120):"(0x00007feae2f8dd9e)movzx  edx, byte ptr [r9]"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 60 ins call number 243 ctxt handle 513====__GI___tunables_init(120):"(0x00007feae2f8dda2)"
+================================================================================
+__GI___tunables_init(120):"(0x00007feae2f8dda2)movzx  eax, byte ptr [rbx]"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 61 ins call number 243 ctxt handle 514====__GI___tunables_init(120):"(0x00007feae2f8dda5)"
+================================================================================
+__GI___tunables_init(120):"(0x00007feae2f8dda5)test   dl, dl"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 62 ins call number 243 ctxt handle 515====__GI___tunables_init(120):"(0x00007feae2f8dda7)"
+================================================================================
+__GI___tunables_init(120):"(0x00007feae2f8dda7)jz     0x00007feae2f8dddc"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 63 ins call number 243 ctxt handle 516====__GI___tunables_init(121):"(0x00007feae2f8dda9)"
+================================================================================
+__GI___tunables_init(121):"(0x00007feae2f8dda9)test   al, al"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 64 ins call number 243 ctxt handle 517====__GI___tunables_init(121):"(0x00007feae2f8ddab)"
+================================================================================
+__GI___tunables_init(121):"(0x00007feae2f8ddab)jz     0x00007feae2f8dde0"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 65 ins call number 243 ctxt handle 518====__GI___tunables_init(121):"(0x00007feae2f8ddad)"
+================================================================================
+__GI___tunables_init(121):"(0x00007feae2f8ddad)cmp    dl, al"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 66 ins call number 243 ctxt handle 519====__GI___tunables_init(121):"(0x00007feae2f8ddaf)"
+================================================================================
+__GI___tunables_init(121):"(0x00007feae2f8ddaf)jnz    0x00007feae2f8dde0"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 67 ins call number 240 ctxt handle 486====__GI___tunables_init(74):"(0x00007feae2f8dd1c)"
+================================================================================
+__GI___tunables_init(74):"(0x00007feae2f8dd1c)lea    rcx, [rax+0x01]"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 68 ins call number 240 ctxt handle 487====__GI___tunables_init(74):"(0x00007feae2f8dd20)"
+================================================================================
+__GI___tunables_init(74):"(0x00007feae2f8dd20)test   dl, dl"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 69 ins call number 240 ctxt handle 488====__GI___tunables_init(74):"(0x00007feae2f8dd22)"
+================================================================================
+__GI___tunables_init(74):"(0x00007feae2f8dd22)jnz    0x00007feae2f8dd10"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 70 ins call number 240 ctxt handle 484====__GI___tunables_init(74):"(0x00007feae2f8dd15)"
+================================================================================
+__GI___tunables_init(74):"(0x00007feae2f8dd15)mov    rax, rcx"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 71 ins call number 240 ctxt handle 485====__GI___tunables_init(74):"(0x00007feae2f8dd18)"
+================================================================================
+__GI___tunables_init(74):"(0x00007feae2f8dd18)movzx  edx, byte ptr [rbx+rax]"
+_dl_sysdep_start(224):"(0x00007feae2f8fc95)call   0x00007feae2f8dc80"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 72 ins call number 156 ctxt handle 7277====do_lookup_x(393):"(0x00007feae2f7f357)"
+================================================================================
+do_lookup_x(393):"(0x00007feae2f7f357)shr    rdx, cl"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 73 ins call number 156 ctxt handle 7278====do_lookup_x(393):"(0x00007feae2f7f35a)"
+================================================================================
+do_lookup_x(393):"(0x00007feae2f7f35a)mov    ecx, edi"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 74 ins call number 156 ctxt handle 7279====do_lookup_x(393):"(0x00007feae2f7f35c)"
+================================================================================
+do_lookup_x(393):"(0x00007feae2f7f35c)shr    rax, cl"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 75 ins call number 156 ctxt handle 7280====do_lookup_x(393):"(0x00007feae2f7f35f)"
+================================================================================
+do_lookup_x(393):"(0x00007feae2f7f35f)and    rax, rdx"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 76 ins call number 156 ctxt handle 7281====do_lookup_x(393):"(0x00007feae2f7f362)"
+================================================================================
+do_lookup_x(393):"(0x00007feae2f7f362)test   al, 0x01"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 77 ins call number 156 ctxt handle 7282====do_lookup_x(393):"(0x00007feae2f7f364)"
+================================================================================
+do_lookup_x(393):"(0x00007feae2f7f364)jnz    0x00007feae2f7f6e8"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 78 ins call number 156 ctxt handle 7252====do_lookup_x(356):"(0x00007feae2f7f3d2)"
+================================================================================
+do_lookup_x(356):"(0x00007feae2f7f3d2)jz     0x00007feae2f7f3dd"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 79 ins call number 156 ctxt handle 7253====do_lookup_x(360):"(0x00007feae2f7f3dd)"
+================================================================================
+do_lookup_x(360):"(0x00007feae2f7f3dd)test   byte ptr [rbx+0x00000315], 0x20"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 80 ins call number 156 ctxt handle 7254====do_lookup_x(360):"(0x00007feae2f7f3e4)"
+================================================================================
+do_lookup_x(360):"(0x00007feae2f7f3e4)jnz    0x00007feae2f7f3b0"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 81 ins call number 156 ctxt handle 7255====do_lookup_x(364):"(0x00007feae2f7f3e6)"
+================================================================================
+do_lookup_x(364):"(0x00007feae2f7f3e6)test   <rel> byte ptr [0x00007feae319c760], 0x08"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 82 ins call number 156 ctxt handle 7256====do_lookup_x(364):"(0x00007feae2f7f3ed)"
+================================================================================
+do_lookup_x(364):"(0x00007feae2f7f3ed)jz     0x00007feae2f7f300"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 83 ins call number 156 ctxt handle 7257====do_lookup_x(370):"(0x00007feae2f7f300)"
+================================================================================
+do_lookup_x(370):"(0x00007feae2f7f300)mov    esi, dword ptr [rbx+0x000002ec]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 84 ins call number 156 ctxt handle 7258====do_lookup_x(370):"(0x00007feae2f7f306)"
+================================================================================
+do_lookup_x(370):"(0x00007feae2f7f306)test   esi, esi"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 85 ins call number 156 ctxt handle 7259====do_lookup_x(370):"(0x00007feae2f7f308)"
+================================================================================
+do_lookup_x(370):"(0x00007feae2f7f308)jz     0x00007feae2f7f3b0"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 86 ins call number 156 ctxt handle 7260====do_lookup_x(378):"(0x00007feae2f7f30e)"
+================================================================================
+do_lookup_x(378):"(0x00007feae2f7f30e)mov    rax, qword ptr [rbx+0x70]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 87 ins call number 156 ctxt handle 7261====do_lookup_x(378):"(0x00007feae2f7f312)"
+================================================================================
+do_lookup_x(378):"(0x00007feae2f7f312)mov    r8, qword ptr [rax+0x08]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 88 ins call number 156 ctxt handle 7262====do_lookup_x(379):"(0x00007feae2f7f316)"
+================================================================================
+do_lookup_x(379):"(0x00007feae2f7f316)mov    rax, qword ptr [rbx+0x68]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 89 ins call number 156 ctxt handle 7247====do_lookup_x(349):"(0x00007feae2f7f3bd)"
+================================================================================
+do_lookup_x(349):"(0x00007feae2f7f3bd)mov    rax, qword ptr [r12+rbp*8]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 90 ins call number 156 ctxt handle 7248====do_lookup_x(349):"(0x00007feae2f7f3c1)"
+================================================================================
+do_lookup_x(349):"(0x00007feae2f7f3c1)mov    rbx, qword ptr [rax+0x28]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 91 ins call number 156 ctxt handle 7249====do_lookup_x(352):"(0x00007feae2f7f3c5)"
+================================================================================
+do_lookup_x(352):"(0x00007feae2f7f3c5)cmp    rbx, qword ptr [rsp+0xe8]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 92 ins call number 156 ctxt handle 7250====do_lookup_x(352):"(0x00007feae2f7f3cd)"
+================================================================================
+do_lookup_x(352):"(0x00007feae2f7f3cd)jz     0x00007feae2f7f3b0"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 93 ins call number 156 ctxt handle 7251====do_lookup_x(356):"(0x00007feae2f7f3cf)"
+================================================================================
+do_lookup_x(356):"(0x00007feae2f7f3cf)test   r14d, r14d"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 94 ins call number 156 ctxt handle 7263====do_lookup_x(379):"(0x00007feae2f7f31a)"
+================================================================================
+do_lookup_x(379):"(0x00007feae2f7f31a)mov    rax, qword ptr [rax+0x08]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 95 ins call number 156 ctxt handle 7264====do_lookup_x(379):"(0x00007feae2f7f31e)"
+================================================================================
+do_lookup_x(379):"(0x00007feae2f7f31e)mov    qword ptr [rsp+0x18], rax"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 96 ins call number 156 ctxt handle 7265====do_lookup_x(382):"(0x00007feae2f7f323)"
+================================================================================
+do_lookup_x(382):"(0x00007feae2f7f323)mov    rax, qword ptr [rbx+0x000002f8]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 97 ins call number 156 ctxt handle 7266====do_lookup_x(383):"(0x00007feae2f7f32a)"
+================================================================================
+do_lookup_x(383):"(0x00007feae2f7f32a)test   rax, rax"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 98 ins call number 156 ctxt handle 7267====do_lookup_x(383):"(0x00007feae2f7f32d)"
+================================================================================
+do_lookup_x(383):"(0x00007feae2f7f32d)jz     0x00007feae2f7f448"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 99 ins call number 156 ctxt handle 7268====do_lookup_x(387):"(0x00007feae2f7f333)"
+================================================================================
+do_lookup_x(387):"(0x00007feae2f7f333)mov    edx, dword ptr [rsp+0x20]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 100 ins call number 156 ctxt handle 7269====do_lookup_x(387):"(0x00007feae2f7f337)"
+================================================================================
+do_lookup_x(387):"(0x00007feae2f7f337)and    edx, dword ptr [rbx+0x000002f0]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 101 ins call number 156 ctxt handle 7270====do_lookup_x(390):"(0x00007feae2f7f33d)"
+================================================================================
+do_lookup_x(390):"(0x00007feae2f7f33d)mov    rdi, qword ptr [rsp]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 102 ins call number 156 ctxt handle 7271====do_lookup_x(390):"(0x00007feae2f7f341)"
+================================================================================
+do_lookup_x(390):"(0x00007feae2f7f341)mov    ecx, dword ptr [rbx+0x000002f4]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 103 ins call number 156 ctxt handle 7272====do_lookup_x(385):"(0x00007feae2f7f347)"
+================================================================================
+do_lookup_x(385):"(0x00007feae2f7f347)mov    rax, qword ptr [rax+rdx*8]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 104 ins call number 156 ctxt handle 7273====do_lookup_x(390):"(0x00007feae2f7f34b)"
+================================================================================
+do_lookup_x(390):"(0x00007feae2f7f34b)mov    rdx, rdi"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 105 ins call number 156 ctxt handle 7274====do_lookup_x(390):"(0x00007feae2f7f34e)"
+================================================================================
+do_lookup_x(390):"(0x00007feae2f7f34e)shr    rdx, cl"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 106 ins call number 156 ctxt handle 7275====do_lookup_x(390):"(0x00007feae2f7f351)"
+================================================================================
+do_lookup_x(390):"(0x00007feae2f7f351)mov    rcx, rdx"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 107 ins call number 156 ctxt handle 7276====do_lookup_x(393):"(0x00007feae2f7f354)"
+================================================================================
+do_lookup_x(393):"(0x00007feae2f7f354)mov    rdx, rax"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 108 ins call number 144 ctxt handle 7318====do_lookup_x(403):"(0x00007feae2f7f763)"
+================================================================================
+do_lookup_x(403):"(0x00007feae2f7f763)jnz    0x00007feae2f7f748"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 109 ins call number 144 ctxt handle 7314====do_lookup_x(403):"(0x00007feae2f7f756)"
+================================================================================
+do_lookup_x(403):"(0x00007feae2f7f756)mov    eax, dword ptr [r15]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 110 ins call number 144 ctxt handle 7315====do_lookup_x(403):"(0x00007feae2f7f759)"
+================================================================================
+do_lookup_x(403):"(0x00007feae2f7f759)mov    r13, rax"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 111 ins call number 144 ctxt handle 7316====do_lookup_x(403):"(0x00007feae2f7f75c)"
+================================================================================
+do_lookup_x(403):"(0x00007feae2f7f75c)xor    rax, qword ptr [rsp]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 112 ins call number 144 ctxt handle 7317====do_lookup_x(403):"(0x00007feae2f7f760)"
+================================================================================
+do_lookup_x(403):"(0x00007feae2f7f760)shr    rax, 0x01"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 113 ins call number 94 ctxt handle 7508====_dl_relocate_object(335):"(0x00007feae2f81b7d)"
+================================================================================
+_dl_relocate_object(335):"(0x00007feae2f81b7d)movsxd rax, dword ptr [rcx+r12*4]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 114 ins call number 94 ctxt handle 7094====_dl_relocate_object(301):"(0x00007feae2f81a75)"
+================================================================================
+_dl_relocate_object(301):"(0x00007feae2f81a75)jz     0x00007feae2f81d00"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 115 ins call number 94 ctxt handle 7509====_dl_relocate_object(335):"(0x00007feae2f81b81)"
+================================================================================
+_dl_relocate_object(335):"(0x00007feae2f81b81)add    rax, rcx"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 116 ins call number 94 ctxt handle 7510====_dl_relocate_object(335):"(0x00007feae2f81b84)"
+================================================================================
+_dl_relocate_object(335):"(0x00007feae2f81b84)jmp    rax"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 117 ins call number 94 ctxt handle 7081====_dl_relocate_object(136):"(0x00007feae2f81a35)"
+================================================================================
+_dl_relocate_object(136):"(0x00007feae2f81a35)shr    rax, 0x20"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 118 ins call number 94 ctxt handle 7082====_dl_relocate_object(276):"(0x00007feae2f81a39)"
+================================================================================
+_dl_relocate_object(276):"(0x00007feae2f81a39)cmp    r12, 0x08"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 119 ins call number 94 ctxt handle 7083====_dl_relocate_object(139):"(0x00007feae2f81a3d)"
+================================================================================
+_dl_relocate_object(139):"(0x00007feae2f81a3d)mov    qword ptr [rbp-0xa0], rdi"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 120 ins call number 94 ctxt handle 7084====_dl_relocate_object(137):"(0x00007feae2f81a44)"
+================================================================================
+_dl_relocate_object(137):"(0x00007feae2f81a44)mov    rdi, qword ptr [rbp-0xa8]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 121 ins call number 94 ctxt handle 7085====_dl_relocate_object(136):"(0x00007feae2f81a4b)"
+================================================================================
+_dl_relocate_object(136):"(0x00007feae2f81a4b)movzx  edx, word ptr [rsi+rax*2]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 122 ins call number 94 ctxt handle 7095====_dl_relocate_object(308):"(0x00007feae2f81a7b)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81a7b)movzx  eax, byte ptr [r13+0x04]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 123 ins call number 94 ctxt handle 7078====_dl_relocate_object(139):"(0x00007feae2f81a28)"
+================================================================================
+_dl_relocate_object(139):"(0x00007feae2f81a28)add    rdi, qword ptr [rbx]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 124 ins call number 94 ctxt handle 7077====_dl_relocate_object(139):"(0x00007feae2f81a21)"
+================================================================================
+_dl_relocate_object(139):"(0x00007feae2f81a21)mov    rdi, qword ptr [rbp-0xb8]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 125 ins call number 94 ctxt handle 7086====_dl_relocate_object(137):"(0x00007feae2f81a4f)"
+================================================================================
+_dl_relocate_object(137):"(0x00007feae2f81a4f)lea    rax, [rax+rax*2]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 126 ins call number 94 ctxt handle 7087====_dl_relocate_object(138):"(0x00007feae2f81a53)"
+================================================================================
+_dl_relocate_object(138):"(0x00007feae2f81a53)mov    rsi, qword ptr [r14+0x000002e0]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 127 ins call number 94 ctxt handle 7088====_dl_relocate_object(137):"(0x00007feae2f81a5a)"
+================================================================================
+_dl_relocate_object(137):"(0x00007feae2f81a5a)lea    r13, [rdi+rax*8]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 128 ins call number 94 ctxt handle 7091====_dl_relocate_object(297):"(0x00007feae2f81a68)"
+================================================================================
+_dl_relocate_object(297):"(0x00007feae2f81a68)cmp    r12, 0x26"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 129 ins call number 94 ctxt handle 7079====_dl_relocate_object(136):"(0x00007feae2f81a2b)"
+================================================================================
+_dl_relocate_object(136):"(0x00007feae2f81a2b)mov    rax, r15"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 130 ins call number 94 ctxt handle 7080====_dl_relocate_object(136):"(0x00007feae2f81a2e)"
+================================================================================
+_dl_relocate_object(136):"(0x00007feae2f81a2e)mov    rsi, qword ptr [rbp-0xb0]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 131 ins call number 94 ctxt handle 7089====_dl_relocate_object(137):"(0x00007feae2f81a5e)"
+================================================================================
+_dl_relocate_object(137):"(0x00007feae2f81a5e)mov    qword ptr [rbp-0x80], r13"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 132 ins call number 94 ctxt handle 7090====_dl_relocate_object(276):"(0x00007feae2f81a62)"
+================================================================================
+_dl_relocate_object(276):"(0x00007feae2f81a62)jz     0x00007feae2f82230"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 133 ins call number 94 ctxt handle 7092====_dl_relocate_object(297):"(0x00007feae2f81a6c)"
+================================================================================
+_dl_relocate_object(297):"(0x00007feae2f81a6c)jz     0x00007feae2f82250"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 134 ins call number 94 ctxt handle 7093====_dl_relocate_object(301):"(0x00007feae2f81a72)"
+================================================================================
+_dl_relocate_object(301):"(0x00007feae2f81a72)test   r12, r12"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 135 ins call number 94 ctxt handle 7505====_dl_relocate_object(335):"(0x00007feae2f81b6c)"
+================================================================================
+_dl_relocate_object(335):"(0x00007feae2f81b6c)cmp    r12, 0x25"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 136 ins call number 94 ctxt handle 7096====_dl_relocate_object(308):"(0x00007feae2f81a80)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81a80)shr    al, 0x04"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 137 ins call number 94 ctxt handle 7097====_dl_relocate_object(308):"(0x00007feae2f81a83)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81a83)test   al, al"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 138 ins call number 94 ctxt handle 7098====_dl_relocate_object(308):"(0x00007feae2f81a85)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81a85)jz     0x00007feae2f82120"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 139 ins call number 94 ctxt handle 7506====_dl_relocate_object(335):"(0x00007feae2f81b70)"
+================================================================================
+_dl_relocate_object(335):"(0x00007feae2f81b70)jnbe   0x00007feae2f82f23"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 140 ins call number 94 ctxt handle 7507====_dl_relocate_object(335):"(0x00007feae2f81b76)"
+================================================================================
+_dl_relocate_object(335):"(0x00007feae2f81b76)lea    rcx, <rel> [0x00007feae2f95100]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 141 ins call number 92 ctxt handle 7519====_dl_relocate_object(127):"(0x00007feae2f81a14)"
+================================================================================
+_dl_relocate_object(127):"(0x00007feae2f81a14)mov    r12d, r15d"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 142 ins call number 92 ctxt handle 7520====_dl_relocate_object(127):"(0x00007feae2f81a17)"
+================================================================================
+_dl_relocate_object(127):"(0x00007feae2f81a17)cmp    r12, 0x25"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 143 ins call number 92 ctxt handle 7521====_dl_relocate_object(127):"(0x00007feae2f81a1b)"
+================================================================================
+_dl_relocate_object(127):"(0x00007feae2f81a1b)jz     0x00007feae2f821f0"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 144 ins call number 92 ctxt handle 9741====_dl_lookup_symbol_x(556):"(0x00007feae2f80148)"
+================================================================================
+_dl_lookup_symbol_x(556):"(0x00007feae2f80148)mov    rax, rbx"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2251):"(0x00007feae2f794b1)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 145 ins call number 92 ctxt handle 9742====_dl_lookup_symbol_x(555):"(0x00007feae2f8014b)"
+================================================================================
+_dl_lookup_symbol_x(555):"(0x00007feae2f8014b)add    rcx, 0x01"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2251):"(0x00007feae2f794b1)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 146 ins call number 92 ctxt handle 9743====_dl_lookup_symbol_x(556):"(0x00007feae2f8014f)"
+================================================================================
+_dl_lookup_symbol_x(556):"(0x00007feae2f8014f)shl    rax, 0x05"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2251):"(0x00007feae2f794b1)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 147 ins call number 92 ctxt handle 9744====_dl_lookup_symbol_x(556):"(0x00007feae2f80153)"
+================================================================================
+_dl_lookup_symbol_x(556):"(0x00007feae2f80153)add    rbx, rax"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2251):"(0x00007feae2f794b1)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 148 ins call number 92 ctxt handle 9745====_dl_lookup_symbol_x(556):"(0x00007feae2f80156)"
+================================================================================
+_dl_lookup_symbol_x(556):"(0x00007feae2f80156)add    rbx, rdx"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2251):"(0x00007feae2f794b1)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 149 ins call number 92 ctxt handle 9746====_dl_lookup_symbol_x(555):"(0x00007feae2f80159)"
+================================================================================
+_dl_lookup_symbol_x(555):"(0x00007feae2f80159)movzx  edx, byte ptr [rcx]"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2251):"(0x00007feae2f794b1)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 150 ins call number 92 ctxt handle 9747====_dl_lookup_symbol_x(555):"(0x00007feae2f8015c)"
+================================================================================
+_dl_lookup_symbol_x(555):"(0x00007feae2f8015c)test   dl, dl"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2251):"(0x00007feae2f794b1)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 151 ins call number 92 ctxt handle 9748====_dl_lookup_symbol_x(555):"(0x00007feae2f8015e)"
+================================================================================
+_dl_lookup_symbol_x(555):"(0x00007feae2f8015e)jnz    0x00007feae2f80148"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2251):"(0x00007feae2f794b1)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 152 ins call number 92 ctxt handle 7518====_dl_relocate_object(127):"(0x00007feae2f81a10)"
+================================================================================
+_dl_relocate_object(127):"(0x00007feae2f81a10)mov    r15, qword ptr [rbx+0x08]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 153 ins call number 86 ctxt handle 7283====do_lookup_x(294):"(0x00007feae2f7f36a)"
+================================================================================
+do_lookup_x(294):"(0x00007feae2f7f36a)mov    eax, 0x00000001"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 154 ins call number 86 ctxt handle 7284====do_lookup_x(540):"(0x00007feae2f7f36f)"
+================================================================================
+do_lookup_x(540):"(0x00007feae2f7f36f)cmp    qword ptr [rsp+0xd8], 0x00"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 155 ins call number 86 ctxt handle 7285====do_lookup_x(540):"(0x00007feae2f7f378)"
+================================================================================
+do_lookup_x(540):"(0x00007feae2f7f378)jz     0x00007feae2f7f3b0"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 156 ins call number 77 ctxt handle 7100====_dl_relocate_object(102):"(0x00007feae2f81a90)"
+================================================================================
+_dl_relocate_object(102):"(0x00007feae2f81a90)and    eax, 0x03"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 157 ins call number 77 ctxt handle 7101====_dl_relocate_object(102):"(0x00007feae2f81a93)"
+================================================================================
+_dl_relocate_object(102):"(0x00007feae2f81a93)sub    eax, 0x01"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 158 ins call number 77 ctxt handle 7102====_dl_relocate_object(308):"(0x00007feae2f81a96)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81a96)cmp    eax, 0x01"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 159 ins call number 77 ctxt handle 7513====_dl_relocate_object(458):"(0x00007feae2f81cf3)"
+================================================================================
+_dl_relocate_object(458):"(0x00007feae2f81cf3)mov    qword ptr [rax], r10"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 160 ins call number 77 ctxt handle 7514====_dl_relocate_object(458):"(0x00007feae2f81cf6)"
+================================================================================
+_dl_relocate_object(458):"(0x00007feae2f81cf6)nop    dword ptr [cs:rax+rax+0x00000000]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 161 ins call number 77 ctxt handle 7515====_dl_relocate_object(124):"(0x00007feae2f81d00)"
+================================================================================
+_dl_relocate_object(124):"(0x00007feae2f81d00)add    rbx, 0x18"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 162 ins call number 77 ctxt handle 7103====_dl_relocate_object(308):"(0x00007feae2f81a99)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81a99)jbe    0x00007feae2f82120"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 163 ins call number 77 ctxt handle 7104====_dl_relocate_object(308):"(0x00007feae2f81a9f)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81a9f)cmp    r13, qword ptr [r14+0x000003f8]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 164 ins call number 77 ctxt handle 7105====_dl_relocate_object(308):"(0x00007feae2f81aa6)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81aa6)jz     0x00007feae2f82c08"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 165 ins call number 77 ctxt handle 7516====_dl_relocate_object(124):"(0x00007feae2f81d04)"
+================================================================================
+_dl_relocate_object(124):"(0x00007feae2f81d04)cmp    qword ptr [rbp-0x98], rbx"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 166 ins call number 77 ctxt handle 7517====_dl_relocate_object(124):"(0x00007feae2f81d0b)"
+================================================================================
+_dl_relocate_object(124):"(0x00007feae2f81d0b)jnbe   0x00007feae2f81a10"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 167 ins call number 77 ctxt handle 7511====_dl_relocate_object(458):"(0x00007feae2f81ce8)"
+================================================================================
+_dl_relocate_object(458):"(0x00007feae2f81ce8)add    r10, qword ptr [rbx+0x10]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 168 ins call number 77 ctxt handle 7512====_dl_relocate_object(458):"(0x00007feae2f81cec)"
+================================================================================
+_dl_relocate_object(458):"(0x00007feae2f81cec)mov    rax, qword ptr [rbp-0xa0]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 169 ins call number 77 ctxt handle 7099====_dl_relocate_object(102):"(0x00007feae2f81a8b)"
+================================================================================
+_dl_relocate_object(102):"(0x00007feae2f81a8b)movzx  eax, byte ptr [r13+0x05]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 170 ins call number 76 ctxt handle 7294====do_lookup_x(544):"(0x00007feae2f7f3b7)"
+================================================================================
+do_lookup_x(544):"(0x00007feae2f7f3b7)jbe    0x00007feae2f7f6e0"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 171 ins call number 76 ctxt handle 7292====do_lookup_x(544):"(0x00007feae2f7f3b0)"
+================================================================================
+do_lookup_x(544):"(0x00007feae2f7f3b0)add    rbp, 0x01"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 172 ins call number 76 ctxt handle 7293====do_lookup_x(544):"(0x00007feae2f7f3b4)"
+================================================================================
+do_lookup_x(544):"(0x00007feae2f7f3b4)cmp    r10, rbp"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 173 ins call number 74 ctxt handle 7228====do_lookup_x(338):"(0x00007feae2f7f2a5)"
+================================================================================
+do_lookup_x(338):"(0x00007feae2f7f2a5)mov    qword ptr [rsp+0x28], rdi"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 174 ins call number 74 ctxt handle 7229====do_lookup_x(338):"(0x00007feae2f7f2aa)"
+================================================================================
+do_lookup_x(338):"(0x00007feae2f7f2aa)mov    qword ptr [rsp], rsi"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 175 ins call number 74 ctxt handle 7220====do_lookup_x(338):"(0x00007feae2f7f290)"
+================================================================================
+do_lookup_x(338):"(0x00007feae2f7f290)push   r15"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 176 ins call number 74 ctxt handle 7221====do_lookup_x(338):"(0x00007feae2f7f292)"
+================================================================================
+do_lookup_x(338):"(0x00007feae2f7f292)push   r14"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 177 ins call number 74 ctxt handle 7222====do_lookup_x(338):"(0x00007feae2f7f294)"
+================================================================================
+do_lookup_x(338):"(0x00007feae2f7f294)push   r13"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 178 ins call number 74 ctxt handle 7223====do_lookup_x(338):"(0x00007feae2f7f296)"
+================================================================================
+do_lookup_x(338):"(0x00007feae2f7f296)push   r12"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 179 ins call number 74 ctxt handle 7137====_dl_relocate_object(308):"(0x00007feae2f81b32)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81b32)lea    rdx, [rbp-0x80]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 180 ins call number 74 ctxt handle 7138====_dl_relocate_object(308):"(0x00007feae2f81b36)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81b36)add    rdi, qword ptr [rbp-0xd0]"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 181 ins call number 74 ctxt handle 7106====_dl_relocate_object(308):"(0x00007feae2f81aac)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81aac)cmp    r12, 0x07"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 182 ins call number 74 ctxt handle 7107====_dl_relocate_object(308):"(0x00007feae2f81ab0)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81ab0)jz     0x00007feae2f82210"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 183 ins call number 74 ctxt handle 7129====_dl_relocate_object(308):"(0x00007feae2f81b13)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81b13)test   r8, r8"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 184 ins call number 74 ctxt handle 7130====_dl_relocate_object(308):"(0x00007feae2f81b16)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81b16)jz     0x00007feae2f81b27"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 185 ins call number 74 ctxt handle 7199====_dl_lookup_symbol_x(804):"(0x00007feae2f801c1)"
+================================================================================
+_dl_lookup_symbol_x(804):"(0x00007feae2f801c1)mov    r15, qword ptr [rsp+0x20]"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 186 ins call number 74 ctxt handle 7200====_dl_lookup_symbol_x(804):"(0x00007feae2f801c6)"
+================================================================================
+_dl_lookup_symbol_x(804):"(0x00007feae2f801c6)mov    qword ptr [rsp+0xd8], rbp"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 187 ins call number 74 ctxt handle 7201====_dl_lookup_symbol_x(804):"(0x00007feae2f801ce)"
+================================================================================
+_dl_lookup_symbol_x(804):"(0x00007feae2f801ce)mov    qword ptr [rsp+0x18], rsi"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 188 ins call number 74 ctxt handle 7202====_dl_lookup_symbol_x(804):"(0x00007feae2f801d3)"
+================================================================================
+_dl_lookup_symbol_x(804):"(0x00007feae2f801d3)lea    rsi, [rsp+0x40]"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 189 ins call number 74 ctxt handle 7114====_dl_relocate_object(308):"(0x00007feae2f81ad1)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81ad1)setz   al"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 190 ins call number 74 ctxt handle 7115====_dl_relocate_object(308):"(0x00007feae2f81ad4)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81ad4)or     r9d, eax"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 191 ins call number 74 ctxt handle 7116====_dl_relocate_object(308):"(0x00007feae2f81ad7)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81ad7)cmp    r12, 0x05"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 192 ins call number 74 ctxt handle 7117====_dl_relocate_object(308):"(0x00007feae2f81adb)"
+================================================================================
+_dl_relocate_object(308):"(0x00007feae2f81adb)movzx  eax, r9l"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 193 ins call number 74 ctxt handle 7181====_dl_lookup_symbol_x(792):"(0x00007feae2f80166)"
+================================================================================
+_dl_lookup_symbol_x(792):"(0x00007feae2f80166)mov    eax, 0xffffffff"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 194 ins call number 74 ctxt handle 7182====_dl_lookup_symbol_x(796):"(0x00007feae2f8016b)"
+================================================================================
+_dl_lookup_symbol_x(796):"(0x00007feae2f8016b)add    <rel> qword ptr [0x00007feae319d9d8], 0x01"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 195 ins call number 74 ctxt handle 7183====_dl_lookup_symbol_x(800):"(0x00007feae2f80173)"
+================================================================================
+_dl_lookup_symbol_x(800):"(0x00007feae2f80173)test   r13, r13"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 196 ins call number 74 ctxt handle 7198====_dl_lookup_symbol_x(804):"(0x00007feae2f801bc)"
+================================================================================
+_dl_lookup_symbol_x(804):"(0x00007feae2f801bc)lea    rsi, [rsp+0x50]"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 197 ins call number 74 ctxt handle 7224====do_lookup_x(338):"(0x00007feae2f7f298)"
+================================================================================
+do_lookup_x(338):"(0x00007feae2f7f298)push   rbp"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 198 ins call number 74 ctxt handle 7225====do_lookup_x(338):"(0x00007feae2f7f299)"
+================================================================================
+do_lookup_x(338):"(0x00007feae2f7f299)push   rbx"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 199 ins call number 74 ctxt handle 7226====do_lookup_x(338):"(0x00007feae2f7f29a)"
+================================================================================
+do_lookup_x(338):"(0x00007feae2f7f29a)sub    rsp, 0x00000098"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
+NO. 200 ins call number 74 ctxt handle 7227====do_lookup_x(339):"(0x00007feae2f7f2a1)"
+================================================================================
+do_lookup_x(339):"(0x00007feae2f7f2a1)mov    eax, dword ptr [r9+0x08]"
+_dl_lookup_symbol_x(813):"(0x00007feae2f8023a)call   0x00007feae2f7f290"
+_dl_relocate_object(308):"(0x00007feae2f81b44)call   0x00007feae2f80100"
+dl_main(2190):"(0x00007feae2f79322)call   0x00007feae2f817a0"
+_dl_sysdep_start(253):"(0x00007feae2f8fdfd)call   r13"
+_dl_start(414):"(0x00007feae2f77123)call   0x00007feae2f8f910"
+_start(746):"(0x00007feae2f76093)call   0x00007feae2f76ea0"
+THREAD[0]_ROOT_CTXT(0):"(0x0000000000000000) "
+PROCESS[32157]_ROOT_CTXT(0):"(0x0000000000000000) "
+================================================================================
+
+
