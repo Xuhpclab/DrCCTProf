@@ -33,35 +33,33 @@ using namespace std;
 uint64_t *gloabl_hndl_call_num;
 static file_t gTraceFile;
 
-// dr clean call per ins cache
-static inline void
-InstrumentPerInsCache(void *drcontext, context_handle_t ctxt_hndl, int32_t mem_ref_num,
-                      mem_ref_msg_t *mem_ref_start, void *data)
+// client want to do
+void
+DoWhatClientWantTodo(void *drcontext, context_handle_t cur_ctxt_hndl)
 {
-    gloabl_hndl_call_num[ctxt_hndl]++;
+    // use {cur_ctxt_hndl}
+    gloabl_hndl_call_num[cur_ctxt_hndl]++;
 }
 
-static inline void
-InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_num,
-                     int32_t mem_ref_num, mem_ref_msg_t *mem_ref_start, void **data)
+// dr clean call
+void
+InsertCleancall(int32_t slot)
 {
-    int32_t temp_index = 0;
-    for (int32_t i = 0; i < slot_num; i++) {
-        int32_t ins_ref_number = 0;
-        mem_ref_msg_t *ins_cache_mem_start = NULL;
-        for (; temp_index < mem_ref_num; temp_index++) {
-            if (mem_ref_start[temp_index].slot == i) {
-                if (ins_cache_mem_start == NULL) {
-                    ins_cache_mem_start = mem_ref_start + temp_index;
-                }
-                ins_ref_number++;
-            } else if (mem_ref_start[temp_index].slot > i) {
-                break;
-            }
-        }
-        InstrumentPerInsCache(drcontext, ctxt_hndl + i, ins_ref_number,
-                              ins_cache_mem_start, data);
-    }
+    void *drcontext = dr_get_current_drcontext();
+    context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
+    DoWhatClientWantTodo(drcontext, cur_ctxt_hndl);
+}
+
+// analysis
+void
+InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
+{
+
+    instrlist_t *bb = instrument_msg->bb;
+    instr_t *instr = instrument_msg->instr;
+    int32_t slot = instrument_msg->slot;
+
+    dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 1, OPND_CREATE_INT32(slot));
 }
 
 static inline void
@@ -85,9 +83,9 @@ static void
 ClientInit(int argc, const char *argv[])
 {
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib_instr_statistics.out.";
+    char name[MAXIMUM_PATH] = "arm.drcctlib_instr_statistics_clean_call.out.";
 #else
-    char name[MAXIMUM_PATH] = "x86.drcctlib_instr_statistics.out.";
+    char name[MAXIMUM_PATH] = "x86.drcctlib_instr_statistics_clean_call.out.";
 #endif
     char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
 
@@ -193,13 +191,11 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_instr_statistics'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_instr_statistics_clean_call'",
                        "http://dynamorio.org/issues");
 
     ClientInit(argc, argv);
-
-    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL,
-                     InstrumentPerBBCache, DRCCTLIB_CACHE_MODE);
+    drcctlib_init(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, false);
     dr_register_exit_event(ClientExit);
 }
 

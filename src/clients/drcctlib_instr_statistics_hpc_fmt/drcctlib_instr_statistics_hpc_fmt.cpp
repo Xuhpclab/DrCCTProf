@@ -37,7 +37,6 @@ using namespace std;
 
 int64_t *gloabl_hndl_call_num;
 static file_t gTraceFile;
-static int tls_idx;
 
 // dr clean call per ins cache
 static inline void
