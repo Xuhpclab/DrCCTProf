@@ -31,6 +31,7 @@ paste output here
 
 **Information on your system:**
 
+ - CPU Info: [eg. arch@aarch64 model_name@ThunderX2_99xx]
  - System Version: [e.g. Ubuntu14.04]
  - Depand Package Version: [e.g. gcc@10.1, binutils@2.26, cmake@3.7, perl@v5.30.0]
  - Application Version: [lulesh@1.01]
