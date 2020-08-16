@@ -2,11 +2,20 @@
 
 DrCCTProf is a fine-grained call path profiling framework for binaries running on ARM and X86 architectures. Please see our [blog](http://www.cs.wm.edu/~xl10/blog/drcctprof.html) for more details.
 
+## Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+- [Client tools](#client-tools)
+- [Support Platforms](#support-platforms)
+- [Obtaining Help](#obtaining-help)
+- [License](#license)
+
 ## Installation
 
 ### Linux
 
-#### Install Dependencies
+#### 1. Install Dependencies
 
 In order to build you'll need the following packages:
 
@@ -17,7 +26,7 @@ In order to build you'll need the following packages:
 
 To avoid conflicts with installed original version packages, we recommend that use [Spack](https://spack.io/) to manage the above packages and create a virtual environment to build and run DrCCTProf. 
 
-#### Build
+#### 2. Build
 
 Use the following commands to get sources and build DrCCTProf:
 
@@ -28,35 +37,31 @@ $ git clone --recurse https://github.com/Xuhpclab/DrCCTProf.git
 $ ./build.sh
 ```
 
-### Android
-
-Working in process...
-
 ## Usage
 
 ### Linux
 
 To run DrCCTProf, one needs to issue the following command:
 
-#### Set the global environment variable
+#### 1. Set the global environment variable
 
 ```console
 $ export drrun=/path/to/DrCCTProf/build/bin64/drrun
 ```
 
 
-#### Run client tool
+#### 2. Run client tool
 
 * **x86_64**
 
 ```console
-$ /path/to/DrCCTProf/build/bin64/drrun -t <client tool> -- <application> [apllication args]
+$ drrun -t <client tool> -- <application> [apllication args]
 ```
 
 * **aarch64**
 
 ```console
-$ DrCCTProf/build/bin64/drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication args]
+$ drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication args]
 ```
 
 ## Client tools
@@ -78,7 +83,7 @@ See [documentation](doc/build_custom_client_tool.md) for details.
 
 ## Support Platforms
 
-The following platforms have passed our tests.
+The following platforms passed our tests.
 
 ### Linux
 
