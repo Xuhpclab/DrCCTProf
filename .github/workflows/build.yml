@@ -1,0 +1,17 @@
+name: build master
+on: 
+  push:
+    branches: [ $default-branch ]
+  pull_request:
+    branches: [ $default-branch ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+    - name: configure
+      run: .github/action_scripts/configure.sh
+    - name: cmake & make
+      run: .github/action_scripts/make.sh
