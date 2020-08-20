@@ -17,3 +17,5 @@ jobs:
       run: .github/action_scripts/configure.sh
     - name: cmake & make
       run: .github/action_scripts/make.sh
+    - name: make tests
+      run: .github/action_scripts/make_tests.sh
