@@ -63,9 +63,8 @@ else
         -DBUILD_SAMPLES=OFF \
         -DBUILD_TESTS=OFF \
         -DCMAKE_C_COMPILER=gcc \
-        $DISABLE_WARNINGS 
-        # >$CMAKE_LOG_FILE 2>&1 && \
-        # echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
+        $DISABLE_WARNINGS >$CMAKE_LOG_FILE 2>&1 && \
+        echo -e "\033[32m Cmake successfully! \033[0m" || (echo -e "\033[31m Cmake fail! \033[0m"; exit -1)
 fi
 
 # temp solution to build_error(#9)
@@ -84,5 +83,4 @@ fi
 
 # start make
 echo -e "Running make .. (See \033[34m$MAKE_LOG_FILE\033[0m for detail)"
-make 
-# -j >$MAKE_LOG_FILE 2>&1 && echo -e "\033[32m Make successfully! \033[0m" || (echo -e "\033[31m Make fail! \033[0m"; exit -1)
+make -j >$MAKE_LOG_FILE 2>&1 && echo -e "\033[32m Make successfully! \033[0m" || (echo -e "\033[31m Make fail! \033[0m"; exit -1)
