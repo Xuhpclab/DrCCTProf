@@ -7,6 +7,9 @@
 #ifndef _DRCCTLIB_GLOBAL_SHARE_H_
 #define _DRCCTLIB_GLOBAL_SHARE_H_
 
+#include <string.h>
+#include <unistd.h>
+
 #include "dr_api.h"
 
 #if defined(X86_64) || defined(ARM_64) || defined(AARCH64)
