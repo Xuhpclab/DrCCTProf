@@ -48,7 +48,7 @@ cct_ip_node_t *
 drcctlib_priv_share_trans_ctxt_hndl_to_ip_node(context_handle_t ctxt_hndl);
 
 cct_bb_node_t *
-drcctlib_priv_share_get_thread_root_bb_node(void *drcontext);
+drcctlib_priv_share_get_thread_root_bb_node(int id);
 
 app_pc
 drcctlib_priv_share_get_ip_from_ctxt(context_handle_t ctxt);
