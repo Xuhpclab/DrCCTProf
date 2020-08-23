@@ -4,22 +4,10 @@
  *  See LICENSE file for more information.
  */
 
-#include <iostream>
-#include <string.h>
-#include <sstream>
-#include <algorithm>
-#include <climits>
-#include <iterator>
-#include <unistd.h>
-#include <vector>
 #include <map>
-
-#include <sys/resource.h>
-#include <sys/mman.h>
 
 #include "dr_api.h"
 #include "drmgr.h"
-
 #include "drcctlib.h"
 #include "drcctlib_hpcviewer_format.h"
 
@@ -334,6 +322,7 @@ static void
 ClientExit(void)
 {
     drcctlib_exit();
+    hpcrun_format_exit();
     if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
         !drmgr_unregister_thread_exit_event(ClientThreadEnd) ||
         !drmgr_unregister_tls_field(tls_idx)) {

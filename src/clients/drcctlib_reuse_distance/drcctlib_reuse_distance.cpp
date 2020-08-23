@@ -4,24 +4,10 @@
  *  See LICENSE file for more information.
  */
 
-#include <iostream>
-#include <string.h>
-#include <sstream>
-#include <algorithm>
-#include <climits>
-#include <iterator>
-#include <unistd.h>
-#include <vector>
 #include <map>
-
-#include <sys/resource.h>
-#include <sys/mman.h>
 
 #include "dr_api.h"
 #include "drmgr.h"
-#include "drsyms.h"
-#include "drreg.h"
-#include "drutil.h"
 #include "drcctlib.h"
 
 using namespace std;
@@ -340,6 +326,7 @@ ClientThreadStart(void *drcontext)
 #endif
     pt->tls_use_map = new map<uint64_t, use_node_t>();
     pt->tls_reuse_map = new multimap<uint64_t, reuse_node_t>();
+    ThreadOutputFileInit(pt);
 #ifdef DEBUG_REUSE
     ThreadDebugFileInit(pt);
 #endif
@@ -349,7 +336,6 @@ static void
 ClientThreadEnd(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    ThreadOutputFileInit(pt);
     PrintTopN(pt, OUTPUT_SIZE);
     dr_close_file(pt->output_file);
     delete pt->tls_use_map;
