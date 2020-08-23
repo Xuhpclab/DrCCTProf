@@ -3224,10 +3224,9 @@ drcctlib_priv_share_trans_ctxt_hndl_to_ip_node(context_handle_t ctxt_hndl)
 }
 
 cct_bb_node_t *
-drcctlib_priv_share_get_thread_root_bb_node(void *drcontext)
+drcctlib_priv_share_get_thread_root_bb_node(int id)
 {
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    return pt->root_bb_node;
+    return global_pt_cache_buff[id]->root_bb_node;
 }
 
 app_pc

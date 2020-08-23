@@ -4,21 +4,8 @@
  *  See LICENSE file for more information.
  */
 
-#include <iostream>
-#include <string.h>
-#include <sstream>
-#include <algorithm>
-#include <iterator>
-#include <unistd.h>
-#include <vector>
-
-#include <sys/resource.h>
-#include <sys/mman.h>
-
 #include "dr_api.h"
 #include "drcctlib.h"
-
-using namespace std;
 
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("all_instr_cct", format, ##args)

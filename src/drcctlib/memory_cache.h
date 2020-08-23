@@ -7,33 +7,18 @@
 #ifndef _MEMORY_CACHE_H_
 #define _MEMORY_CACHE_H_
 
-#include <unistd.h>
-#include <iostream>
+#include <iterator>
 #include <vector>
 
-#include <sys/resource.h>
-#include <sys/mman.h>
 #include "dr_api.h"
 #include "drcctlib_global_share.h"
 
 using namespace std;
 
-#define MEMORY_CACHE_PRINTF(format, args...)                                      \
-    do {                                                                          \
-        char name[MAXIMUM_PATH] = "";                                             \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));            \
-        pid_t pid = getpid();                                                     \
-        dr_printf("[memory_cache(%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0)
-
-#define MEMORY_CACHE_EXIT_PROCESS(format, args...)                                \
-    do {                                                                          \
-        char name[MAXIMUM_PATH] = "";                                             \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));            \
-        pid_t pid = getpid();                                                     \
-        dr_printf("[memory_cache(%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0);                                                                  \
-    dr_exit_process(-1)
+#define MEMORY_CACHE_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("memory_cache", format, ##args)
+#define MEMORY_CACHE_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("memory_cache", format, ##args)
 
 template <class T> class memory_cache_t {
 public:

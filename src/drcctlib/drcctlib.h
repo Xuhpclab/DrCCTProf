@@ -7,6 +7,8 @@
 #ifndef _DRCCTLIB_H_
 #define _DRCCTLIB_H_
 
+#include <iterator>
+
 #include "dr_api.h"
 #include "drcctlib_global_share.h"
 #include "drcctlib_filter_func_list.h"
@@ -135,9 +137,7 @@ DR_EXPORT
 bool
 drcctlib_have_same_source_line(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2);
 
-
 enum { UNKNOWN_OBJECT, STACK_OBJECT, DYNAMIC_OBJECT, STATIC_OBJECT };
-
 // The handle representing a data object
 typedef struct _data_handle_t {
     uint8_t object_type;

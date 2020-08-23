@@ -4,23 +4,10 @@
  *  See LICENSE file for more information.
  */
 
-#include <iostream>
-#include <string.h>
-#include <sstream>
-#include <algorithm>
-#include <iterator>
-#include <unistd.h>
-#include <vector>
-
-#include <sys/resource.h>
-#include <sys/mman.h>
-
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
-#include "drcctlib_global_share.h"
-
-using namespace std;
+#include "drcctlib.h"
 
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("overhead", format, ##args)

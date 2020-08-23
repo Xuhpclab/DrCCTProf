@@ -4,25 +4,12 @@
  *  See LICENSE file for more information.
  */
 
-#include <iostream>
-#include <string.h>
-#include <sstream>
-#include <algorithm>
-#include <climits>
-#include <iterator>
-#include <unistd.h>
-#include <vector>
 #include <map>
-
-#include <sys/resource.h>
-#include <sys/mman.h>
 
 #include "dr_api.h"
 #include "drmgr.h"
-#include "drsyms.h"
 #include "drreg.h"
 #include "drutil.h"
-
 #include "drcctlib.h"
 #include "drcctlib_hpcviewer_format.h"
 
@@ -126,9 +113,6 @@ typedef struct _per_thread_t {
 #define REUSED_THRES 8912
 #define REUSED_PRINT_MIN_COUNT 1000
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
-
-int ins_metric_id1 = 0;
-int ins_metric_id2 = 0;
 
 void
 UpdateUseAndReuseMap(void *drcontext, per_thread_t *pt, mem_ref_t *ref, int cur_mem_idx)
@@ -540,8 +524,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                      InstrumentInsCallback, NULL, NULL,
                      DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     hpcrun_format_init(dr_get_application_name(), false);
-    ins_metric_id1 = hpcrun_create_metric("SUM_COUNT");
-    ins_metric_id2 = hpcrun_create_metric("AVG_DIS");
+    hpcrun_create_metric("SUM_COUNT");
+    hpcrun_create_metric("AVG_DIS");
     dr_register_exit_event(ClientExit);
 }
 

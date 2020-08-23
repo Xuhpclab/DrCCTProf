@@ -70,6 +70,7 @@ fi
 # temp solution to build_error(#9)
 CMAKE_VERSION=$($CUR_DIR/cmake_version.sh)
 BUILD_ERROR_MIN_CMAKE_VERSION="3.18"
+NEED_FIX=0
 if [ ${CMAKE_VERSION%.*} -eq ${BUILD_ERROR_MIN_CMAKE_VERSION%.*} ] ; then
     if [ ${CMAKE_VERSION#*.} -ge ${BUILD_ERROR_MIN_CMAKE_VERSION#*.} ] ; then
         NEED_FIX=1

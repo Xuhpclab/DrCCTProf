@@ -8,8 +8,6 @@
 #include "dr_api.h"
 #include "drcctlib.h"
 
-using namespace std;
-
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("cct_only_no_cache", format, ##args)
 #define DRCCTLIB_EXIT_PROCESS(format, args...) \
