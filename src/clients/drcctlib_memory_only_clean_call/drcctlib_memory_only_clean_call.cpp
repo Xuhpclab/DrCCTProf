@@ -4,6 +4,8 @@
  *  See LICENSE file for more information.
  */
 
+#include <cstddef>
+
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
