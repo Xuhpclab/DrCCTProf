@@ -4,6 +4,7 @@
  *  See LICENSE file for more information.
  */
 
+#include <cstddef>
 #include <map>
 
 #include "dr_api.h"

@@ -7,7 +7,7 @@
 #ifndef _MEMORY_CACHE_H_
 #define _MEMORY_CACHE_H_
 
-#include <iterator>
+#include <cstdint>
 #include <vector>
 
 #include "dr_api.h"

@@ -7,7 +7,7 @@
 #ifndef _DRCCTLIB_H_
 #define _DRCCTLIB_H_
 
-#include <iterator>
+#include <cstdint>
 
 #include "dr_api.h"
 #include "drcctlib_global_share.h"

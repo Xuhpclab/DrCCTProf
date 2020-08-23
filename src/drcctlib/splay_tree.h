@@ -7,10 +7,8 @@
 #ifndef _SPLAY_TREE_H_
 #define _SPLAY_TREE_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "drcctlib_global_share.h"
+#include <cstdint>
+#include <cstddef>
 
 #define splay_node_key_t int32_t
 
@@ -33,9 +31,5 @@ splay_tree_update_test(splay_node_t *root, splay_node_key_t key, splay_node_t *d
                        splay_node_t *new_node, int64_t *o_num);
 int32_t
 splay_tree_size(splay_node_t *root);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif //_SPLAY_TREE_H_

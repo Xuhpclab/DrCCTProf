@@ -8,10 +8,17 @@ cmake_minimum_required(VERSION 2.6)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
+if (UNIX)
+  add_compile_options(-std=c++11)
+  if (DEBUG)
+    add_compile_options(-g)
+  endif (DEBUG)
+endif (UNIX)
+
 set(DynamoRIO_USE_LIBC OFF)
 
 set(srcs
-  splay_tree.c
+  splay_tree.cpp
   drcctlib.cpp
   drcctlib_hpcviewer_format.cpp
   # add more here

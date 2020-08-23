@@ -4,46 +4,25 @@
  *  See LICENSE file for more information.
  */
 
-#include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <sys/resource.h>
-
-#include <vector>
+#include <cinttypes>
+#include <string>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <unistd.h>
-#include <string>
+#include <fcntl.h>
 
 #include "dr_api.h"
 #include "drmgr.h"
 #include "hashtable.h"
-
+#include "drcctlib_global_share.h"
 #include "drcctlib_priv_share.h"
 #include "drcctlib_hpcviewer_format.h"
 
-#define DRCCTLIB_PRINTF(format, args...)                                      \
-    do {                                                                      \
-        char name[MAXIMUM_PATH] = "";                                         \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));        \
-        pid_t pid = getpid();                                                 \
-        dr_printf("[drcctlib[hpcviewer](%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("hpcviewer", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("hpcviewer", format, ##args)
 
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                \
-    do {                                                                      \
-        char name[MAXIMUM_PATH] = "";                                         \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));        \
-        pid_t pid = getpid();                                                 \
-        dr_printf("[drcctlib[hpcviewer](%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0);                                                              \
-    dr_exit_process(-1)
-
-/* ==================================hpcviewer
- * support===================================*/
+/* ==================================hpcviewer support===================================*/
 
 // necessary macros
 #define HASH_PRIME 2001001003
@@ -146,8 +125,8 @@ typedef struct _hpc_format_config_t {
     char metric_name_arry[MAX_METRICS][MAX_LEN];
     hpcviewer_format_ip_node_t *gHPCRunCCTRoot;
     uint64_t nodeCount;
-    string dirName;
-    string filename;
+    std::string dirName;
+    std::string filename;
 } hpc_format_config_t;
 static hpc_format_config_t global_hpc_fmt_config;
 

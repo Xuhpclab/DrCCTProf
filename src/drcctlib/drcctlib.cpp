@@ -4,16 +4,12 @@
  *  See LICENSE file for more information.
  */
 
-#include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <string.h>
-
+#include <sys/time.h>
 #include <sys/resource.h>
+#include <cinttypes>
+#include <vector>
 
 #include "libelf.h"
-#include <vector>
 
 #include "dr_api.h"
 #include "drmgr.h"
