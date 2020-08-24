@@ -4,46 +4,25 @@
  *  See LICENSE file for more information.
  */
 
-#include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <sys/resource.h>
-
-#include <vector>
+#include <cinttypes>
+#include <string>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <unistd.h>
-#include <string>
+#include <fcntl.h>
 
 #include "dr_api.h"
 #include "drmgr.h"
 #include "hashtable.h"
-
+#include "drcctlib_global_share.h"
 #include "drcctlib_priv_share.h"
 #include "drcctlib_hpcviewer_format.h"
 
-#define DRCCTLIB_PRINTF(format, args...)                                      \
-    do {                                                                      \
-        char name[MAXIMUM_PATH] = "";                                         \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));        \
-        pid_t pid = getpid();                                                 \
-        dr_printf("[drcctlib[hpcviewer](%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0)
+#define DRCCTLIB_PRINTF(format, args...) \
+    DRCCTLIB_PRINTF_TEMPLATE("hpcviewer", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("hpcviewer", format, ##args)
 
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                \
-    do {                                                                      \
-        char name[MAXIMUM_PATH] = "";                                         \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));        \
-        pid_t pid = getpid();                                                 \
-        dr_printf("[drcctlib[hpcviewer](%s%d) msg]====" format "\n", name, pid, ##args); \
-    } while (0);                                                              \
-    dr_exit_process(-1)
-
-/* ==================================hpcviewer
- * support===================================*/
+/* ==================================hpcviewer support===================================*/
 
 // necessary macros
 #define HASH_PRIME 2001001003
@@ -135,6 +114,7 @@ struct hpcviewer_format_ip_node_t {
 };
 
 typedef struct _per_thread_t {
+    int id;
     hpcviewer_format_ip_node_t *tlsHPCRunCCTRoot;
     uint64_t nodeCount;
 } per_thread_t;
@@ -145,8 +125,8 @@ typedef struct _hpc_format_config_t {
     char metric_name_arry[MAX_METRICS][MAX_LEN];
     hpcviewer_format_ip_node_t *gHPCRunCCTRoot;
     uint64_t nodeCount;
-    string dirName;
-    string filename;
+    std::string dirName;
+    std::string filename;
 } hpc_format_config_t;
 static hpc_format_config_t global_hpc_fmt_config;
 
@@ -1048,6 +1028,7 @@ event_thread_start(void *drcontext)
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
     pt->nodeCount = 0;
     pt->tlsHPCRunCCTRoot = NULL;
+    pt->id = drcctlib_priv_share_get_thread_id();
 }
 
 static void
@@ -1122,18 +1103,18 @@ hpcrun_create_metric(const char *name)
 
 /*
  * Write the calling context tree of 'threadid' thread
- * (Called from clientele program)
+ * (Called from client program)
  */
 DR_EXPORT
 int
 write_thread_all_cct_hpcrun_format(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    FILE *fs = lazy_open_data_file(drcctlib_priv_share_get_thread_id());
+    FILE *fs = lazy_open_data_file(pt->id);
     if (!fs)
         return -1;
     cct_bb_node_t *root_bb_node = 
-        drcctlib_priv_share_get_thread_root_bb_node(drcontext);
+        drcctlib_priv_share_get_thread_root_bb_node(pt->id);
 
     vector<hpcviewer_format_ip_node_t *> fmt_ip_node_vector;
     for (slot_t i = 0; i < root_bb_node->max_slots; i++) {
@@ -1200,7 +1181,7 @@ int
 write_thread_custom_cct_hpurun_format(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    FILE *fs = lazy_open_data_file(drcctlib_priv_share_get_thread_id());
+    FILE *fs = lazy_open_data_file(pt->id);
     if (!fs)
         return -1;
 

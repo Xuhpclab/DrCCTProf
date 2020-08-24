@@ -4,25 +4,9 @@
  *  See LICENSE file for more information.
  */
 
-#include <iostream>
-#include <string.h>
-#include <sstream>
-#include <algorithm>
-#include <iterator>
-#include <unistd.h>
-#include <vector>
-
-#include <sys/resource.h>
-#include <sys/mman.h>
-
 #include "dr_api.h"
-#include "drmgr.h"
-#include "drreg.h"
-
 #include "drcctlib.h"
 #include "drcctlib_hpcviewer_format.h"
-
-using namespace std;
 
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("instr_statistics_hpc_fmt", format, ##args)
@@ -30,13 +14,9 @@ using namespace std;
     DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("instr_statistics_hpc_fmt", format, ##args)
 
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
-#define TOP_REACH__NUM_SHOW 200
+#define TOP_REACH_NUM_SHOW 200
 
-#define MAX_CLIENT_CCT_PRINT_DEPTH 10
-#define TOP_REACH__NUM_SHOW 200
-
-int64_t *gloabl_hndl_call_num;
-static file_t gTraceFile;
+uint64_t *gloabl_hndl_call_num;
 
 // dr clean call per ins cache
 static inline void
@@ -72,8 +52,8 @@ InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_n
 static inline void
 InitGlobalBuff()
 {
-    gloabl_hndl_call_num = (int64_t *)dr_raw_mem_alloc(
-        CONTEXT_HANDLE_MAX * sizeof(int64_t), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    gloabl_hndl_call_num = (uint64_t *)dr_raw_mem_alloc(
+        CONTEXT_HANDLE_MAX * sizeof(uint64_t), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     if (gloabl_hndl_call_num == NULL) {
         DRCCTLIB_EXIT_PROCESS(
             "init_global_buff error: dr_raw_mem_alloc fail gloabl_hndl_call_num");
@@ -89,58 +69,62 @@ FreeGlobalBuff()
 static void
 ClientInit(int argc, const char *argv[])
 {
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib_instr_statistics.out.";
-#else
-    char name[MAXIMUM_PATH] = "x86.drcctlib_instr_statistics.out.";
-#endif
-    char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
-
-    if (envPath) {
-        // assumes max of MAXIMUM_PATH
-        strcpy(name, envPath);
-    }
-
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    pid_t pid = getpid();
-    sprintf(name + strlen(name), "%d", pid);
-    cerr << "Creating log file at:" << name << endl;
-
-    gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
-
-    DR_ASSERT(gTraceFile != INVALID_FILE);
-    // print the arguments passed
-    dr_fprintf(gTraceFile, "\n");
-
-    for (int i = 0; i < argc; i++) {
-        dr_fprintf(gTraceFile, "%d %s ", i, argv[i]);
-    }
-
-    dr_fprintf(gTraceFile, "\n");
-
     InitGlobalBuff();
 }
 
-int ins_metric_id = 0;
+typedef struct _output_format_t {
+    context_handle_t handle;
+    uint64_t count;
+} output_format_t;
+
 static void
 ClientExit(void)
 {
-    vector<pair<context_handle_t, int>> tmp;
+    output_format_t *output_list =
+        (output_format_t *)dr_global_alloc(TOP_REACH_NUM_SHOW * sizeof(output_format_t));
+    for (int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
+        output_list[i].handle = 0;
+        output_list[i].count = 0;
+    }
     context_handle_t max_ctxt_hndl = drcctlib_get_global_context_handle_num();
     for (context_handle_t i = 0; i < max_ctxt_hndl; i++) {
-        tmp.push_back(make_pair(i, gloabl_hndl_call_num[i]));
+        if (gloabl_hndl_call_num[i] <= 0) {
+            continue;
+        }
+        if (gloabl_hndl_call_num[i] > output_list[0].count) {
+            uint64_t min_count = gloabl_hndl_call_num[i];
+            int32_t min_idx = 0;
+            for (int32_t j = 1; j < TOP_REACH_NUM_SHOW; j++) {
+                if (output_list[j].count < min_count) {
+                    min_count = output_list[j].count;
+                    min_idx = j;
+                }
+            }
+            output_list[0].count = min_count;
+            output_list[0].handle = output_list[min_idx].handle;
+            output_list[min_idx].count = gloabl_hndl_call_num[i];
+            output_list[min_idx].handle = i;
+        }
     }
-    sort(tmp.begin(), tmp.end(),
-         [=](pair<context_handle_t, int> &a, pair<context_handle_t, int> &b) {
-             return a.second > b.second;
-         });
+    output_format_t temp;
+    for (int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
+        for (int32_t j = i; j < TOP_REACH_NUM_SHOW; j++) {
+            if (output_list[i].count < output_list[j].count) {
+                temp = output_list[i];
+                output_list[i] = output_list[j];
+                output_list[j] = temp;
+            }
+        }
+    }
+
     vector<HPCRunCCT_t *> hpcRunNodes;
-    for (uint i = 0; i < TOP_REACH__NUM_SHOW; i++) {
+    for (int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
         HPCRunCCT_t *hpcRunNode = new HPCRunCCT_t();
-        hpcRunNode->ctxt_hndl_list.push_back(tmp[i].first);
-        hpcRunNode->metric_list.push_back(tmp[i].second);
+        hpcRunNode->ctxt_hndl_list.push_back(output_list[i].handle);
+        hpcRunNode->metric_list.push_back(output_list[i].count);
         hpcRunNodes.push_back(hpcRunNode);
     }
+    dr_global_free(output_list, TOP_REACH_NUM_SHOW * sizeof(output_format_t));
     build_progress_custom_cct_hpurun_format(hpcRunNodes);
     write_progress_custom_cct_hpurun_format();
 
@@ -165,7 +149,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL,
                      InstrumentPerBBCache, DRCCTLIB_CACHE_MODE);
     hpcrun_format_init(dr_get_application_name(), false);
-    ins_metric_id = hpcrun_create_metric("TOT_CALLS");
+    hpcrun_create_metric("TOT_CALLS");
     dr_register_exit_event(ClientExit);
 }
 

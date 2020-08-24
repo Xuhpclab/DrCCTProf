@@ -4,22 +4,11 @@
  *  See LICENSE file for more information.
  */
 
-#include <iostream>
-#include <string.h>
-#include <sstream>
-#include <algorithm>
-#include <climits>
-#include <iterator>
-#include <unistd.h>
-#include <vector>
+#include <cstddef>
 #include <map>
-
-#include <sys/resource.h>
-#include <sys/mman.h>
 
 #include "dr_api.h"
 #include "drmgr.h"
-#include "drsyms.h"
 #include "drreg.h"
 #include "drutil.h"
 #include "drcctlib.h"

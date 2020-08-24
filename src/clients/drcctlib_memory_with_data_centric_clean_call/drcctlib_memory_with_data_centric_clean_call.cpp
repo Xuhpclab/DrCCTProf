@@ -4,27 +4,13 @@
  *  See LICENSE file for more information.
  */
 
-#include <iostream>
-#include <string.h>
-#include <sstream>
-#include <algorithm>
-#include <climits>
-#include <iterator>
-#include <unistd.h>
-#include <vector>
-#include <map>
-
-#include <sys/resource.h>
-#include <sys/mman.h>
+#include <cstddef>
 
 #include "dr_api.h"
 #include "drmgr.h"
-#include "drsyms.h"
 #include "drreg.h"
 #include "drutil.h"
 #include "drcctlib.h"
-
-using namespace std;
 
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("memory_with_data_centric_clean_call", format, ##args)
@@ -32,7 +18,6 @@ using namespace std;
     DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("memory_with_data_centric_clean_call", format, \
                                           ##args)
 
-static file_t gTraceFile;
 static int tls_idx;
 
 enum {

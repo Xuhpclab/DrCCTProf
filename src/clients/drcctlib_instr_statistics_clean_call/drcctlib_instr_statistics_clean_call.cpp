@@ -4,23 +4,8 @@
  *  See LICENSE file for more information.
  */
 
-#include <iostream>
-#include <string.h>
-#include <sstream>
-#include <algorithm>
-#include <iterator>
-#include <unistd.h>
-#include <vector>
-
-#include <sys/resource.h>
-#include <sys/mman.h>
-
 #include "dr_api.h"
-#include "drmgr.h"
-#include "drreg.h"
 #include "drcctlib.h"
-
-using namespace std;
 
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("instr_statistics", format, ##args)
@@ -87,28 +72,18 @@ ClientInit(int argc, const char *argv[])
 #else
     char name[MAXIMUM_PATH] = "x86.drcctlib_instr_statistics_clean_call.out.";
 #endif
-    char *envPath = getenv("DR_CCTLIB_CLIENT_OUTPUT_FILE");
-
-    if (envPath) {
-        // assumes max of MAXIMUM_PATH
-        strcpy(name, envPath);
-    }
-
     gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
     pid_t pid = getpid();
     sprintf(name + strlen(name), "%d", pid);
-    cerr << "Creating log file at:" << name << endl;
+    DRCCTLIB_PRINTF("Creating log file at:", name);
 
     gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
-
     DR_ASSERT(gTraceFile != INVALID_FILE);
     // print the arguments passed
     dr_fprintf(gTraceFile, "\n");
-
     for (int i = 0; i < argc; i++) {
         dr_fprintf(gTraceFile, "%d %s ", i, argv[i]);
     }
-
     dr_fprintf(gTraceFile, "\n");
 
     InitGlobalBuff();

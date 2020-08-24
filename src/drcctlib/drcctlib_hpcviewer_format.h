@@ -7,6 +7,7 @@
 #ifndef _DRCCTLIB_HPCVIEWER_FORMAT_H_
 #define _DRCCTLIB_HPCVIEWER_FORMAT_H_
 
+#include <cstdint>
 #include <vector>
 
 #include "dr_api.h"
