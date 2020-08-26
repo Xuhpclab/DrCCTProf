@@ -12,6 +12,7 @@
 #include <iterator>
 #include <unistd.h>
 #include <vector>
+#include <unordered_set>
 #include <map>
 
 #include <sys/resource.h>
@@ -31,17 +32,17 @@ using namespace std;
 #define DRCCTLIB_EXIT_PROCESS(format, args...) \
     DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("memory_footprint", format, ##args)
 
+static file_t gTraceFile;
+
+static unordered_set<int> mem_opcodes;
 
 static inline void
-InstrumentPerInsCache(void *drcontext, context_handle_t ctxt_hndl, int32_t mem_ref_num,
-                      mem_ref_msg_t *mem_ref_start, void *data)
+InstrumentInstruction(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
-}
-
-static inline void
-InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_num,
-                     int32_t mem_ref_num, mem_ref_msg_t *mem_ref_start, void **data)
-{
+    instr_t *instr = instrument_msg->instr;
+    if (instr_writes_memory(instr) ||  instr_reads_memory(instr)){
+        mem_opcodes.insert(instr_get_opcode(instr));
+    }
 }
 
 static void
@@ -52,6 +53,8 @@ ClientInit(int argc, const char *argv[])
 static void
 ClientExit(void)
 {
+    cout << "MEM_ACCESS_OPCODES_FOUND: " << endl;
+    for (auto code : mem_opcodes) cout << "OPCODE: " << code << endl;
     drcctlib_exit();
 }
 
@@ -66,8 +69,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
-    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, NULL, NULL,
-                     InstrumentPerBBCache, DRCCTLIB_CACHE_MODE);
+    drcctlib_init(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, gTraceFile, InstrumentInstruction, false);
+
     dr_register_exit_event(ClientExit);
 }
 
