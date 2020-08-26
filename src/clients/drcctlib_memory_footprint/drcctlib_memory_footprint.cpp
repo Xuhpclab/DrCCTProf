@@ -12,7 +12,7 @@
 #include <iterator>
 #include <unistd.h>
 #include <vector>
-#include <unordered_set>
+#include <unordered_map>
 #include <map>
 
 #include <sys/resource.h>
@@ -34,14 +34,23 @@ using namespace std;
 
 static file_t gTraceFile;
 
-static unordered_set<int> mem_opcodes;
+static unordered_map<int, uint> mem_opcodes;
 
 static inline void
 InstrumentInstruction(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
+    // dr_mcontext_t* mc = NULL;
+    // if (!dr_get_mcontext(drcontext, mc)) return ;
+    // app_pc address = instr_compute_address(instr, mc);
+
     instr_t *instr = instrument_msg->instr;
     if (instr_writes_memory(instr) ||  instr_reads_memory(instr)){
-        mem_opcodes.insert(instr_get_opcode(instr));
+        int opcode = instr_get_opcode(instr);
+
+        if (mem_opcodes.find(opcode) == mem_opcodes.end()) {
+            mem_opcodes[opcode] = 0;
+        }
+        mem_opcodes[opcode] += instr_memory_reference_size(instr);
     }
 }
 
@@ -54,7 +63,7 @@ static void
 ClientExit(void)
 {
     cout << "MEM_ACCESS_OPCODES_FOUND: " << endl;
-    for (auto code : mem_opcodes) cout << "OPCODE: " << code << endl;
+    for (auto code : mem_opcodes) cout << "OPCODE: " << code.first << " NumBytes: " << code.second <<  endl;
     drcctlib_exit();
 }
 
