@@ -14,6 +14,8 @@
 
 #include <unordered_map>
 #include <iostream>
+#include <utility>
+#include <string>
 
 using namespace std;
 
@@ -66,18 +68,22 @@ typedef struct _per_thread_t {
 #define TLS_MEM_REF_BUFF_SIZE 100
 
 
-
-static unordered_map<context_handle_t, int> mem_references;
+static unordered_map<context_handle_t, pair<int, long>> mem_references;
 
 // client want to do
 void
 ComputeMemFootPrint(void *drcontext, mem_ref_t *ref, int numBytes, int slot)
 {
-    context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
-    if (mem_references.find(cur_ctxt_hndl) != mem_references.end()){
-       mem_references[cur_ctxt_hndl] = 0;
+    long addr = (long)ref->addr;
+    if (addr){
+      context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
+      if (mem_references.find(cur_ctxt_hndl) != mem_references.end()){
+          mem_references[cur_ctxt_hndl] = make_pair(0, addr);
+      }
+      mem_references[cur_ctxt_hndl].first += numBytes;
+      mem_references[cur_ctxt_hndl].second = addr;
     }
-     mem_references[cur_ctxt_hndl] += numBytes;
+
 }
 // dr clean call
 void
@@ -202,7 +208,10 @@ ClientExit(void)
 {
 
     cout << "CNTXT_HANDLE vs NumBytes" << endl;
-    for (auto code : mem_references) cout << "CNTXT_HANDLE: " << code.first << " NumBytes: " << code.second <<  endl;
+    for (auto code : mem_references) {
+      printf("CNTXT: %d, numBytes: %d, firstByte: %p \n", code.first, code.second.first, (void *)code.second.second);
+      // printf("CNTXT: %d, numBytes: %d, firstByte: %lu \n", code.first, code.second.first, code.second.second);
+    }
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
