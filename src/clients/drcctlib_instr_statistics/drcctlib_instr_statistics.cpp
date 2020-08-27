@@ -78,7 +78,7 @@ ClientInit(int argc, const char *argv[])
     gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
     pid_t pid = getpid();
     sprintf(name + strlen(name), "%d", pid);
-    DRCCTLIB_PRINTF("Creating log file at:", name);
+    DRCCTLIB_PRINTF("Creating log file at:%s", name);
 
     gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(gTraceFile != INVALID_FILE);
