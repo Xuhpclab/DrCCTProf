@@ -5,6 +5,8 @@
  */
 
 #include <map>
+#include <string>
+#include <sys/stat.h>
 
 #include "dr_api.h"
 #include "drmgr.h"
@@ -28,7 +30,7 @@ using namespace std;
 #define REUSED_PRINT_MIN_COUNT 1000
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 
-static file_t gTraceFile;
+static std::string g_folder_name;
 static int tls_idx;
 
 typedef struct _use_node_t {
@@ -278,18 +280,9 @@ static void
 ThreadDebugFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    pid_t pid = getpid();
-#    ifdef ARM_CCTLIB
-    char debug_file_name[MAXIMUM_PATH] = "arm.";
-#    else
-    char debug_file_name[MAXIMUM_PATH] = "x86.";
-#    endif
-    gethostname(debug_file_name + strlen(debug_file_name),
-                MAXIMUM_PATH - strlen(debug_file_name));
-    sprintf(debug_file_name + strlen(debug_file_name),
-            "%d.drcctlib_reuse_distance.thread-%d.debug.log", pid, id);
-    pt->log_file =
-        dr_open_file(debug_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
+    char name[MAXIMUM_PATH] = "";
+    sprintf(name + strlen(name), "%s/thread-%d.debug.log", g_folder_name.c_str(), id);
+    pt->log_file = dr_open_file(name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file != INVALID_FILE);
 }
 #endif
@@ -298,15 +291,8 @@ static void
 ThreadOutputFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    pid_t pid = getpid();
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.";
-#else
-    char name[MAXIMUM_PATH] = "x86.";
-#endif
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    sprintf(name + strlen(name), "%d.drcctlib_reuse_distance.thread-%d.topn.log", pid,
-            id);
+    char name[MAXIMUM_PATH] = "";
+    sprintf(name + strlen(name), "%s/thread-%d.topn.log", g_folder_name.c_str(), id);
     pt->output_file = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->output_file != INVALID_FILE);
 }
@@ -349,6 +335,16 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
+    pid_t pid = getpid();
+#ifdef ARM_CCTLIB
+    char name[MAXIMUM_PATH] = "arm-";
+#else
+    char name[MAXIMUM_PATH] = "x86-";
+#endif
+    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
+    sprintf(name + strlen(name), "-%d-drcctlib_reuse_distance", pid);
+    g_folder_name.assign(name, strlen(name));
+    mkdir(g_folder_name.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 }
 
 static void
