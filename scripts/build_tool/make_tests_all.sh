@@ -59,7 +59,6 @@ fi
 
 CLIENT_LIST=(
     "drcctlib_all_instr_cct"
-    "drcctlib_all_instr_cct"
     "drcctlib_all_instr_cct_hpc_fmt"
     "drcctlib_all_instr_cct_no_cache"
     "drcctlib_all_instr_cct_with_data_centric"
@@ -71,6 +70,7 @@ CLIENT_LIST=(
     "drcctlib_instr_statistics_hpc_fmt"
     "drcctlib_memory_only"
     "drcctlib_memory_only_clean_call"
+    "drcctlib_memory_with_addr_and_refsize_clean_call"
     "drcctlib_memory_with_data_centric"
     "drcctlib_memory_with_data_centric_clean_call"
     "drcctlib_memory_with_data_centric_with_search"
