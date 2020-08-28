@@ -12,6 +12,12 @@
 #define DRCCTLIB_EXIT_PROCESS(format, args...) \
     DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("instr_statistics", format, ##args)
 
+#ifdef ARM_CCTLIB
+#    define OPND_CREATE_CCT_INT OPND_CREATE_INT
+#else
+#    define OPND_CREATE_CCT_INT OPND_CREATE_INT32
+#endif
+
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 #define TOP_REACH_NUM_SHOW 200
 
@@ -44,7 +50,7 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
     instr_t *instr = instrument_msg->instr;
     int32_t slot = instrument_msg->slot;
 
-    dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 1, OPND_CREATE_INT32(slot));
+    dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 1, OPND_CREATE_CCT_INT(slot));
 }
 
 static inline void
@@ -75,7 +81,7 @@ ClientInit(int argc, const char *argv[])
     gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
     pid_t pid = getpid();
     sprintf(name + strlen(name), "%d", pid);
-    DRCCTLIB_PRINTF("Creating log file at:", name);
+    DRCCTLIB_PRINTF("Creating log file at:%s", name);
 
     gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(gTraceFile != INVALID_FILE);
