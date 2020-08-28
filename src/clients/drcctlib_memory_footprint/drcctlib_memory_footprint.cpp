@@ -13,13 +13,14 @@
 #include "drcctlib.h"
 
 #include <unordered_map>
+#include <unordered_set>
 #include <iostream>
 #include <utility>
 #include <string>
 
 using namespace std;
 
-static unordered_map<context_handle_t, pair<size_t, long>> mem_references;
+static unordered_map<context_handle_t, unordered_set<long>> mem_references;
 
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("memory_footprint", format, ##args)
@@ -64,10 +65,14 @@ ComputeMemFootPrint(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *
     long addr = (long)ref->addr;
     if (addr){
       if (mem_references.find(cur_ctxt_hndl) != mem_references.end()){
-          mem_references[cur_ctxt_hndl] = make_pair(0, addr);
+          mem_references[cur_ctxt_hndl] = unordered_set<long>{};
       }
-      mem_references[cur_ctxt_hndl].first += ref->size;
-      mem_references[cur_ctxt_hndl].second = addr;
+    
+      for (size_t i = 0; i < ref->size; i++){
+          if (mem_references[cur_ctxt_hndl].find(addr+i) == mem_references[cur_ctxt_hndl].end()){
+              mem_references[cur_ctxt_hndl].insert(addr+i);
+          }
+      }
     }
 }
 
@@ -208,7 +213,7 @@ ClientExit(void)
 {
     cout << "CNTXT_HANDLE vs NumBytes" << endl;
     for (auto code : mem_references) {
-        printf("CNTXT: %d, numBytes: %zu, firstByte: %p \n", code.first, code.second.first, (void *)code.second.second);
+        printf("CNTXT: %d, numUniqueBytes: %zu \n", code.first, code.second.size());
         // printf("CNTXT: %d, numBytes: %d, firstByte: %lu \n", code.first, code.second.first, code.second.second);
     }
  
