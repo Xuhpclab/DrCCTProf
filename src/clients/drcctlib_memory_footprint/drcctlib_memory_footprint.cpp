@@ -1,4 +1,4 @@
-/*
+/* 
  *  Copyright (c) 2020 Xuhpclab. All rights reserved.
  *  Licensed under the MIT License.
  *  See LICENSE file for more information.
@@ -19,6 +19,8 @@
 
 using namespace std;
 
+static unordered_map<context_handle_t, pair<size_t, long>> mem_references;
+
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("memory_footprint", format, ##args)
 #define DRCCTLIB_EXIT_PROCESS(format, args...)                                           \
@@ -31,33 +33,20 @@ enum {
     INSTRACE_TLS_OFFS_BUF_PTR,
     INSTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
-
 static reg_id_t tls_seg;
 static uint tls_offs;
 #define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs + (enum_val))
 #define BUF_PTR(tls_base, type, offs) *(type **)TLS_SLOT(tls_base, offs)
 #define MINSERT instrlist_meta_preinsert
-
 #ifdef ARM_CCTLIB
 #    define OPND_CREATE_CCT_INT OPND_CREATE_INT
 #else
-#    ifdef CCTLIB_64
-#        define OPND_CREATE_CCT_INT OPND_CREATE_INT64
-#    else
-#        define OPND_CREATE_CCT_INT OPND_CREATE_INT32
-#    endif
+#    define OPND_CREATE_CCT_INT OPND_CREATE_INT32
 #endif
-
-#ifdef CCTLIB_64
-#    define OPND_CREATE_CTXT_HNDL_MEM OPND_CREATE_MEM64
-#else
-#    define OPND_CREATE_CTXT_HNDL_MEM OPND_CREATE_MEM32
-#endif
-
-#define OPND_CREATE_MEM_IDX_MEM OPND_CREATE_MEM64
 
 typedef struct _mem_ref_t {
     app_pc addr;
+    size_t size;
 } mem_ref_t;
 
 typedef struct _per_thread_t {
@@ -68,33 +57,31 @@ typedef struct _per_thread_t {
 #define TLS_MEM_REF_BUFF_SIZE 100
 
 
-static unordered_map<context_handle_t, pair<int, long>> mem_references;
-
 // client want to do
 void
-ComputeMemFootPrint(void *drcontext, mem_ref_t *ref, int numBytes, int slot)
+ComputeMemFootPrint(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *ref)
 {
     long addr = (long)ref->addr;
     if (addr){
-      context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
       if (mem_references.find(cur_ctxt_hndl) != mem_references.end()){
           mem_references[cur_ctxt_hndl] = make_pair(0, addr);
       }
-      mem_references[cur_ctxt_hndl].first += numBytes;
+      mem_references[cur_ctxt_hndl].first += ref->size;
       mem_references[cur_ctxt_hndl].second = addr;
     }
-
 }
+
+
 // dr clean call
 void
-InsertCleancall(int num, int slot, int numBytes)
+InsertCleancall(int32_t slot,int32_t num)
 {
     void *drcontext = dr_get_current_drcontext();
-
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
     for (int i = 0; i < num; i++) {
         if (pt->cur_buf_list[i].addr != 0) {
-            ComputeMemFootPrint(drcontext, &pt->cur_buf_list[i], numBytes, slot);
+            ComputeMemFootPrint(drcontext, cur_ctxt_hndl, &pt->cur_buf_list[i]);
         }
     }
     BUF_PTR(pt->cur_buf, mem_ref_t, INSTRACE_TLS_OFFS_BUF_PTR) = pt->cur_buf_list;
@@ -125,6 +112,20 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
             XINST_CREATE_store(
                 drcontext, OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(mem_ref_t, addr)),
                 opnd_create_reg(free_reg)));
+
+    // store mem_ref_t->size
+#ifdef ARM_CCTLIB
+    MINSERT(ilist, where,
+            XINST_CREATE_load_int(drcontext, opnd_create_reg(free_reg),
+                                  OPND_CREATE_CCT_INT(drutil_opnd_mem_size_in_bytes(ref, where))));
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(mem_ref_t, size)),
+                             opnd_create_reg(free_reg)));
+#else
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(mem_ref_t, size)),
+                             OPND_CREATE_CCT_INT(drutil_opnd_mem_size_in_bytes(ref, where))));
+#endif
 
 #ifdef ARM_CCTLIB
     MINSERT(ilist, where,
@@ -169,10 +170,8 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
             InstrumentMem(drcontext, bb, instr, instr_get_dst(instr, i));
         }
     }
-    int opcode = instr_get_opcode(instr);
-    int numbytes = instr_memory_reference_size(instr);
-    dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 3,
-                         OPND_CREATE_CCT_INT(num), OPND_CREATE_INT32(slot),OPND_CREATE_INT32(numbytes));
+    dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 2,
+                         OPND_CREATE_CCT_INT(slot), OPND_CREATE_CCT_INT(num));
 }
 
 static void
@@ -201,24 +200,25 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
+    
 }
 
 static void
 ClientExit(void)
 {
-
     cout << "CNTXT_HANDLE vs NumBytes" << endl;
     for (auto code : mem_references) {
-      printf("CNTXT: %d, numBytes: %d, firstByte: %p \n", code.first, code.second.first, (void *)code.second.second);
-      // printf("CNTXT: %d, numBytes: %d, firstByte: %lu \n", code.first, code.second.first, code.second.second);
+        printf("CNTXT: %d, numBytes: %zu, firstByte: %p \n", code.first, code.second.first, (void *)code.second.second);
+        // printf("CNTXT: %d, numBytes: %d, firstByte: %lu \n", code.first, code.second.first, code.second.second);
     }
+ 
+    // add output module here
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
         DRCCTLIB_EXIT_PROCESS(
             "ERROR: drcctlib_memory_footprint dr_raw_tls_calloc fail");
     }
-
     if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
         !drmgr_unregister_thread_exit_event(ClientThreadEnd) ||
         !drmgr_unregister_tls_field(tls_idx)) {
@@ -268,9 +268,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS(
             "ERROR: drcctlib_memory_footprint dr_raw_tls_calloc fail");
     }
-    drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
-                     InstrumentInsCallback, NULL, NULL,
-                     DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
+    drcctlib_init(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, false);
     dr_register_exit_event(ClientExit);
 }
 
