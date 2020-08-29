@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2020 Xuhpclab. All rights reserved.
  *  Licensed under the MIT License.
  *  See LICENSE file for more information.
@@ -57,6 +57,7 @@ typedef struct _per_thread_t {
 
 #define TLS_MEM_REF_BUFF_SIZE 100
 
+#define MAX_DEPTH_TO_BOTHER 10
 
 // client want to do
 void
@@ -67,7 +68,6 @@ ComputeMemFootPrint(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *
       if (mem_references.find(cur_ctxt_hndl) != mem_references.end()){
           mem_references[cur_ctxt_hndl] = unordered_set<long>{};
       }
-    
       for (size_t i = 0; i < ref->size; i++){
           if (mem_references[cur_ctxt_hndl].find(addr+i) == mem_references[cur_ctxt_hndl].end()){
               mem_references[cur_ctxt_hndl].insert(addr+i);
@@ -205,18 +205,36 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
-    
+
 }
 
 static void
 ClientExit(void)
 {
-    cout << "CNTXT_HANDLE vs NumBytes" << endl;
-    for (auto code : mem_references) {
-        printf("CNTXT: %d, numUniqueBytes: %zu \n", code.first, code.second.size());
-        // printf("CNTXT: %d, numBytes: %d, firstByte: %lu \n", code.first, code.second.first, code.second.second);
+    unordered_map<string, unordered_set<long>> FootPrintPerFunc;
+    context_t* curr_context = NULL;
+    for (auto itr = mem_references.begin(); itr != mem_references.end(); itr++) {
+        curr_context = drcctlib_get_full_cct(itr->first, MAX_DEPTH_TO_BOTHER);
+        while(curr_context){
+           string func_name(curr_context->func_name);
+           if (FootPrintPerFunc.find(func_name) == FootPrintPerFunc.end()){
+              FootPrintPerFunc[func_name] = unordered_set<long>{};
+           }
+           for (auto addr = itr->second.begin(); addr != itr->second.end(); itr++){
+               if(FootPrintPerFunc[func_name].find(*addr) == FootPrintPerFunc[func_name].end()) {
+                  FootPrintPerFunc[func_name].insert(*addr);
+               }
+           }
+           curr_context = curr_context->pre_ctxt;
+        }
+        break;
     }
- 
+
+    cout << "Func_Name vs NumBytes" << endl;
+    for (auto itr = FootPrintPerFunc.begin(); itr != FootPrintPerFunc.end(); itr++) {
+        cout << "FuncName: " << itr->first << "NumBytes: " << itr->second.size() << endl;
+    }
+
     // add output module here
     drcctlib_exit();
 
