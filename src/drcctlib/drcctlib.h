@@ -98,6 +98,18 @@ drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl);
 
 DR_EXPORT
 context_t *
+drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth);
+
+DR_EXPORT
+void
+drcctlib_free_cct(context_t * contxt_list);
+
+DR_EXPORT
+context_t *
+drcctlib_get_full_cct(context_handle_t ctxt_hndl);
+
+DR_EXPORT
+context_t *
 drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth);
 
 DR_EXPORT
