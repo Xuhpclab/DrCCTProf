@@ -2885,9 +2885,9 @@ drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth)
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
         DRCCTLIB_EXIT_PROCESS("drcctlib_get_cct !ctxt_hndl_is_valid");
     }
-    bool print_all = false;
+    bool get_all = false;
     if (max_depth < 0) {
-        print_all = true;
+        get_all = true;
     }
     context_t *start = ctxt_get_from_ctxt_hndl(ctxt_hndl);
     context_t *next_ctxt = start;
@@ -2898,7 +2898,7 @@ drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth)
         if (next_ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
             break;
         }
-        if (!print_all && cur_depth >= max_depth) {
+        if (!get_all && cur_depth >= max_depth) {
             break;
         }
         next_ctxt_hndl = bb_node_caller_ctxt_hndl(ctxt_hndl_parent_bb_node(next_ctxt_hndl));
@@ -2987,22 +2987,20 @@ drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm,
     if (file == INVALID_FILE) {
         file = global_log_file;
     }
-    
-    drcctlib_print_ctxt_hndl_msg(file, ctxt_hndl, print_asm, print_file_path);
-    context_handle_t next_ctxt_hndl = bb_node_caller_ctxt_hndl(ctxt_hndl_parent_bb_node(ctxt_hndl));
+    context_handle_t cur_ctxt_hndl = ctxt_hndl;
+    drcctlib_print_ctxt_hndl_msg(file, cur_ctxt_hndl, print_asm, print_file_path);
 
     int depth = 0;
     while (true) {
-        if (next_ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
+        if (cur_ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
             break;
         }
         if (!print_all && depth >= max_depth) {
             dr_fprintf(file, "Truncated call path (due to client deep call chain)\n");
             break;
         }
-        drcctlib_print_ctxt_hndl_msg(file, next_ctxt_hndl, print_asm, print_file_path);
-        next_ctxt_hndl = bb_node_caller_ctxt_hndl(ctxt_hndl_parent_bb_node(next_ctxt_hndl));
-
+        cur_ctxt_hndl = bb_node_caller_ctxt_hndl(ctxt_hndl_parent_bb_node(cur_ctxt_hndl));
+        drcctlib_print_ctxt_hndl_msg(file, cur_ctxt_hndl, print_asm, print_file_path);
         depth++;
     }
 }
