@@ -25,40 +25,40 @@ endif (UNIX)
 
 # add third-party libraries
 
-add_library(drcctlib_reuse_distance_hpc_fmt_for_sweep3d SHARED
-  drcctlib_reuse_distance_hpc_fmt_for_sweep3d.cpp
+add_library(drcctlib_reuse_space_distance SHARED
+  drcctlib_reuse_space_distance.cpp
   )
 
-configure_DynamoRIO_client(drcctlib_reuse_distance_hpc_fmt_for_sweep3d)
-use_DynamoRIO_extension(drcctlib_reuse_distance_hpc_fmt_for_sweep3d drcctlib)
-place_shared_lib_in_lib_dir(drcctlib_reuse_distance_hpc_fmt_for_sweep3d)
+configure_DynamoRIO_client(drcctlib_reuse_space_distance)
+use_DynamoRIO_extension(drcctlib_reuse_space_distance drcctlib)
+place_shared_lib_in_lib_dir(drcctlib_reuse_space_distance)
 
-add_dependencies(drcctlib_reuse_distance_hpc_fmt_for_sweep3d api_headers)
+add_dependencies(drcctlib_reuse_space_distance api_headers)
 
 # Provide a hint for how to use the client
 if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-  add_custom_command(TARGET drcctlib_reuse_distance_hpc_fmt_for_sweep3d
+  add_custom_command(TARGET drcctlib_reuse_space_distance
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
-    ARGS -E echo "Usage: pass to drconfig or drrun: -t drcctlib_reuse_distance_hpc_fmt_for_sweep3d"
+    ARGS -E echo "Usage: pass to drconfig or drrun: -t drcctlib_reuse_space_distance"
     VERBATIM)
 endif ()
 
-install_target(drcctlib_reuse_distance_hpc_fmt_for_sweep3d ${INSTALL_CLIENTS_LIB})
+install_target(drcctlib_reuse_space_distance ${INSTALL_CLIENTS_LIB})
 
 set(INSTALL_CCTTEST_CONFIG ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
-  file(WRITE  ${dst} "# drcctlib_reuse_distance_hpc_fmt_for_sweep3d tool config file\n")
-  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcctlib_reuse_distance_hpc_fmt_for_sweep3d${LIB_EXT}\n")
+  file(WRITE  ${dst} "# drcctlib_reuse_space_distance tool config file\n")
+  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcctlib_reuse_space_distance${LIB_EXT}\n")
 endfunction ()
 
 if (X64)
-  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_reuse_distance_hpc_fmt_for_sweep3d.drrun64)
-  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_reuse_distance_hpc_fmt_for_sweep3d.drrun64)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_reuse_space_distance.drrun64)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_reuse_space_distance.drrun64)
 else (X64)
-  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_reuse_distance_hpc_fmt_for_sweep3d.drrun32)
-  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_reuse_distance_hpc_fmt_for_sweep3d.drrun32)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_reuse_space_distance.drrun32)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_reuse_space_distance.drrun32)
 endif (X64)
 
 set(BUILD_CLIENTS_BIN clients/${INSTALL_BIN})
@@ -68,7 +68,7 @@ write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB
 write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_CCTTEST_CONFIG})
-register_tool_file("drcctlib_reuse_distance_hpc_fmt_for_sweep3d")
+register_tool_file("drcctlib_reuse_space_distance")
 
 ##################################################
 # Documentation
