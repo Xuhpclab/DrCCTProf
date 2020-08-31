@@ -14,9 +14,9 @@
 using namespace std;
 
 #define DRCCTLIB_PRINTF(format, args...) \
-    DRCCTLIB_PRINTF_TEMPLATE("reuse_distance_hpc_fmt", format, ##args)
+    DRCCTLIB_PRINTF_TEMPLATE("reuse_space_distance_hpc_fmt", format, ##args)
 #define DRCCTLIB_EXIT_PROCESS(format, args...) \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_distance_hpc_fmt", format, ##args)
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_space_distance_hpc_fmt", format, ##args)
 
 #define SAMPLE_RUN
 #ifdef SAMPLE_RUN
@@ -82,8 +82,10 @@ void
 UpdateUseAndReuseMap(void *drcontext, per_thread_t *pt, uint64_t cur_mem_idx,
                      context_handle_t cur_ctxt_hndl, app_pc addr)
 {
+    uint64_t space_addr = (uint64_t)addr;
+    space_addr = (space_addr >> 6) << 6;
     map<uint64_t, use_node_t> *use_map = pt->tls_use_map;
-    map<uint64_t, use_node_t>::iterator it = (*use_map).find((uint64_t)addr);
+    map<uint64_t, use_node_t>::iterator it = (*use_map).find(space_addr);
 
     if (it != (*use_map).end()) {
 #ifdef SAMPLE_RUN
@@ -99,7 +101,7 @@ UpdateUseAndReuseMap(void *drcontext, per_thread_t *pt, uint64_t cur_mem_idx,
         if (reuse_distance > REUSED_THRES) {
             if(it->second.create_hndl >= 0) {
                 data_handle_t data_hndl =
-                    drcctlib_get_data_hndl_ignore_stack_data(drcontext, addr);
+                    drcctlib_get_data_hndl_ignore_stack_data(drcontext, (app_pc)addr);
                 context_handle_t create_hndl = 0;
                 if (data_hndl.object_type == DYNAMIC_OBJECT) {
                     create_hndl = data_hndl.path_handle;
@@ -137,14 +139,13 @@ UpdateUseAndReuseMap(void *drcontext, per_thread_t *pt, uint64_t cur_mem_idx,
 #ifdef SAMPLE_RUN
         new_entry.sample_run_index = pt->sample_run_index;
 #endif
-        (*use_map).insert(pair<uint64_t, use_node_t>((uint64_t)(addr), new_entry));
+        (*use_map).insert(pair<uint64_t, use_node_t>(space_addr, new_entry));
     }
 }
 
 void
 PrintTopN(void *drcontext, per_thread_t *pt, uint64_t print_num)
 {
-    // print_num = (*(pt->tls_reuse_map)).size();
     output_format_t *output_format_list =
         (output_format_t *)dr_global_alloc(print_num * sizeof(output_format_t));
     for (uint64_t i = 0; i < print_num; i++) {
@@ -272,7 +273,7 @@ ThreadDebugFileInit(per_thread_t *pt)
     gethostname(debug_file_name + strlen(debug_file_name),
                 MAXIMUM_PATH - strlen(debug_file_name));
     sprintf(debug_file_name + strlen(debug_file_name),
-            "%d.drcctlib_reuse_distance_hpc_fmt.thread-%d.debug.log", pid, id);
+            "%d.drcctlib_reuse_space_distance_hpc_fmt.thread-%d.debug.log", pid, id);
     pt->log_file =
         dr_open_file(debug_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file != INVALID_FILE);
@@ -326,7 +327,7 @@ ClientExit(void)
         !drmgr_unregister_thread_exit_event(ClientThreadEnd) ||
         !drmgr_unregister_tls_field(tls_idx)) {
         DRCCTLIB_PRINTF(
-            "ERROR: drcctlib_reuse_distance_hpc_fmt failed to unregister in ClientExit");
+            "ERROR: drcctlib_reuse_space_distance_hpc_fmt failed to unregister in ClientExit");
     }
     drmgr_exit();
 }
@@ -338,13 +339,13 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_distance_hpc_fmt'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_space_distance_hpc_fmt'",
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
     if (!drmgr_init()) {
         DRCCTLIB_EXIT_PROCESS(
-            "ERROR: drcctlib_reuse_distance_hpc_fmt unable to initialize drmgr");
+            "ERROR: drcctlib_reuse_space_distance_hpc_fmt unable to initialize drmgr");
     }
     drmgr_priority_t thread_init_pri = { sizeof(thread_init_pri),
                                          "drcctlib_reuse-thread_init", NULL, NULL,
@@ -357,7 +358,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1) {
         DRCCTLIB_EXIT_PROCESS(
-            "ERROR: drcctlib_reuse_distance_hpc_fmt drmgr_register_tls_field fail");
+            "ERROR: drcctlib_reuse_space_distance_hpc_fmt drmgr_register_tls_field fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, NULL, NULL,
                      InstrumentPerBBCache,
