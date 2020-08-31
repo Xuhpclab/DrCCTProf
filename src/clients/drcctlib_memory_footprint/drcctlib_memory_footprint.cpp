@@ -45,6 +45,8 @@ static uint tls_offs;
 #    define OPND_CREATE_CCT_INT OPND_CREATE_INT32
 #endif
 
+static file_t gTraceFile;
+
 typedef struct _mem_ref_t {
     app_pc addr;
     size_t size;
@@ -56,8 +58,51 @@ typedef struct _per_thread_t {
 } per_thread_t;
 
 #define TLS_MEM_REF_BUFF_SIZE 100
+#define MAX_DEPTH_TO_BOTHER 30
 
-#define MAX_DEPTH_TO_BOTHER 10
+// inline long range_addr(long addr, size_t offset) { return addr+offset; }
+//
+// inline bool add_bytes(mem_ref_t *ref, context_handle_t cur_ctxt_hndl){
+//
+//     // Check if already added.
+//     long addr = (long)ref->addr;
+//
+//     // If Map is empty, Add the Address
+//     if (mem_ref_mp[cur_ctxt_hndl].size() == 0) {
+//         mem_ref_mp[cur_ctxt_hndl][addr] = ref->size();
+//     }
+//     else if(mem_ref_mp[cur_ctxt_hndl].size() == 1 &&
+//         mem_ref_mp[cur_ctxt_hndl].begin()->first == addr &&
+//           mem_ref_mp[cur_ctxt_hndl].begin()->second == ref->size){
+//         return ;
+//     }
+//
+//     auto itr_prev = mem_ref_mp[cur_ctxt_hndl].upper_bound(addr);
+//     auto itr_next = int_prev--;
+//
+//
+//     if (itr_next !=  mem_ref_mp[cur_ctxt_hndl].begin()){
+//         // Check if already added
+//         if (range_addr(itr_prev->first, itr_prev->second) >= range_addr(addr, ref->size)){
+//             return ;
+//         }
+//         // Check if already added
+//         else if(itr_next !=  mem_ref_mp[cur_ctxt_hndl].end()){
+//             if (itr_next.first != range_addr(itr_prev->first, itr_prev->second) + 1 ||
+//                   range_addr(itr_next->first, itr_next->second) >= range_addr(addr, ref->size)){
+//                return ;
+//             }
+//         }
+//         // Else Add
+//         else if (itr_next ==  mem_ref_mp[cur_ctxt_hndl].end() && range_addr(itr_prev->first, itr_prev->second) >= addr){
+//             itr_prev->second += range_addr(addr, ref->size) - range_addr(itr_prev->first, itr_prev->second)
+//         }
+//     }
+//
+//
+//
+//
+// }
 
 // client want to do
 void
@@ -65,13 +110,11 @@ ComputeMemFootPrint(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *
 {
     long addr = (long)ref->addr;
     if (addr){
-      if (mem_references.find(cur_ctxt_hndl) != mem_references.end()){
+      if (mem_references.find(cur_ctxt_hndl) == mem_references.end()){
           mem_references[cur_ctxt_hndl] = unordered_set<long>{};
       }
       for (size_t i = 0; i < ref->size; i++){
-          if (mem_references[cur_ctxt_hndl].find(addr+i) == mem_references[cur_ctxt_hndl].end()){
-              mem_references[cur_ctxt_hndl].insert(addr+i);
-          }
+          mem_references[cur_ctxt_hndl].insert(addr+i);
       }
     }
 }
@@ -211,8 +254,10 @@ ClientInit(int argc, const char *argv[])
 static void
 ClientExit(void)
 {
-    unordered_map<string, unordered_set<long>> FootPrintPerFunc;
+    // add output module here
     context_t* curr_context = NULL;
+    unordered_map<string, unordered_set<long>> FootPrintPerFunc;
+
     for (auto itr = mem_references.begin(); itr != mem_references.end(); itr++) {
         curr_context = drcctlib_get_full_cct(itr->first, MAX_DEPTH_TO_BOTHER);
         while(curr_context){
@@ -220,22 +265,19 @@ ClientExit(void)
            if (FootPrintPerFunc.find(func_name) == FootPrintPerFunc.end()){
               FootPrintPerFunc[func_name] = unordered_set<long>{};
            }
-           for (auto addr = itr->second.begin(); addr != itr->second.end(); itr++){
-               if(FootPrintPerFunc[func_name].find(*addr) == FootPrintPerFunc[func_name].end()) {
-                  FootPrintPerFunc[func_name].insert(*addr);
-               }
+           for (auto addr : itr->second) {
+               FootPrintPerFunc[func_name].insert(addr);
            }
            curr_context = curr_context->pre_ctxt;
         }
-        break;
     }
 
     cout << "Func_Name vs NumBytes" << endl;
     for (auto itr = FootPrintPerFunc.begin(); itr != FootPrintPerFunc.end(); itr++) {
-        cout << "FuncName: " << itr->first << "NumBytes: " << itr->second.size() << endl;
+        cout << "FuncName: " << itr->first << "  ,  NumBytes: " << itr->second.size() << endl;
     }
 
-    // add output module here
+
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
