@@ -16,10 +16,9 @@
 using namespace std;
 
 #define DRCCTLIB_PRINTF(format, args...) \
-    DRCCTLIB_PRINTF_TEMPLATE("reuse_distance_hpc_fmt_for_sweep3d", format, ##args)
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                          \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_distance_hpc_fmt_for_sweep3d", format, \
-                                          ##args)
+    DRCCTLIB_PRINTF_TEMPLATE("reuse_distance_client_cache_hpc_fmt", format, ##args)
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_distance_client_cache_hpc_fmt", format, ##args)
 
 static int tls_idx;
 
@@ -115,16 +114,11 @@ typedef struct _per_thread_t {
 #define REUSED_PRINT_MIN_COUNT 1000
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 
-int ins_metric_id1 = 0;
-int ins_metric_id2 = 0;
-
 void
 UpdateUseAndReuseMap(void *drcontext, per_thread_t *pt, mem_ref_t *ref, int cur_mem_idx)
 {
-    uint64_t real_data_addr = (uint64_t)ref->addr;
-    real_data_addr = (real_data_addr >> 6) << 6;
     map<uint64_t, use_node_t> *use_map = pt->tls_use_map;
-    map<uint64_t, use_node_t>::iterator it = (*use_map).find(real_data_addr);
+    map<uint64_t, use_node_t>::iterator it = (*use_map).find((uint64_t)ref->addr);
 
     if (it != (*use_map).end()) {
         uint64_t reuse_distance = cur_mem_idx - it->second.last_reuse_mem_idx;
@@ -152,7 +146,7 @@ UpdateUseAndReuseMap(void *drcontext, per_thread_t *pt, mem_ref_t *ref, int cur_
         it->second.last_reuse_mem_idx = cur_mem_idx;
     } else {
         data_handle_t data_hndl =
-            drcctlib_get_data_hndl_ignore_stack_data(drcontext, (app_pc)real_data_addr);
+            drcctlib_get_data_hndl_ignore_stack_data(drcontext, ref->addr);
         context_handle_t create_hndl = 0;
         if (data_hndl.object_type == DYNAMIC_OBJECT) {
             create_hndl = data_hndl.path_handle;
@@ -160,7 +154,7 @@ UpdateUseAndReuseMap(void *drcontext, per_thread_t *pt, mem_ref_t *ref, int cur_
             create_hndl = -data_hndl.sym_name;
         }
         use_node_t new_entry(create_hndl, ref->ctxt_hndl, cur_mem_idx);
-        (*use_map).insert(pair<uint64_t, use_node_t>(real_data_addr, new_entry));
+        (*use_map).insert(pair<uint64_t, use_node_t>((uint64_t)(ref->addr), new_entry));
     }
 }
 
@@ -471,14 +465,14 @@ ClientExit(void)
 {
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
         DRCCTLIB_EXIT_PROCESS(
-            "ERROR: drcctlib_reuse_distance_hpc_fmt_for_sweep3d dr_raw_tls_calloc fail");
+            "ERROR: drcctlib_reuse_distance_client_cache_hpc_fmt dr_raw_tls_calloc fail");
     }
 
     if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
         !drmgr_unregister_thread_exit_event(ClientThreadEnd) ||
         !drmgr_unregister_tls_field(tls_idx)) {
-        DRCCTLIB_PRINTF("ERROR: drcctlib_reuse_distance_hpc_fmt_for_sweep3d failed to "
-                        "unregister in ClientExit");
+        DRCCTLIB_PRINTF(
+            "ERROR: drcctlib_reuse_distance_client_cache_hpc_fmt failed to unregister in ClientExit");
     }
     drmgr_exit();
     if (drreg_exit() != DRREG_SUCCESS) {
@@ -497,41 +491,41 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_distance_hpc_fmt_for_sweep3d'",
+    dr_set_client_name("DynamoRIO Client 'drcctlib_reuse_distance_client_cache_hpc_fmt'",
                        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
     if (!drmgr_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt_for_sweep3d unable "
-                              "to initialize drmgr");
+        DRCCTLIB_EXIT_PROCESS(
+            "ERROR: drcctlib_reuse_distance_client_cache_hpc_fmt unable to initialize drmgr");
     }
     drreg_options_t ops = { sizeof(ops), 3 /*max slots needed*/, false };
     if (drreg_init(&ops) != DRREG_SUCCESS) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt_for_sweep3d unable "
-                              "to initialize drreg");
+        DRCCTLIB_EXIT_PROCESS(
+            "ERROR: drcctlib_reuse_distance_client_cache_hpc_fmt unable to initialize drreg");
     }
     if (!drutil_init()) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt_for_sweep3d unable "
-                              "to initialize drutil");
+        DRCCTLIB_EXIT_PROCESS(
+            "ERROR: drcctlib_reuse_distance_client_cache_hpc_fmt unable to initialize drutil");
     }
     drmgr_register_thread_init_event(ClientThreadStart);
     drmgr_register_thread_exit_event(ClientThreadEnd);
 
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1) {
-        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_reuse_distance_hpc_fmt_for_sweep3d "
-                              "drmgr_register_tls_field fail");
+        DRCCTLIB_EXIT_PROCESS(
+            "ERROR: drcctlib_reuse_distance_client_cache_hpc_fmt drmgr_register_tls_field fail");
     }
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)) {
         DRCCTLIB_EXIT_PROCESS(
-            "ERROR: drcctlib_reuse_distance_hpc_fmt_for_sweep3d dr_raw_tls_calloc fail");
+            "ERROR: drcctlib_reuse_distance_client_cache_hpc_fmt dr_raw_tls_calloc fail");
     }
     drcctlib_init_ex(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE,
                      InstrumentInsCallback, NULL, NULL,
                      DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE);
     hpcrun_format_init(dr_get_application_name(), false);
-    ins_metric_id1 = hpcrun_create_metric("SUM_COUNT");
-    ins_metric_id2 = hpcrun_create_metric("AVG_DIS");
+    hpcrun_create_metric("SUM_COUNT");
+    hpcrun_create_metric("AVG_DIS");
     dr_register_exit_event(ClientExit);
 }
 
