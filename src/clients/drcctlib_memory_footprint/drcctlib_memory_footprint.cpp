@@ -10,6 +10,7 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
+#include "dr_tools.h"
 #include "drcctlib.h"
 
 #include <unordered_map>
@@ -45,7 +46,7 @@ static uint tls_offs;
 #    define OPND_CREATE_CCT_INT OPND_CREATE_INT32
 #endif
 
-static file_t gTraceFile;
+FILE* gTraceFile;
 
 typedef struct _mem_ref_t {
     app_pc addr;
@@ -59,50 +60,6 @@ typedef struct _per_thread_t {
 
 #define TLS_MEM_REF_BUFF_SIZE 100
 #define MAX_DEPTH_TO_BOTHER 30
-
-// inline long range_addr(long addr, size_t offset) { return addr+offset; }
-//
-// inline bool add_bytes(mem_ref_t *ref, context_handle_t cur_ctxt_hndl){
-//
-//     // Check if already added.
-//     long addr = (long)ref->addr;
-//
-//     // If Map is empty, Add the Address
-//     if (mem_ref_mp[cur_ctxt_hndl].size() == 0) {
-//         mem_ref_mp[cur_ctxt_hndl][addr] = ref->size();
-//     }
-//     else if(mem_ref_mp[cur_ctxt_hndl].size() == 1 &&
-//         mem_ref_mp[cur_ctxt_hndl].begin()->first == addr &&
-//           mem_ref_mp[cur_ctxt_hndl].begin()->second == ref->size){
-//         return ;
-//     }
-//
-//     auto itr_prev = mem_ref_mp[cur_ctxt_hndl].upper_bound(addr);
-//     auto itr_next = int_prev--;
-//
-//
-//     if (itr_next !=  mem_ref_mp[cur_ctxt_hndl].begin()){
-//         // Check if already added
-//         if (range_addr(itr_prev->first, itr_prev->second) >= range_addr(addr, ref->size)){
-//             return ;
-//         }
-//         // Check if already added
-//         else if(itr_next !=  mem_ref_mp[cur_ctxt_hndl].end()){
-//             if (itr_next.first != range_addr(itr_prev->first, itr_prev->second) + 1 ||
-//                   range_addr(itr_next->first, itr_next->second) >= range_addr(addr, ref->size)){
-//                return ;
-//             }
-//         }
-//         // Else Add
-//         else if (itr_next ==  mem_ref_mp[cur_ctxt_hndl].end() && range_addr(itr_prev->first, itr_prev->second) >= addr){
-//             itr_prev->second += range_addr(addr, ref->size) - range_addr(itr_prev->first, itr_prev->second)
-//         }
-//     }
-//
-//
-//
-//
-// }
 
 // client want to do
 void
@@ -118,7 +75,6 @@ ComputeMemFootPrint(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *
       }
     }
 }
-
 
 // dr clean call
 void
@@ -248,7 +204,16 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
+#ifdef ARM_CCTLIB
+    char name[MAXIMUM_PATH] = "arm.drcctlib_memory_footprint.log";
+#else
+    char name[MAXIMUM_PATH] = "x86.drcctlib_memory_footprint.log";
+#endif
 
+  cout << "Creating log file at: " << name;
+
+  gTraceFile = fopen(name,"w");
+  DR_ASSERT(gTraceFile != NULL);
 }
 
 static void
@@ -266,18 +231,25 @@ ClientExit(void)
               FootPrintPerFunc[func_name] = unordered_set<long>{};
            }
            for (auto addr : itr->second) {
-               FootPrintPerFunc[func_name].insert(addr);
+                FootPrintPerFunc[func_name].insert(addr);
            }
            curr_context = curr_context->pre_ctxt;
         }
     }
 
-    cout << "Func_Name vs NumBytes" << endl;
+    int i = 0;
     for (auto itr = FootPrintPerFunc.begin(); itr != FootPrintPerFunc.end(); itr++) {
-        cout << "FuncName: " << itr->first << "  ,  NumBytes: " << itr->second.size() << endl;
+
+        fprintf(gTraceFile,
+                 "\n=================================================================");
+
+        fprintf(gTraceFile, "\nNO. %d  Function: %s, FootPrint %d Bytes \n", i + 1,
+                    itr->first.c_str(), (int)itr->second.size());
+
+        ++i;
     }
 
-
+    fclose(gTraceFile);
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
@@ -294,6 +266,7 @@ ClientExit(void)
     if (drreg_exit() != DRREG_SUCCESS) {
         DRCCTLIB_PRINTF("failed to exit drreg");
     }
+
     drutil_exit();
 }
 
