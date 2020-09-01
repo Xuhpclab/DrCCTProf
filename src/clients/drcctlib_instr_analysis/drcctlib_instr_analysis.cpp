@@ -9,7 +9,6 @@
  * Prints the statistics per context to a file.
  * Forked from drcctlib_instr_statistics.cpp
  */
-// TODO fix count ,it is bugged
 
 #include <algorithm>
 #include <iostream>
@@ -31,9 +30,9 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...)                                       \
+#define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("instr_statistics", format, ##args)
-#define DRCCTLIB_EXIT_PROCESS(format, args...)                                 \
+#define DRCCTLIB_EXIT_PROCESS(format, args...) \
     DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("instr_statistics", format, ##args)
 
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
@@ -98,11 +97,9 @@ static vector<int> *others;
  * @param mem_ref_start where the memory references start (unused)
  * @param data additional data passed to this function (unused)
  */
-static inline void InstrumentPerBBCache(void *drcontext,
-                                        context_handle_t ctxt_hndl,
-                                        int32_t slot_num, int32_t mem_ref_num,
-                                        mem_ref_msg_t *mem_ref_start,
-                                        void **data)
+static inline void
+InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_num,
+                     int32_t mem_ref_num, mem_ref_msg_t *mem_ref_start, void **data)
 {
     int index;
     if (calling_contexts->find(ctxt_hndl) == calling_contexts->end()) {
@@ -115,8 +112,7 @@ static inline void InstrumentPerBBCache(void *drcontext,
     }
     index = (*calling_contexts)[ctxt_hndl];
 
-    if (calling_contexts_called->find(ctxt_hndl) ==
-        calling_contexts_called->end()) {
+    if (calling_contexts_called->find(ctxt_hndl) == calling_contexts_called->end()) {
         (*calling_contexts_called)[ctxt_hndl] = 0;
     }
     (*calling_contexts_called)[ctxt_hndl] += 1;
@@ -168,7 +164,8 @@ static inline void InstrumentPerBBCache(void *drcontext,
  * @param argc The tool's argc
  * @param argv The tool's argv
  */
-static void ClientInit(int argc, const char *argv[])
+static void
+ClientInit(int argc, const char *argv[])
 {
 #ifdef ARM_CCTLIB
     char name[MAXIMUM_PATH] = "arm.drcctlib_instr_statistics.out.";
@@ -187,8 +184,7 @@ static void ClientInit(int argc, const char *argv[])
     sprintf(name + strlen(name), "%d", pid);
     cerr << "Creating log file at:" << name << endl;
 
-    gTraceFile =
-        dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+    gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
 
     DR_ASSERT(gTraceFile != INVALID_FILE);
     // print the arguments passed
@@ -212,7 +208,8 @@ static void ClientInit(int argc, const char *argv[])
 /**
  * Record the statistics to a file
  */
-static void ClientExit(void)
+static void
+ClientExit(void)
 {
     for (std::pair<context_handle_t, int> element : (*calling_contexts)) {
         int i = element.second;
@@ -237,14 +234,16 @@ static void ClientExit(void)
                    no, memload_count, memstore_count, branch_count, jump_count,
                    other_count, times_called, cct_hndl);
         drcctlib_print_ctxt_hndl_msg(gTraceFile, cct_hndl, false, false);
-        dr_fprintf(gTraceFile, "==============================================="
-                               "======================"
-                               "===========\n");
+        dr_fprintf(gTraceFile,
+                   "==============================================="
+                   "======================"
+                   "===========\n");
         drcctlib_print_full_cct(gTraceFile, cct_hndl, true, false,
                                 MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile, "==============================================="
-                               "======================"
-                               "===========\n\n\n");
+        dr_fprintf(gTraceFile,
+                   "==============================================="
+                   "======================"
+                   "===========\n\n\n");
     }
 
     drcctlib_exit();
@@ -269,7 +268,8 @@ extern "C" {
  * @param argc the argument count
  * @param argv the argument list
  */
-DR_EXPORT void dr_client_main(client_id_t id, int argc, const char *argv[])
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Client 'drcctlib_instr_analysis'",
                        "http://dynamorio.org/issues");
