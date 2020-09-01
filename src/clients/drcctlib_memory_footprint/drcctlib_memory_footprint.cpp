@@ -67,9 +67,11 @@ ComputeMemFootPrint(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *
 {
     long addr = (long)ref->addr;
     if (addr){
+      // If the Map doesn't contain the Context Handle, Create an Entry i.e Set
       if (mem_references.find(cur_ctxt_hndl) == mem_references.end()){
           mem_references[cur_ctxt_hndl] = unordered_set<long>{};
       }
+      // Add the Bytes to the set associated with the key.
       for (size_t i = 0; i < ref->size; i++){
           mem_references[cur_ctxt_hndl].insert(addr+i);
       }
@@ -219,12 +221,15 @@ ClientInit(int argc, const char *argv[])
 static void
 ClientExit(void)
 {
-    // add output module here
     context_t* curr_context = NULL;
+
+    // Map for Function vs FootPrint
     unordered_map<string, unordered_set<long>> FootPrintPerFunc;
 
     for (auto itr = mem_references.begin(); itr != mem_references.end(); itr++) {
         curr_context = drcctlib_get_full_cct(itr->first, MAX_DEPTH_TO_BOTHER);
+
+        // Traverse from the Leaf node to the parent node and aggregate the results
         while(curr_context){
            string func_name(curr_context->func_name);
            if (FootPrintPerFunc.find(func_name) == FootPrintPerFunc.end()){
@@ -237,6 +242,7 @@ ClientExit(void)
         }
     }
 
+    // Print the Agregated results to the File
     int i = 0;
     for (auto itr = FootPrintPerFunc.begin(); itr != FootPrintPerFunc.end(); itr++) {
 
