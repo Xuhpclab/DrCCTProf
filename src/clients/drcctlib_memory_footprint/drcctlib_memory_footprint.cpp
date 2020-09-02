@@ -14,15 +14,17 @@
 #include "drcctlib.h"
 
 #include <unordered_map>
-#include <unordered_set>
+#include <map>
 #include <set>
+#include <iterator>
+#include <algorithm>
 #include <iostream>
 #include <utility>
 #include <string>
 
 using namespace std;
 
-static unordered_map<context_handle_t, unordered_set<long>> mem_references;
+static unordered_map<context_handle_t, map<long, long>> mem_references;
 
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("memory_footprint", format, ##args)
@@ -62,6 +64,53 @@ typedef struct _per_thread_t {
 #define TLS_MEM_REF_BUFF_SIZE 100
 #define MAX_DEPTH_TO_BOTHER 30
 
+inline void __add_interval(map<long, long>& mp, long start, long end){
+
+    // If Empty, Just add to the Tree
+    if (mp.empty()) { mp[start] = end; return ;}
+
+    map<long, long>::iterator itr_next = mp.upper_bound(start);
+    auto temp = itr_next;
+    auto itr_prev = reverse_iterator<map<long, long>::iterator>(--temp);
+
+    bool left_overlap = false, right_overlap = false;
+    if (itr_prev != mp.rend() && itr_prev->second >= start){
+        left_overlap = true;
+    }
+
+    if (itr_next != mp.end() && itr_next->first <= end){
+        right_overlap = true;
+    }
+
+    if (left_overlap && right_overlap){
+       start = min(start, itr_prev->first);
+       end = max(end, itr_next->second);
+       mp.erase(itr_prev->first);
+       mp.erase(itr_next->first);
+       mp[start] = end;
+    }
+    else if(left_overlap){
+       itr_prev->second = end;
+    }
+    else if(right_overlap){
+       start = min(start, itr_next->first);
+       end = max(end, itr_next->second);
+       mp.erase(itr_next->first);
+       mp[start] = end;
+    }
+    else{
+       mp[start] = end;
+    }
+}
+
+inline int __count_footprint(const map<long, long>& mp){
+  int ans = 0;
+  for (auto range_itr = mp.begin(); range_itr != mp.end(); range_itr++) {
+      ans += range_itr->second - range_itr->first + 1;
+  }
+  return ans;
+}
+
 // client want to do
 void
 ComputeMemFootPrint(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *ref)
@@ -70,12 +119,12 @@ ComputeMemFootPrint(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *
     if (addr){
       // If the Map doesn't contain the Context Handle, Create an Entry i.e Set
       if (mem_references.find(cur_ctxt_hndl) == mem_references.end()){
-          mem_references[cur_ctxt_hndl] = unordered_set<long>{};
+          mem_references[cur_ctxt_hndl] = map<long, long>{};
       }
       // Add the Bytes to the set associated with the key.
-      for (size_t i = 0; i < ref->size; i++){
-          mem_references[cur_ctxt_hndl].insert(addr+i);
-      }
+      // for (size_t i = 0; i < ref->size; i++){
+      __add_interval(mem_references[cur_ctxt_hndl], addr, addr+ref->size-1);
+      // }
     }
 }
 
@@ -235,10 +284,10 @@ ClientExit(void)
            // By Focussing on these Cntxt_handles, complete information from the child method is accumulated at this Handle
            parent_handles.insert(curr_context->ctxt_hndl);
            if (mem_references.find(curr_context->ctxt_hndl) == mem_references.end()) {
-              mem_references[curr_context->ctxt_hndl] = unordered_set<long>{};
+              mem_references[curr_context->ctxt_hndl] = map<long, long>{};
            }
-           for (auto addr : itr->second) {
-              mem_references[curr_context->ctxt_hndl].insert(addr);
+           for (auto range_itr = itr->second.begin(); range_itr != itr->second.end(); range_itr++) {
+              __add_interval(mem_references[curr_context->ctxt_hndl], range_itr->first, range_itr->second);
            }
            curr_context = curr_context->pre_ctxt;
         }
@@ -247,7 +296,7 @@ ClientExit(void)
     unsigned int i = 0;
     for (auto cntxt_hndl : parent_handles) {
         dr_fprintf(gTraceFile, "N0. %d  Memory FootPrint: %d,  ctxt handle %lld ====", i + 1,
-                  mem_references[cntxt_hndl].size(), cntxt_hndl);
+                  __count_footprint(mem_references[cntxt_hndl]), cntxt_hndl);
         drcctlib_print_ctxt_hndl_msg(gTraceFile, cntxt_hndl, false, false);
         dr_fprintf(gTraceFile,
                    "====================================================================="
