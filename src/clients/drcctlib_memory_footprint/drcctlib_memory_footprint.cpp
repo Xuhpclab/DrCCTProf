@@ -15,6 +15,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <iostream>
 #include <utility>
 #include <string>
@@ -46,7 +47,7 @@ static uint tls_offs;
 #    define OPND_CREATE_CCT_INT OPND_CREATE_INT32
 #endif
 
-FILE* gTraceFile;
+static file_t gTraceFile;
 
 typedef struct _mem_ref_t {
     app_pc addr;
@@ -212,10 +213,10 @@ ClientInit(int argc, const char *argv[])
     char name[MAXIMUM_PATH] = "x86.drcctlib_memory_footprint.log";
 #endif
 
-  cout << "Creating log file at: " << name;
+  cout << "Creating log file at: " << name << endl;
 
-  gTraceFile = fopen(name,"w");
-  DR_ASSERT(gTraceFile != NULL);
+  gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+  DR_ASSERT(gTraceFile != INVALID_FILE);
 }
 
 static void
@@ -223,39 +224,43 @@ ClientExit(void)
 {
     context_t* curr_context = NULL;
 
-    // Map for Function vs FootPrint
-    unordered_map<string, unordered_set<long>> FootPrintPerFunc;
+    set<context_handle_t> parent_handles;
 
     for (auto itr = mem_references.begin(); itr != mem_references.end(); itr++) {
         curr_context = drcctlib_get_full_cct(itr->first, MAX_DEPTH_TO_BOTHER);
-
-        // Traverse from the Leaf node to the parent node and aggregate the results
+        // Ignore Leaf Nodes (Instructions)
+        curr_context = curr_context->pre_ctxt;
         while(curr_context){
-           string func_name(curr_context->func_name);
-           if (FootPrintPerFunc.find(func_name) == FootPrintPerFunc.end()){
-              FootPrintPerFunc[func_name] = unordered_set<long>{};
+           // Store Parent Handles for Logging Which can usually are call instructions to child methods
+           // By Focussing on these Cntxt_handles, complete information from the child method is accumulated at this Handle
+           parent_handles.insert(curr_context->ctxt_hndl);
+           if (mem_references.find(curr_context->ctxt_hndl) == mem_references.end()) {
+              mem_references[curr_context->ctxt_hndl] = unordered_set<long>{};
            }
            for (auto addr : itr->second) {
-                FootPrintPerFunc[func_name].insert(addr);
+              mem_references[curr_context->ctxt_hndl].insert(addr);
            }
            curr_context = curr_context->pre_ctxt;
         }
     }
 
-    // Print the Agregated results to the File
-    int i = 0;
-    for (auto itr = FootPrintPerFunc.begin(); itr != FootPrintPerFunc.end(); itr++) {
-
-        fprintf(gTraceFile,
-                 "\n=================================================================");
-
-        fprintf(gTraceFile, "\nNO. %d  Function: %s, FootPrint %d Bytes \n", i + 1,
-                    itr->first.c_str(), (int)itr->second.size());
-
+    unsigned int i = 0;
+    for (auto cntxt_hndl : parent_handles) {
+        dr_fprintf(gTraceFile, "N0. %d  Memory FootPrint: %d,  ctxt handle %lld ====", i + 1,
+                  mem_references[cntxt_hndl].size(), cntxt_hndl);
+        drcctlib_print_ctxt_hndl_msg(gTraceFile, cntxt_hndl, false, false);
+        dr_fprintf(gTraceFile,
+                   "====================================================================="
+                   "===========\n");
+        drcctlib_print_full_cct(gTraceFile, cntxt_hndl, true, false,
+                                MAX_DEPTH_TO_BOTHER);
+        dr_fprintf(gTraceFile,
+                   "====================================================================="
+                   "===========\n\n\n");
         ++i;
     }
 
-    fclose(gTraceFile);
+    dr_close_file(gTraceFile);
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
