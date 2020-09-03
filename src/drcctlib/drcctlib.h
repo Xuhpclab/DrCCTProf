@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2020 Xuhpclab. All rights reserved.
  *  Licensed under the MIT License.
  *  See LICENSE file for more information.
@@ -46,29 +46,101 @@ typedef struct _mem_ref_msg_t {
     app_pc addr;
 } mem_ref_msg_t;
 
+/**
+ * DrCCTLib Calling Context.
+ * Clients may access this calling context
+ * via drcctlib_get_full_cct.
+ */
 typedef struct _context_t {
+    /**
+     * The name of the function/symbol
+     * associated with this calling context
+     */
     char func_name[MAXIMUM_SYMNAME];
+
+    /**
+     * The file path of the source code of the guest program
+     * at the current point in the program.
+     * Will not be available when the guest program is
+     * compiled without debug information.
+     */
     char file_path[MAXIMUM_PATH];
+
+    /**
+     * String representation of the dissassembly of the code.
+     */
     char code_asm[DISASM_CACHE_SIZE];
+
+    /**
+     * The context handle that refers to this context.
+     */
     context_handle_t ctxt_hndl;
+
+    /**
+     * The line of the source code of the guest program
+     * at the current point in the program.
+     * Will not be available when the guest program is compiled
+     * without debug information.
+     */
     int line_no;
+
+    /**
+     * The instruction pointer at the current point in the program.
+     * May be null.
+     */
     app_pc ip;
+
+    /**
+     * The context that occurs before this context.
+     */
     struct _context_t *pre_ctxt;
 } context_t;
 
+/**
+ * Initialize DrCCTLib with
+ * an instruction filter,
+ * an instrumentation function for instructions,
+ * an instrumentation function the beginning of basic blocks,
+ * an instrumentation function for the end of basic blocks,
+ * and a mode bitvector flag.
+ *
+ * Options for the instruction filter can be found in
+ * @see drcctlib_filter_func_list.h ,
+ *
+ * Options for the mode flag include
+ * @see DRCCTLIB_DEFAULT
+ * @see DRCCTLIB_CACHE_MODE
+ * @see DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE
+ * @see DRCCTLIB_CACHE_MEMEORY_ACCESS_ADDR
+ * @see DRCCTLIB_CACHE_EXCEPTION
+ *
+ * And examples of their usage can be found in the clients directory.
+ *
+ * @param filter the instruction filter
+ * @param func1 the instrumentation function
+ * allowing the user to inject code before each instruction.
+ * May be null.
+ * @param func2 the instrumentation function allowing the user to
+ * inject code before each basic block.
+ * May be null.
+ * @param func3 the instrumentation function allowing the user
+ * to inject code after each basic block.
+ * May be null.
+ * @flag the flag telling DRCCTLib how to operate.
+ */
 DR_EXPORT
 bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
                  void (*func1)(void *, instr_instrument_msg_t *),
                  void (*func2)(void *, int32_t, int32_t),
                  void (*func3)(void *, context_handle_t, int32_t, int32_t,
-                               mem_ref_msg_t *, void **), char flag);
+                               mem_ref_msg_t *, void **),
+                 char flag);
 
 DR_EXPORT
 void
 drcctlib_init(bool (*filter)(instr_t *), file_t file,
-                 void (*func1)(void *, instr_instrument_msg_t *),
-                 bool do_data_centric);
+              void (*func1)(void *, instr_instrument_msg_t *), bool do_data_centric);
 
 DR_EXPORT
 void
@@ -102,8 +174,13 @@ drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth);
 
 DR_EXPORT
 void
-drcctlib_free_cct(context_t * contxt_list);
+drcctlib_free_cct(context_t *contxt_list);
 
+/**
+ * Given the context handle,
+ * return the full calling context.
+ * @param ctxt_hdnl the context handle
+ */
 DR_EXPORT
 context_t *
 drcctlib_get_full_cct(context_handle_t ctxt_hndl);
@@ -140,7 +217,8 @@ drcctlib_get_caller_handle(context_handle_t ctxt_hndl);
 
 DR_EXPORT
 bool
-drcctlib_have_same_caller_prefix(context_handle_t ctxt_hndl1, context_handle_t ctxt_hndl2);
+drcctlib_have_same_caller_prefix(context_handle_t ctxt_hndl1,
+                                 context_handle_t ctxt_hndl2);
 
 DR_EXPORT
 bool
@@ -176,6 +254,5 @@ drcctlib_get_data_hndl(void *drcontext, void *address);
 DR_EXPORT
 char *
 drcctlib_get_str_from_strpool(int index);
-
 
 #endif // _DRCCTLIB_H_
