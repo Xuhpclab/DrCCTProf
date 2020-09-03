@@ -14,17 +14,15 @@
 #include "drcctlib.h"
 
 #include <unordered_map>
-#include <map>
 #include <set>
-#include <iterator>
 #include <algorithm>
 #include <iostream>
 #include <utility>
-#include <string>
 
 using namespace std;
 
-static unordered_map<context_handle_t, map<long, long>> mem_references;
+#define TLS_MEM_REF_BUFF_SIZE 100
+#define MAX_DEPTH_TO_BOTHER 30
 
 #define DRCCTLIB_PRINTF(format, args...) \
     DRCCTLIB_PRINTF_TEMPLATE("memory_footprint", format, ##args)
@@ -61,54 +59,37 @@ typedef struct _per_thread_t {
     void *cur_buf;
 } per_thread_t;
 
-#define TLS_MEM_REF_BUFF_SIZE 100
-#define MAX_DEPTH_TO_BOTHER 30
+// Store Continuous Memory Ranges as [left, right)
+struct interval{
+     long left, right;
+     bool operator < (const interval &parm) const {
+         return this->right < parm.left;
+     }
+} ;
 
-inline void __add_interval(map<long, long>& mp, long start, long end){
+static unordered_map<context_handle_t, set<interval>> mem_references;
 
-    // If Empty, Just add to the Tree
-    if (mp.empty()) { mp[start] = end; return ;}
-
-    map<long, long>::iterator itr_next = mp.upper_bound(start);
-    auto temp = itr_next;
-    auto itr_prev = reverse_iterator<map<long, long>::iterator>(--temp);
-
-    bool left_overlap = false, right_overlap = false;
-    if (itr_prev != mp.rend() && itr_prev->second >= start){
-        left_overlap = true;
-    }
-
-    if (itr_next != mp.end() && itr_next->first <= end){
-        right_overlap = true;
-    }
-
-    if (left_overlap && right_overlap){
-       start = min(start, itr_prev->first);
-       end = max(end, itr_next->second);
-       mp.erase(itr_prev->first);
-       mp.erase(itr_next->first);
-       mp[start] = end;
-    }
-    else if(left_overlap){
-       itr_prev->second = end;
-    }
-    else if(right_overlap){
-       start = min(start, itr_next->first);
-       end = max(end, itr_next->second);
-       mp.erase(itr_next->first);
-       mp[start] = end;
+// Add an interval to the list
+inline void __add_interval(set<interval>& intervals, const long& left, const long& right) {
+    auto ptrs = intervals.equal_range({left, right});
+    if(ptrs.first == ptrs.second){
+        intervals.insert({left, right});
     }
     else{
-       mp[start] = end;
+        auto newLeft = min(ptrs.first->left, left);
+        auto newRight = max(prev(ptrs.second)->right, right);
+        intervals.erase(ptrs.first, ptrs.second);
+        intervals.insert({newFirst, newRight});
     }
 }
 
-inline int __count_footprint(const map<long, long>& mp){
-  int ans = 0;
-  for (auto range_itr = mp.begin(); range_itr != mp.end(); range_itr++) {
-      ans += range_itr->second - range_itr->first + 1;
-  }
-  return ans;
+// Get the number of unique_bytes in the set
+inline unsigned int  __count_footprint(const set<interval>& intervals){
+    unsigned int ans = 0;
+    for (auto range_itr = intervals.begin(); range_itr != intervals.end(); range_itr++) {
+        ans += range_itr->right - range_itr->left;
+    }
+    return ans;
 }
 
 // client want to do
@@ -119,12 +100,10 @@ ComputeMemFootPrint(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *
     if (addr){
       // If the Map doesn't contain the Context Handle, Create an Entry i.e Set
       if (mem_references.find(cur_ctxt_hndl) == mem_references.end()){
-          mem_references[cur_ctxt_hndl] = map<long, long>{};
+          mem_references[cur_ctxt_hndl] = set<interval>{};
       }
       // Add the Bytes to the set associated with the key.
-      // for (size_t i = 0; i < ref->size; i++){
-      __add_interval(mem_references[cur_ctxt_hndl], addr, addr+ref->size-1);
-      // }
+      __add_interval(mem_references[cur_ctxt_hndl], addr, addr+ref->size);
     }
 }
 
@@ -284,10 +263,10 @@ ClientExit(void)
            // By Focussing on these Cntxt_handles, complete information from the child method is accumulated at this Handle
            parent_handles.insert(curr_context->ctxt_hndl);
            if (mem_references.find(curr_context->ctxt_hndl) == mem_references.end()) {
-              mem_references[curr_context->ctxt_hndl] = map<long, long>{};
+               mem_references[curr_context->ctxt_hndl] = set<interval>{};
            }
            for (auto range_itr = itr->second.begin(); range_itr != itr->second.end(); range_itr++) {
-              __add_interval(mem_references[curr_context->ctxt_hndl], range_itr->first, range_itr->second);
+              __add_interval(mem_references[curr_context->ctxt_hndl], range_itr->left, range_itr->right);
            }
            curr_context = curr_context->pre_ctxt;
         }
@@ -295,7 +274,7 @@ ClientExit(void)
 
     unsigned int i = 0;
     for (auto cntxt_hndl : parent_handles) {
-        dr_fprintf(gTraceFile, "N0. %d  Memory FootPrint: %d,  ctxt handle %lld ====", i + 1,
+        dr_fprintf(gTraceFile, "N0. %d  Memory FootPrint: %lld,  ctxt handle %lld ====", i + 1,
                   __count_footprint(mem_references[cntxt_hndl]), cntxt_hndl);
         drcctlib_print_ctxt_hndl_msg(gTraceFile, cntxt_hndl, false, false);
         dr_fprintf(gTraceFile,
