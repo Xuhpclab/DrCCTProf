@@ -79,7 +79,7 @@ inline void __add_interval(set<interval>& intervals, const long& left, const lon
         auto newLeft = min(ptrs.first->left, left);
         auto newRight = max(prev(ptrs.second)->right, right);
         intervals.erase(ptrs.first, ptrs.second);
-        intervals.insert({newFirst, newRight});
+        intervals.insert({newLeft, newRight});
     }
 }
 
