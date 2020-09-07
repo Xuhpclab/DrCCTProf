@@ -23,6 +23,7 @@
 #include <sys/resource.h>
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include "dr_ir_instr.h"
 #include "dr_ir_instrlist.h"
 #include "dr_ir_utils.h"
@@ -39,50 +40,60 @@ using namespace std;
 #define TOP_REACH_NUM_SHOW 200
 
 /**
+ * Thread local storage index
+ */
+static int tls_idx;
+
+/**
  * The log file.
  */
 static file_t gTraceFile;
 
 /**
- * Map from the context handle to the time it first appears
+ * Per thread storage for counts of instruction kinds
  */
-static map<context_handle_t, int> *calling_contexts;
+typedef struct _per_thread_t {
+    /**
+     * Map from the context handle to the time it first appears
+     */
+    map<context_handle_t, int> *calling_contexts;
 
-/**
- * Map from the context handle to the number of times it is called
- */
-static map<context_handle_t, int> *calling_contexts_called;
+    /**
+     * Map from the context handle to the number of times it is called
+     */
+    map<context_handle_t, int> *calling_contexts_called;
 
-/**
- * Counters for the number of memory loads,
- * indexed by calling context index
- */
-static vector<int> *memloads;
+    /**
+     * Counters for the number of memory loads,
+     * indexed by calling context index
+     */
+    vector<int> *memloads;
 
-/**
- * Counters for the number of memory stores,
- * indexed by calling context index
- */
-static vector<int> *memstores;
+    /**
+     * Counters for the number of memory stores,
+     * indexed by calling context index
+     */
+    vector<int> *memstores;
 
-/**
- * Counters for the number of conditional branches,
- * indexed by calling context index
- */
-static vector<int> *branches;
+    /**
+     * Counters for the number of conditional branches,
+     * indexed by calling context index
+     */
+    vector<int> *branches;
 
-/**
- * Counters for the number of unconditional branches,
- * indexed by calling context index
- */
-static vector<int> *jumps;
+    /**
+     * Counters for the number of unconditional branches,
+     * indexed by calling context index
+     */
+    vector<int> *jumps;
 
-/**
- * Counters for the number of "other" instructions
- * that do not fit the above categories
- * indexed by calling context index
- */
-static vector<int> *others;
+    /**
+     * Counters for the number of "other" instructions
+     * that do not fit the above categories
+     * indexed by calling context index
+     */
+    vector<int> *others;
+} per_thread_t;
 
 /**
  * For every basic block
@@ -101,21 +112,30 @@ static inline void
 InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_num,
                      int32_t mem_ref_num, mem_ref_msg_t *mem_ref_start, void **data)
 {
-    int index;
-    if (calling_contexts->find(ctxt_hndl) == calling_contexts->end()) {
-        (*calling_contexts)[ctxt_hndl] = calling_contexts->size();
-        memloads->push_back(0);
-        memstores->push_back(0);
-        branches->push_back(0);
-        jumps->push_back(0);
-        others->push_back(0);
+    per_thread_t *pt;
+    if (*data != NULL) {
+        pt = (per_thread_t *)*data;
+    } else {
+        pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+        *data = pt;
     }
-    index = (*calling_contexts)[ctxt_hndl];
 
-    if (calling_contexts_called->find(ctxt_hndl) == calling_contexts_called->end()) {
-        (*calling_contexts_called)[ctxt_hndl] = 0;
+    int index;
+    if (pt->calling_contexts->find(ctxt_hndl) == pt->calling_contexts->end()) {
+        (*(pt->calling_contexts))[ctxt_hndl] = pt->calling_contexts->size();
+        pt->memloads->push_back(0);
+        pt->memstores->push_back(0);
+        pt->branches->push_back(0);
+        pt->jumps->push_back(0);
+        pt->others->push_back(0);
     }
-    (*calling_contexts_called)[ctxt_hndl] += 1;
+    index = (*(pt->calling_contexts))[ctxt_hndl];
+
+    if (pt->calling_contexts_called->find(ctxt_hndl) ==
+        pt->calling_contexts_called->end()) {
+        (*(pt->calling_contexts_called))[ctxt_hndl] = 0;
+    }
+    (*(pt->calling_contexts_called))[ctxt_hndl] += 1;
 
     context_t *ctxt = drcctlib_get_full_cct(ctxt_hndl, 1);
     byte *ip = ctxt->ip;
@@ -152,11 +172,11 @@ InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_n
         instrlist_clear_and_destroy(drcontext, bb);
     }
 
-    memloads->at(index) = memload_count;
-    memstores->at(index) = memstore_count;
-    branches->at(index) = branch_count;
-    jumps->at(index) = jump_count;
-    others->at(index) = other_count;
+    pt->memloads->at(index) = memload_count;
+    pt->memstores->at(index) = memstore_count;
+    pt->branches->at(index) = branch_count;
+    pt->jumps->at(index) = jump_count;
+    pt->others->at(index) = other_count;
 }
 
 /**
@@ -195,14 +215,6 @@ ClientInit(int argc, const char *argv[])
     }
 
     dr_fprintf(gTraceFile, "\n");
-
-    calling_contexts = new map<context_handle_t, int>;
-    calling_contexts_called = new map<context_handle_t, int>;
-    memloads = new vector<int>;
-    memstores = new vector<int>;
-    branches = new vector<int>;
-    jumps = new vector<int>;
-    others = new vector<int>;
 }
 
 /**
@@ -211,16 +223,27 @@ ClientInit(int argc, const char *argv[])
 static void
 ClientExit(void)
 {
-    for (std::pair<context_handle_t, int> element : (*calling_contexts)) {
+    drcctlib_exit();
+    dr_close_file(gTraceFile);
+}
+
+/**
+ * Record the statistics to a file
+ */
+static void
+ClientThreadEnd(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    for (std::pair<context_handle_t, int> element : *(pt->calling_contexts)) {
         int i = element.second;
         context_handle_t cct_hndl = element.first;
         int no = i + 1;
-        int memload_count = memloads->at(i);
-        int memstore_count = memstores->at(i);
-        int branch_count = branches->at(i);
-        int jump_count = jumps->at(i);
-        int other_count = others->at(i);
-        int times_called = (*calling_contexts_called)[cct_hndl];
+        int memload_count = pt->memloads->at(i);
+        int memstore_count = pt->memstores->at(i);
+        int branch_count = pt->branches->at(i);
+        int jump_count = pt->jumps->at(i);
+        int other_count = pt->others->at(i);
+        int times_called = (*(pt->calling_contexts_called))[cct_hndl];
         dr_fprintf(gTraceFile,
                    "NO. %d"
                    " loads (%02d),"
@@ -246,16 +269,36 @@ ClientExit(void)
                    "===========\n\n\n");
     }
 
-    drcctlib_exit();
+    delete pt->calling_contexts;
+    delete pt->calling_contexts_called;
+    delete pt->memloads;
+    delete pt->memstores;
+    delete pt->branches;
+    delete pt->jumps;
+    delete pt->others;
 
-    dr_close_file(gTraceFile);
-    delete calling_contexts;
-    delete calling_contexts_called;
-    delete memloads;
-    delete memstores;
-    delete branches;
-    delete jumps;
-    delete others;
+    dr_thread_free(drcontext, pt, sizeof(per_thread_t));
+}
+
+/**
+ * Initialize per thread storage
+ */
+static void
+ClientThreadStart(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
+    if (pt == NULL) {
+        DRCCTLIB_EXIT_PROCESS("pt == NULL");
+    }
+    drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
+
+    pt->calling_contexts = new map<context_handle_t, int>;
+    pt->calling_contexts_called = new map<context_handle_t, int>;
+    pt->memloads = new vector<int>;
+    pt->memstores = new vector<int>;
+    pt->branches = new vector<int>;
+    pt->jumps = new vector<int>;
+    pt->others = new vector<int>;
 }
 
 #ifdef __cplusplus
@@ -275,10 +318,27 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
 
     ClientInit(argc, argv);
+    if (!drmgr_init()) {
+        DRCCTLIB_EXIT_PROCESS(
+            "ERROR: drcctlib_reuse_distance unable to initialize drmgr");
+    }
+    drmgr_priority_t thread_init_pri = { sizeof(thread_init_pri),
+                                         "drcctlib_reuse-thread_init", NULL, NULL,
+                                         DRCCTLIB_THREAD_EVENT_PRI + 1 };
+    drmgr_priority_t thread_exit_pri = { sizeof(thread_exit_pri),
+                                         "drcctlib_reuse-thread-exit", NULL, NULL,
+                                         DRCCTLIB_THREAD_EVENT_PRI + 1 };
+    drmgr_register_thread_init_event_ex(ClientThreadStart, &thread_init_pri);
+    drmgr_register_thread_exit_event_ex(ClientThreadEnd, &thread_exit_pri);
 
     drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL,
                      InstrumentPerBBCache, DRCCTLIB_CACHE_MODE);
     dr_register_exit_event(ClientExit);
+    tls_idx = drmgr_register_tls_field();
+    if (tls_idx == -1) {
+        DRCCTLIB_EXIT_PROCESS(
+            "ERROR: drcctlib_reuse_distance drmgr_register_tls_field fail");
+    }
 }
 
 #ifdef __cplusplus
