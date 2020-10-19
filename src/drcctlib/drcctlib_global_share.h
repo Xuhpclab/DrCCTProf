@@ -81,6 +81,7 @@
 #endif
 
 #define DRCCTLIB_THREAD_EVENT_PRI 5
+#define DRCCTLIB_MODULE_REGISTER_PRI 5
 
 #define DRCCTLIB_PRINTF_TEMPLATE(client, format, args...)                        \
     do {                                                                         \
