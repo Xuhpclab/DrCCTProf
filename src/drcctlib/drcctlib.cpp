@@ -2653,8 +2653,12 @@ drcctlib_internal_init(char flag)
     if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
         drwrap_set_global_flags(DRWRAP_SAFE_READ_RETADDR);
         drwrap_set_global_flags(DRWRAP_SAFE_READ_ARGS);
-        drmgr_register_module_load_event(drcctlib_event_module_load_analysis);
-        drmgr_register_module_unload_event(drcctlib_event_module_unload_analysis);
+        drmgr_priority_t module_load_pri = { sizeof(module_load_pri), "drcctlib-module_load",
+                                         NULL, NULL, DRCCTLIB_MODULE_REGISTER_PRI };
+        drmgr_priority_t module_unload_pri = { sizeof(module_unload_pri), "drcctlib-module_unload",
+                                            NULL, NULL, DRCCTLIB_MODULE_REGISTER_PRI };
+        drmgr_register_module_load_event_ex(drcctlib_event_module_load_analysis, &module_load_pri);
+        drmgr_register_module_unload_event_ex(drcctlib_event_module_unload_analysis, &module_unload_pri);
     }
 
     create_global_locks();
@@ -2666,7 +2670,7 @@ drcctlib_internal_init(char flag)
         return false;
     drmgr_priority_t thread_init_pri = { sizeof(thread_init_pri), "drcctlib-thread_init",
                                          NULL, NULL, DRCCTLIB_THREAD_EVENT_PRI };
-    drmgr_priority_t thread_exit_pri = { sizeof(thread_exit_pri), "drcctlib-thread-exit",
+    drmgr_priority_t thread_exit_pri = { sizeof(thread_exit_pri), "drcctlib-thread_exit",
                                          NULL, NULL, DRCCTLIB_THREAD_EVENT_PRI };
     if (!drmgr_register_thread_init_event_ex(drcctlib_event_thread_start,
                                              &thread_init_pri))
