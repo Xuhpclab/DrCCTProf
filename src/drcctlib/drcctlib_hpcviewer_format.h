@@ -11,7 +11,8 @@
 #include <vector>
 
 #include "dr_api.h"
-#include "drcctlib_global_share.h"
+#include "drcctlib_defines.h"
+#include "drcctlib_utils.h"
 
 using namespace std;
 

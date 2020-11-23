@@ -2012,24 +2012,14 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
     pt->speedup_cache_index = pt->id > SPEEDUP_SUPPORT_THREAD_MAX_NUM ? -1 : pt->id;
 #endif
 #ifdef DRCCTLIB_DEBUG
-#    ifdef ARM_CCTLIB
-    char bb_file_name[MAXIMUM_PATH] = "arm.";
-    char instr_file_name[MAXIMUM_PATH] = "arm.";
-#    else
-    char bb_file_name[MAXIMUM_PATH] = "x86.";
-    char instr_file_name[MAXIMUM_PATH] = "x86.";
-#    endif
-    gethostname(bb_file_name + strlen(bb_file_name), MAXIMUM_PATH - strlen(bb_file_name));
-    gethostname(instr_file_name + strlen(instr_file_name),
-                MAXIMUM_PATH - strlen(instr_file_name));
-    pid_t pid = getpid();
-
-    sprintf(bb_file_name + strlen(bb_file_name), "%d.bb.thread%d.log", pid, id);
+    char bb_file_name[MAXIMUM_PATH] = "";
+    char instr_file_name[MAXIMUM_PATH] = "";
+    DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(bb_file_name, "fwk", id, "bb.log");
+    DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(instr_file_name, "fwk", id, "instr.log");
     pt->log_file_bb =
         dr_open_file(bb_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file_bb != INVALID_FILE);
 
-    sprintf(instr_file_name + strlen(instr_file_name), "%d.instr.thread%d.log", pid, id);
     pt->log_file_instr =
         dr_open_file(instr_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file_instr != INVALID_FILE);
@@ -2572,15 +2562,8 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
 // void
 // drcctlib_init_debug_file()
 // {
-// #ifdef ARM_CCTLIB
-//     char debug_file_name[MAXIMUM_PATH] = "arm.";
-// #else
-//     char debug_file_name[MAXIMUM_PATH] = "x86.";
-// #endif
-//     gethostname(debug_file_name + strlen(debug_file_name),
-//                 MAXIMUM_PATH - strlen(debug_file_name));
-//     pid_t pid = getpid();
-//     sprintf(debug_file_name + strlen(debug_file_name), "debug.%d.log", pid);
+//     char debug_file_name[MAXIMUM_PATH] = "";
+//     DRCCTLIB_INIT_LOG_FILE_NAME(debug_file_name, "fwk", "debug.log")
 //     global_debug_file =
 //         dr_open_file(debug_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
 //     DR_ASSERT(global_debug_file != INVALID_FILE);

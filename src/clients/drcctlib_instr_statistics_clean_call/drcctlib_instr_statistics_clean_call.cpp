@@ -73,14 +73,9 @@ FreeGlobalBuff()
 static void
 ClientInit(int argc, const char *argv[])
 {
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib_instr_statistics_clean_call.out.";
-#else
-    char name[MAXIMUM_PATH] = "x86.drcctlib_instr_statistics_clean_call.out.";
-#endif
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    pid_t pid = getpid();
-    sprintf(name + strlen(name), "%d", pid);
+    char name[MAXIMUM_PATH] = "";
+    DRCCTLIB_INIT_LOG_FILE_NAME(
+        name, "drcctlib_instr_statistics_clean_call", "out");
     DRCCTLIB_PRINTF("Creating log file at:%s", name);
 
     gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);

@@ -487,14 +487,9 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
-    pid_t pid = getpid();
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm-";
-#else
-    char name[MAXIMUM_PATH] = "x86-";
-#endif
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    sprintf(name + strlen(name), "-%d-drcctlib_reuse_distance_client_cache", pid);
+    char name[MAXIMUM_PATH] = "";
+    DRCCTLIB_INIT_LOG_FILE_NAME(
+        name, "drcctlib_reuse_distance_client_cache", "out");
     g_folder_name.assign(name, strlen(name));
     mkdir(g_folder_name.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 }

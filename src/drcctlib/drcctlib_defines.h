@@ -83,23 +83,4 @@
 #define DRCCTLIB_THREAD_EVENT_PRI 5
 #define DRCCTLIB_MODULE_REGISTER_PRI 5
 
-#define DRCCTLIB_PRINTF_TEMPLATE(client, format, args...)                        \
-    do {                                                                         \
-        char name[MAXIMUM_PATH] = "";                                            \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));           \
-        pid_t pid = getpid();                                                    \
-        dr_printf("[drcctlib[" client "](%s%d) msg]====" format "\n", name, pid, \
-                  ##args);                                                       \
-    } while (0)
-
-#define DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE(client, format, args...)           \
-    do {                                                                         \
-        char name[MAXIMUM_PATH] = "";                                            \
-        gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));           \
-        pid_t pid = getpid();                                                    \
-        dr_printf("[drcctlib[" client "](%s%d) msg]====" format "\n", name, pid, \
-                  ##args);                                                       \
-    } while (0);                                                                 \
-    dr_exit_process(-1)
-
 #endif //_DRCCTLIB_GLOBAL_SHARE_H_

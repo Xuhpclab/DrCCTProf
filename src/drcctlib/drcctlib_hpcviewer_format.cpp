@@ -13,7 +13,6 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "hashtable.h"
-#include "drcctlib_global_share.h"
 #include "drcctlib_priv_share.h"
 #include "drcctlib_hpcviewer_format.h"
 
