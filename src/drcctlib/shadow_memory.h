@@ -12,14 +12,14 @@
 #include <tuple>
 #include <dr_api.h>
 
-#define SHADOW_MEM_PRINTF(format, args...)                        \
+#define SHADOW_MEM_PRINTF(_FORMAT, _ARGS...)                        \
     do {                                                          \
-        dr_printf("[shadow_memory msg]====" format "\n", ##args); \
+        dr_printf("[shadow_memory msg]====" _FORMAT "\n", ##_ARGS); \
     } while (0)
 
-#define SHADOW_MEM_EXIT_PROCESS(format, args...)                  \
+#define SHADOW_MEM_EXIT_PROCESS(_FORMAT, _ARGS...)                  \
     do {                                                          \
-        dr_printf("[shadow_memory msg]====" format "\n", ##args); \
+        dr_printf("[shadow_memory msg]====" _FORMAT "\n", ##_ARGS); \
     } while (0);                                                  \
     dr_exit_process(-1)
 

@@ -26,9 +26,9 @@
 #include "shadow_memory.h"
 #include "memory_cache.h"
 
-#define DRCCTLIB_PRINTF(format, args...) DRCCTLIB_PRINTF_TEMPLATE("fwk", format, ##args)
-#define DRCCTLIB_EXIT_PROCESS(format, args...) \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("fwk", format, ##args)
+#define DRCCTLIB_PRINTF(_FORMAT, _ARGS...) DRCCTLIB_PRINTF_TEMPLATE("fwk", _FORMAT, ##_ARGS)
+#define DRCCTLIB_EXIT_PROCESS(_FORMAT, _ARGS...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("fwk", _FORMAT, ##_ARGS)
 
 #ifdef ARM32_CCTLIB
 #    define DR_DISASM_DRCCTLIB DR_DISASM_ARM

@@ -12,12 +12,12 @@
 #include "drutil.h"
 #include "drcctlib.h"
 
-#define DRCCTLIB_PRINTF(format, args...)                                                \
-    DRCCTLIB_PRINTF_TEMPLATE("memory_with_data_centric_with_search_clean_call", format, \
-                             ##args)
-#define DRCCTLIB_EXIT_PROCESS(format, args...) \
+#define DRCCTLIB_PRINTF(_FORMAT, _ARGS...)                                                \
+    DRCCTLIB_PRINTF_TEMPLATE("memory_with_data_centric_with_search_clean_call", _FORMAT, \
+                             ##_ARGS)
+#define DRCCTLIB_EXIT_PROCESS(_FORMAT, _ARGS...) \
     DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE(     \
-        "memory_with_data_centric_with_search_clean_call", format, ##args)
+        "memory_with_data_centric_with_search_clean_call", _FORMAT, ##_ARGS)
 
 static int tls_idx;
 

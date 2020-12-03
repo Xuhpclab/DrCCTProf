@@ -13,20 +13,18 @@
 #include "dr_api.h"
 #include "drcctlib_defines.h"
 
-
-#define DRCCTLIB_PRINTF_TEMPLATE(client, format, args...)                        \
-    do {                                                                         \
-        char name[MAXIMUM_PATH] = "";                                            \
-        gethostname(name, MAXIMUM_PATH);                                         \
-        pid_t pid = getpid();                                                    \
-        dr_printf("[drcctlib[" client "](%s%d) msg]====" format "\n", name, pid, \
-                  ##args);                                                       \
+#define DRCCTLIB_PRINTF_TEMPLATE(_CLIENT, _FORMAT, _ARGS...)                        \
+    do {                                                                            \
+        char _HOST_NAME[MAXIMUM_PATH] = "";                                         \
+        gethostname(_HOST_NAME, MAXIMUM_PATH);                                      \
+        dr_printf("[drcctlib[" _CLIENT "](%s%d) msg]====" _FORMAT "\n", _HOST_NAME, \
+                  getpid(), ##_ARGS);                                               \
     } while (0)
 
-#define DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE(client, format, args...) \
-    do {                                                               \
-        DRCCTLIB_PRINTF_TEMPLATE(client, format, ##args);              \
-        dr_exit_process(-1);                                           \
+#define DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE(_CLIENT, _FORMAT, _ARGS...) \
+    do {                                                                  \
+        DRCCTLIB_PRINTF_TEMPLATE(_CLIENT, _FORMAT, ##_ARGS);              \
+        dr_exit_process(-1);                                              \
     } while (0)
 
 #ifdef ARM_CCTLIB
@@ -37,19 +35,19 @@
 #    define ARCH_NAME_PREFIX "unknown"
 #endif
 
-#define DRCCTLIB_INIT_LOG_FILE_NAME(buffer, client_name, suffix)                       \
+#define DRCCTLIB_INIT_LOG_FILE_NAME(_BUFFER, _CLIENT, _SUFFIX)                       \
     do {                                                                             \
-        sprintf(buffer + strlen(buffer), ARCH_NAME_PREFIX ".");                      \
-        gethostname(buffer + strlen(buffer), MAXIMUM_PATH - strlen(buffer));    \
-        sprintf(buffer + strlen(buffer), "-%d.%s.%s", getpid(), client_name, suffix); \
+        sprintf(_BUFFER + strlen(_BUFFER), ARCH_NAME_PREFIX ".");                    \
+        gethostname(_BUFFER + strlen(_BUFFER), MAXIMUM_PATH - strlen(_BUFFER));      \
+        sprintf(_BUFFER + strlen(_BUFFER), "-%d.%s.%s", getpid(), _CLIENT, _SUFFIX); \
     } while (0)
 
-#define DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(buffer, client_name, thread_id, suffix)  \
+#define DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(_BUFFER, _CLIENT, _THREAD_ID, _SUFFIX) \
     do {                                                                          \
-        sprintf(buffer + strlen(buffer), ARCH_NAME_PREFIX ".");                   \
-        gethostname(buffer + strlen(buffer), MAXIMUM_PATH - strlen(buffer)); \
-        sprintf(buffer + strlen(buffer), "-%d.%s-%d.%s", getpid(), client_name, \
-                thread_id, suffix);                                                 \
+        sprintf(_BUFFER + strlen(_BUFFER), ARCH_NAME_PREFIX ".");                 \
+        gethostname(_BUFFER + strlen(_BUFFER), MAXIMUM_PATH - strlen(_BUFFER));   \
+        sprintf(_BUFFER + strlen(_BUFFER), "-%d.%s-%d.%s", getpid(), _CLIENT,     \
+                _THREAD_ID, _SUFFIX);                                             \
     } while (0)
 
 #endif //_DRCCTLIB_UTILS_H_
