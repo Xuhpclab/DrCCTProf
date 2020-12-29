@@ -9,6 +9,7 @@
 
 #include <string.h>
 #include <unistd.h>
+#include <cinttypes>
 
 #include "dr_api.h"
 #include "drcctlib_defines.h"
@@ -49,5 +50,8 @@
         sprintf(_BUFFER + strlen(_BUFFER), "-%d.%s-%d.%s", getpid(), _CLIENT,     \
                 _THREAD_ID, _SUFFIX);                                             \
     } while (0)
+
+uint64_t
+hexadecimal_char_to_uint64(char* hex, int size);
 
 #endif //_DRCCTLIB_UTILS_H_
