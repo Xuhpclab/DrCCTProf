@@ -50,7 +50,7 @@ To run DrCCTProf, one needs to issue the following command:
 #### 1 Set the global environment variable
 
 ```console
-$ export PATH=/path/to/DrCCTProf/build/bin64:$PATH
+$ export drrun=/path/to/DrCCTProf/build/bin64/drrun
 ```
 
 
@@ -59,13 +59,13 @@ $ export PATH=/path/to/DrCCTProf/build/bin64:$PATH
 * **x86_64**
 
 ```console
-$ drrun -t <client tool> -- <application> [apllication args]
+$ $drrun -t <client tool> -- <application> [apllication args]
 ```
 
 * **aarch64**
 
 ```console
-$ drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication args]
+$ $drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication args]
 ```
 
 ## Client tools
