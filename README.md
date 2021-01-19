@@ -19,7 +19,7 @@ DrCCTProf is a fine-grained call path profiling framework for binaries running o
 
 ### Linux
 
-#### 1. Install Dependencies
+#### 1 Install dependencies
 
 In order to build you'll need the following packages:
 
@@ -30,7 +30,7 @@ In order to build you'll need the following packages:
 
 To avoid conflicts with installed original version packages, we recommend that use [Spack](https://spack.io/) to manage the above packages and create a virtual environment to build and run DrCCTProf. 
 
-#### 2. Build
+#### 2 Build
 
 Use the following commands to get sources and build DrCCTProf:
 
@@ -47,25 +47,25 @@ $ ./build.sh
 
 To run DrCCTProf, one needs to issue the following command:
 
-#### 1. Set the global environment variable
+#### 1 Set the global environment variable
 
 ```console
 $ export drrun=/path/to/DrCCTProf/build/bin64/drrun
 ```
 
 
-#### 2. Run client tool
+#### 2 Run client tool
 
 * **x86_64**
 
 ```console
-$ drrun -t <client tool> -- <application> [apllication args]
+$ $drrun -t <client tool> -- <application> [apllication args]
 ```
 
 * **aarch64**
 
 ```console
-$ drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication args]
+$ $drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication args]
 ```
 
 ## Client tools

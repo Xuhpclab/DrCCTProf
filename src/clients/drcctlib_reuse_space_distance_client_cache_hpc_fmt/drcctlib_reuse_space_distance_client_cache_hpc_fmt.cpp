@@ -5,6 +5,7 @@
  */
 
 #include <map>
+#include <cstddef>
 
 #include "dr_api.h"
 #include "drmgr.h"
