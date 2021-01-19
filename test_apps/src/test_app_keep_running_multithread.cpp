@@ -60,9 +60,7 @@ void MainThread()
         Function();
         sleep(1);
     }
-    cout << "SubFunctionA " << sub_fun_call_num_a << endl;
-    cout << "SubFunctionB " << sub_fun_call_num_b << endl;
-    cout << "SubSubFunction " << sub_sub_fun_call_num << endl;
+    cout << "MainThread i======= " << i << endl;
 }
 
 static int sub_fun_call_num_a2 = 0;
@@ -118,9 +116,7 @@ void *thread_2(void *arg)
         Function2();
         sleep(1);
     }
-    cout << "SubFunctionA2 " << sub_fun_call_num_a2 << endl;
-    cout << "SubFunctionB2 " << sub_fun_call_num_b2 << endl;
-    cout << "SubSubFunction2 " << sub_sub_fun_call_num2 << endl;
+    cout << "thread_2 i======= " << i << endl;
     return NULL;
 }
 

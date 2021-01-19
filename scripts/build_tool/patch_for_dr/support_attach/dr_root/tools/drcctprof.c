@@ -24,7 +24,7 @@
 #include "globals_shared.h"
 #include "dr_config.h"
 #include "dr_frontend.h"
-#include "drcctprof_attach.h"
+#include "drcct_attach.h"
 
 static bool verbose;
 static bool quiet;
@@ -61,7 +61,7 @@ static bool quiet;
         }                                                      \
     } while (0)
 
-#define TOOLNAME "drcctprofattach"
+#define TOOLNAME "drcctprof"
 
 const char *usage_str =
     "USAGE: " TOOLNAME " -attach <pid> [-ops options] -t <toolname> <options>*\n"
@@ -565,7 +565,7 @@ main(int argc, char *targv[])
         usage(false, "must use -attach <pid> or -detach <pid>");
     }
     if(detach_pid != 0) {
-        drcctprof_detach_inject_ptrace(detach_pid, verbose);
+        drcct_detach_inject_ptrace(detach_pid, verbose);
         goto cleanup;
     }
     if (real_pid == 0) {
@@ -610,7 +610,7 @@ main(int argc, char *targv[])
             goto error;
     }
 
-    drcctprof_attach_inject_ptrace(attach_pid, process, verbose);
+    drcct_attach_inject_ptrace(attach_pid, process, verbose);
     goto cleanup;
 error:
     exitcode = 1;

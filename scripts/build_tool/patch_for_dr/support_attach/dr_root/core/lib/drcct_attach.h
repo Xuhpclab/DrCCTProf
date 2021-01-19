@@ -13,10 +13,10 @@ extern "C" {
 
 DR_EXPORT
 bool
-drcctprof_attach_inject_ptrace(pid_t pid, const char *appname, bool verbose_on);
+drcct_attach_inject_ptrace(pid_t pid, const char *appname, bool verbose_on);
 
 DR_EXPORT
 bool
-drcctprof_detach_inject_ptrace(pid_t pid, bool verbose_on);
+drcct_detach_inject_ptrace(pid_t pid, bool verbose_on);
 
 #endif /* _DR_INJECT_H_ */

@@ -21,6 +21,7 @@ function replace_with_backup_file {
 
 function remove_file {
     if [ -f ${1} ]; then
+        echo "remove_file $1"
         rm -rf ${1}
     fi
 }
@@ -28,29 +29,25 @@ function remove_file {
 
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
-DYNAMORIO_ROOT_PATH=$(cd "$CUR_DIR/../../../../dynamorio";pwd)
-DYNAMORIO_CORE_PATH=$DYNAMORIO_ROOT_PATH/core
-DYNAMORIO_CORE_LIB_PATH=$DYNAMORIO_ROOT_PATH/core/lib
-DYNAMORIO_CORE_UNIX_PATH=$DYNAMORIO_ROOT_PATH/core/unix
-DYNAMORIO_TOOLS_PATH=$DYNAMORIO_ROOT_PATH/tools
+DR_ROOT_PATH=$(cd "$CUR_DIR/../../../../dynamorio";pwd)
+DR_CORE_PATH=$DR_ROOT_PATH/core
+DR_CORE_LIB_PATH=$DR_ROOT_PATH/core/lib
+DR_CORE_UNIX_PATH=$DR_ROOT_PATH/core/unix
+DR_TOOLS_PATH=$DR_ROOT_PATH/tools
 
-replace_with_backup_file $DYNAMORIO_CORE_PATH/dynamo.c
-replace_with_backup_file $DYNAMORIO_CORE_PATH/dispatch.c
-replace_with_backup_file $DYNAMORIO_CORE_PATH/globals.h
-replace_with_backup_file $DYNAMORIO_CORE_PATH/heap.c
-replace_with_backup_file $DYNAMORIO_CORE_PATH/synch.c
-replace_with_backup_file $DYNAMORIO_CORE_PATH/CMakeLists.txt
+replace_with_backup_file $DR_CORE_PATH/dynamo.c
+replace_with_backup_file $DR_CORE_PATH/dispatch.c
+replace_with_backup_file $DR_CORE_PATH/globals.h
+replace_with_backup_file $DR_CORE_PATH/heap.c
+replace_with_backup_file $DR_CORE_PATH/synch.c
+replace_with_backup_file $DR_CORE_PATH/CMakeLists.txt
 
+remove_file $DR_CORE_UNIX_PATH/drcct_attach.c
+replace_with_backup_file $DR_CORE_UNIX_PATH/loader.c
+replace_with_backup_file $DR_CORE_UNIX_PATH/signal.c
 
-remove_file $DYNAMORIO_CORE_UNIX_PATH/drcctprof_attach.c
-replace_with_backup_file $DYNAMORIO_CORE_UNIX_PATH/loader.c
-replace_with_backup_file $DYNAMORIO_CORE_UNIX_PATH/signal.c
+replace_with_backup_file $DR_CORE_LIB_PATH/dr_app.h
+remove_file $DR_CORE_LIB_PATH/drcct_attach.h
 
-replace_with_backup_file $DYNAMORIO_CORE_LIB_PATH/dr_app.h
-remove_file $DYNAMORIO_CORE_LIB_PATH/drcctprof_attach.h
-remove_file $DYNAMORIO_TOOLS_PATH/drcctprofattach.c
-replace_with_backup_file $DYNAMORIO_TOOLS_PATH/CMakeLists.txt
-
-# replace_with_backup_file $DYNAMORIO_CORE_LIB_PATH/dr_inject.h
-# replace_with_backup_file $DYNAMORIO_CORE_UNIX_PATH/injector.c
-# replace_with_backup_file $DYNAMORIO_TOOLS_PATH/drdeploy.c
+remove_file $DR_TOOLS_PATH/drcctprof.c
+replace_with_backup_file $DR_TOOLS_PATH/CMakeLists.txt

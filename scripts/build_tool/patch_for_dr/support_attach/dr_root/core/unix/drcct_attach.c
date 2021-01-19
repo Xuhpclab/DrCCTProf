@@ -21,7 +21,7 @@
 #include "os_private.h"
 #include "module.h"
 #include "module_private.h"
-#include "drcctprof_attach.h"
+#include "drcct_attach.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -899,7 +899,7 @@ inject_detach_ptrace(pid_t pid)
 
 DR_EXPORT
 bool
-drcctprof_attach_inject_ptrace(pid_t pid, const char *appname, bool verbose_on)
+drcct_attach_inject_ptrace(pid_t pid, const char *appname, bool verbose_on)
 {
     verbose = verbose_on;
     char library_path[MAXIMUM_PATH];
@@ -925,7 +925,7 @@ drcctprof_attach_inject_ptrace(pid_t pid, const char *appname, bool verbose_on)
 
 DR_EXPORT
 bool
-drcctprof_detach_inject_ptrace(pid_t pid, bool verbose_on)
+drcct_detach_inject_ptrace(pid_t pid, bool verbose_on)
 {
     verbose = verbose_on;
 

@@ -6,6 +6,8 @@
 
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/types.h>
+#include <signal.h>
 #include <cinttypes>
 #include <vector>
 
@@ -264,6 +266,9 @@ static context_handle_t global_ip_node_buff_idle_idx = VALID_START_CTXT_HNDL;
 #define BB_TABLE_HASH_BITS 10
 static hashtable_t global_bb_key_table;
 
+#ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
+static void *thread_sync_lock;
+#endif
 static void *bb_shadow_lock;
 static void *bb_node_cache_lock;
 static void *splay_node_cache_lock;
@@ -1482,9 +1487,32 @@ instrument_memory_cache_before_every_bb_first(void *drcontext,
 }
 #endif
 
+#ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
+static bool global_has_call_back_to_native = false;
+static void
+drcctlib_stop()
+{
+    dr_mutex_lock(thread_sync_lock);
+    if (!global_has_call_back_to_native) {
+        void *drcontext = dr_get_current_drcontext();
+        DRCCTLIB_PRINTF("!!!!!!!!!!!!!!!!!try drcctlib_stop %d", dr_get_thread_id(drcontext));
+        if (dr_get_thread_id(drcontext) == dr_get_process_id()) {
+            dynamorio_back_to_native(drcontext);
+            global_has_call_back_to_native = true;
+        }
+    }
+    dr_mutex_unlock(thread_sync_lock);
+}
+#endif
+
 static void
 instrument_before_bb_first_instr(bb_shadow_t *cur_bb_shadow)
 {
+#ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
+    if (!global_has_call_back_to_native) {
+        drcctlib_stop();
+    }
+#endif
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
@@ -1922,8 +1950,93 @@ drcctlib_event_signal(void *drcontext, dr_siginfo_t *siginfo)
     return DR_SIGNAL_DELIVER;
 }
 
+#ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
+static inline cct_bb_node_t*
+init_unwind_bb_node(per_thread_t *pt, app_pc pc, char* disasm)
+{
+    bb_key_t bb_key = 0;
+    bb_shadow_t *bb_shadow;
+    dr_mutex_lock(bb_shadow_lock);
+    bb_shadow = global_bb_shadow_cache->get_next_object();
+    bb_shadow_init_config(bb_shadow, 1, INSTR_STATE_CLIENT_INTEREST | INSTR_STATE_CALL_DIRECT, 0);
+    bb_key = bb_shadow->key;
+    dr_mutex_unlock(bb_shadow_lock);
+    bb_shadow_create_cache(bb_shadow);
+    bb_shadow->ip_shadow[0] = pc;
+    bb_shadow->state_shadow[0] = INSTR_STATE_CLIENT_INTEREST | INSTR_STATE_CALL_DIRECT;
+    sprintf(bb_shadow->disasm_shadow, "%s", disasm);
+    
+
+    return bb_node_create(pt->bb_node_cache, bb_shadow->key, NULL, bb_shadow->slot_num);
+}
+
 static inline void
-pt_init(void *drcontext, per_thread_t *const pt, int id)
+connect_unwind_nodes(per_thread_t *pt, cct_bb_node_t* child, cct_bb_node_t* parent)
+{
+    child->parent_bb = parent;
+    splay_node_t *new_root = splay_tree_update(
+                parent->callee_splay_tree_root,
+                (splay_node_key_t)child->key, pt->dummy_splay_node, pt->next_splay_node);
+    if (new_root->payload == NULL) {
+        new_root->payload = (void*) child;
+        pt->next_splay_node = pt->splay_node_cache->get_next_object();
+    }
+    parent->callee_splay_tree_root = new_root;
+}
+
+static inline void 
+pt_init_unwind_nodes(per_thread_t *pt, void *drcontext)
+{
+    char callpath_pc_file_name[MAXIMUM_PATH] = "";
+    sprintf(callpath_pc_file_name + strlen(callpath_pc_file_name), "/home/dolanwm/.dynamorio/drcctprof.callpath.pc.attach.%d", dr_get_thread_id(drcontext));
+    if(!dr_file_exists(callpath_pc_file_name)) {
+        return;
+    }
+    file_t callpath_pc_file =
+        dr_open_file(callpath_pc_file_name, DR_FILE_READ);
+
+    char callpath_sym_file_name[MAXIMUM_PATH] = "";
+    sprintf(callpath_sym_file_name + strlen(callpath_sym_file_name), "/home/dolanwm/.dynamorio/drcctprof.callpath.sym.attach.%d", dr_get_thread_id(drcontext));
+    file_t callpath_sym_file =
+        dr_open_file(callpath_sym_file_name, DR_FILE_READ);
+    cct_bb_node_t* last_bb_node = NULL;
+    int path_index = 0;
+    while(true) {
+        char pc_buff[17];
+        ssize_t res = dr_read_file(callpath_pc_file, pc_buff, 16 * sizeof(char));
+        if (res < 16) {
+            break;
+        }
+        pc_buff[16] = '\0';
+        char sym_buff[256];
+        res = dr_read_file(callpath_sym_file, sym_buff, 256 * sizeof(char));
+        if (res < 256) {
+            break;
+        }
+        app_pc caller_pc = (app_pc)hexadecimal_char_to_uint64(pc_buff, 16);
+        cct_bb_node_t* cur_bb_node = init_unwind_bb_node(pt, caller_pc, sym_buff);
+        if (path_index == 0) {
+            pt->cur_bb_node = cur_bb_node;
+            pt->pre_instr_state = INSTR_STATE_CLIENT_INTEREST | INSTR_STATE_CALL_DIRECT;
+            pt->cur_slot = 0;
+            pt->cur_state = INSTR_STATE_CLIENT_INTEREST | INSTR_STATE_CALL_DIRECT;
+            pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
+            pt->pre_bb_shadow = global_bb_shadow_cache->get_object_by_index(cur_bb_node->key);
+        } else {
+            connect_unwind_nodes(pt, last_bb_node, cur_bb_node);
+        }
+        DRCCTLIB_PRINTF("callpath = %p [%s]", caller_pc, sym_buff);
+        last_bb_node = cur_bb_node;
+        path_index ++;
+    }
+    connect_unwind_nodes(pt, last_bb_node, pt->root_bb_node);
+    dr_close_file(callpath_pc_file);
+    dr_close_file(callpath_sym_file);
+}
+#endif
+
+static inline void
+pt_init(void *drcontext, per_thread_t *pt, int id)
 {
     pt->id = id;
     pt->bb_node_cache = new tls_memory_cache_t<cct_bb_node_t>(
@@ -2008,6 +2121,11 @@ pt_init(void *drcontext, per_thread_t *const pt, int id)
         global_bb_shadow_cache->get_object_by_index(THREAD_ROOT_BB_SHARED_BB_KEY);
     pt->bb_call_back_cache_data = NULL;
 #endif
+
+#ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
+    pt_init_unwind_nodes(pt, drcontext);
+#endif
+
 #ifdef IN_PROCESS_SPEEDUP
     pt->speedup_cache_index = pt->id > SPEEDUP_SUPPORT_THREAD_MAX_NUM ? -1 : pt->id;
 #endif
@@ -2407,6 +2525,9 @@ free_global_buff()
 static inline void
 create_global_locks()
 {
+#ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
+    thread_sync_lock = dr_mutex_create();
+#endif
     bb_shadow_lock = dr_mutex_create();
     bb_node_cache_lock = dr_mutex_create();
     splay_node_cache_lock = dr_mutex_create();
@@ -2419,6 +2540,9 @@ create_global_locks()
 static inline void
 destroy_global_locks()
 {
+#ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
+    dr_mutex_destroy(thread_sync_lock);
+#endif
     dr_mutex_destroy(bb_shadow_lock);
     dr_mutex_destroy(bb_node_cache_lock);
     dr_mutex_destroy(splay_node_cache_lock);
@@ -2524,7 +2648,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
     data = dr_lookup_module(addr);
     if (data == NULL) {
         context_t *ctxt = ctxt_create(ctxt_hndl, 0, addr);
-        sprintf(ctxt->func_name, "badIp");
+        sprintf(ctxt->func_name, "badIp[%s]", code);
         sprintf(ctxt->file_path, " ");
         sprintf(ctxt->code_asm, "%s", code);
         return ctxt;
@@ -2569,6 +2693,22 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
 //     DR_ASSERT(global_debug_file != INVALID_FILE);
 //     DRCCTLIB_PRINTF("global_debug_file(%s) create success!", debug_file_name);
 // }
+
+#ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
+static void
+drcctlib_init_attach_file()
+{
+    char attach_file_name[MAXIMUM_PATH] = "";
+    sprintf(attach_file_name + strlen(attach_file_name), "/home/dolanwm/.dynamorio/drcctprof.attach.%d", getpid());
+    file_t global_attach_file =
+        dr_open_file(attach_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
+    DR_ASSERT(global_attach_file != INVALID_FILE);
+    DRCCTLIB_PRINTF("global_attach_file(%s) create success!", attach_file_name);
+    DRCCTLIB_PRINTF("dr_app_stop_and_cleanup(%p)\n", (void*)dr_app_stop_and_cleanup);
+    dr_fprintf(global_attach_file, "%p\n", (void*)dr_app_stop_and_cleanup);
+    dr_close_file(global_attach_file);
+}
+#endif
 
 bool
 drcctlib_internal_init(char flag)
@@ -2673,6 +2813,10 @@ drcctlib_internal_init(char flag)
         DRCCTLIB_PRINTF("WARNING: drcctlib dr_raw_tls_calloc4 fail");
         return false;
     }
+
+#ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
+    drcctlib_init_attach_file();
+#endif
 
     return true;
 }
