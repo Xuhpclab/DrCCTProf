@@ -13,6 +13,6 @@ DYNAMORIO_ROOT_PATH=$CUR_DIR/../../../dynamorio
 cd $DYNAMORIO_ROOT_PATH
 CUR_DR_VERSION=$(git rev-parse HEAD)
 
-if [ $CUR_DR_VERSION == 'b5e95ea4b1e5449075bff539a33bd3d08712c414' ]; then
+if [ $CUR_DR_VERSION == 'f5016906b5699773acf52dd7f5147da89f10ae12' ]; then
     $CUR_DIR/support_attach/clean_patch.sh
 fi

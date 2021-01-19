@@ -14,7 +14,7 @@ cd $DYNAMORIO_ROOT_PATH
 CUR_DR_VERSION=$(git rev-parse HEAD)
 echo "CUR_DR_VERSION=$CUR_DR_VERSION"
 
-if [ $CUR_DR_VERSION == 'b5e95ea4b1e5449075bff539a33bd3d08712c414' ]; then
+if [ $CUR_DR_VERSION == 'f5016906b5699773acf52dd7f5147da89f10ae12' ]; then
     echo "The current version of dynamorio supports adding support_attach patch."
     $CUR_DIR/support_attach/add_update_patch.sh
 else

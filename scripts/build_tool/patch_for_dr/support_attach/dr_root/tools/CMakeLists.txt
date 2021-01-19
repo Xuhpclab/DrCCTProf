@@ -179,8 +179,8 @@ set_target_properties(drinject PROPERTIES
   COMPILE_FLAGS "${tool_cflags}" COMPILE_DEFINITIONS "RC_IS_drinject;DRINJECT")
 set(tgts ${tgts} drconfig drrun drinject)
 if (UNIX)
-  add_executable(drcctprofattach drcctprofattach.c)
-  target_link_libraries(drcctprofattach drconfiglib drfrontendlib drcctprofattachlib)
+  add_executable(drcctprof drcctprof.c)
+  target_link_libraries(drcctprof drconfiglib drfrontendlib drcctattachlib)
 endif (UNIX)
 
 foreach (deploytgt drconfig drrun drinject)

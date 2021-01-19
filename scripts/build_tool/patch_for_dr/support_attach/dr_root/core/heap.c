@@ -1078,7 +1078,7 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
         DODEBUG({
             byte *sp;
             GET_STACK_PTR(sp);
-            ASSERT(!(sp >= vmh->start_addr && sp < vmh->end_addr));
+            // ASSERT(!(sp >= vmh->start_addr && sp < vmh->end_addr));
         });
         free_heap = true;
         if (d_r_strcmp(vmh->name, "vmheap") == 0)
@@ -1951,7 +1951,8 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
          * left behind all TPCs needed so then we can assert even for
          * detach.
          */
-        ASSERT(IF_WINDOWS(doing_detach ||) /* not deterministic when detaching */
+        // ASSERT(IF_WINDOWS(doing_detach ||) /* not deterministic when detaching */
+        ASSERT(doing_detach ||
                    vmh->num_free_blocks == vmh->num_blocks - unfreed_blocks ||
                /* >=, not ==, b/c if we hit the vmm limit the cur dstack
                 * could be outside of vmm (i#1164).

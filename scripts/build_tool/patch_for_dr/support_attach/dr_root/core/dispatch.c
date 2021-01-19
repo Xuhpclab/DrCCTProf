@@ -575,7 +575,6 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
 static void
 handle_special_tag(dcontext_t *dcontext)
 {
-    SYSLOG_INTERNAL_INFO("handle_special_tag");
     if (native_exec_is_back_from_native(dcontext->next_tag)) {
         /* This can happen if we start interpreting a native module. */
         ASSERT(DYNAMO_OPTION(native_exec));
@@ -591,15 +590,10 @@ handle_special_tag(dcontext_t *dcontext)
             dcontext->go_native ? "Requested to go native"
                                 : "Found DynamoRIO stopping point",
             d_r_get_thread_id(), dcontext->next_tag);
-        SYSLOG_INTERNAL_INFO("%s: thread " TIDFMT " returning to app @" PFX,
-            dcontext->go_native ? "Requested to go native"
-                                : "Found DynamoRIO stopping point",
-            d_r_get_thread_id(), dcontext->next_tag);
 #ifdef DR_APP_EXPORTS
         if (dcontext->next_tag == (app_pc)dr_app_stop)
             send_all_other_threads_native();
 #endif
-        SYSLOG_INTERNAL_INFO("handle_special_tag++");
         dispatch_enter_native(dcontext);
         ASSERT_NOT_REACHED(); /* noreturn */
     }
@@ -639,12 +633,12 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
 
         /* XXX i#95: should we add an instrument_thread_detach_event()? */
 
-#    ifdef DR_APP_EXPORTS
-    /* not_under will be called by dynamo_shared_exit so skip it here. */
-    if (dcontext->next_tag != (app_pc)dr_app_stop_and_cleanup &&
-        dcontext->next_tag != (app_pc)dr_app_stop_and_cleanup_with_stats)
-#    endif
-        dynamo_thread_not_under_dynamo(dcontext);
+// #    ifdef DR_APP_EXPORTS
+//     /* not_under will be called by dynamo_shared_exit so skip it here. */
+//     if (dcontext->next_tag != (app_pc)dr_app_stop_and_cleanup &&
+//         dcontext->next_tag != (app_pc)dr_app_stop_and_cleanup_with_stats)
+// #    endif
+//         dynamo_thread_not_under_dynamo(dcontext);
     dcontext->go_native = false;
 }
 #endif
@@ -715,7 +709,6 @@ dispatch_enter_native(dcontext_t *dcontext)
     dcontext->whereami = DR_WHERE_APP;
 #ifdef UNIX
     do {
-        SYSLOG_INTERNAL_INFO("dispatch_enter_native go_native=%p dcontext=%p", go_native, dcontext);
         (*go_native)(dcontext);
         /* If fcache_enter returns, there's a pending signal.  It must
          * be an alarm signal so we drop it as the simplest solution.

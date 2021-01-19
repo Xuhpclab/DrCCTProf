@@ -7,55 +7,61 @@
 # **********************************************************
 
 function replace_and_backup_file {
-    echo "replace and back up $1"
-    if [ ! -f ${1}.back ]; then
-        if [ -f ${1} ]; then
-            cp ${1} ${1}.back
+    r_b_file=$1/$2
+    echo "replace and back up ${r_b_file}"
+    if [ ! -f ${r_b_file}.back ]; then
+        if [ -f ${r_b_file} ]; then
+            cp ${r_b_file} ${r_b_file}.back
         fi
     fi
-    if [ -f ${1} ]; then
-        rm -rf ${1}
+    if [ -f ${r_b_file} ]; then
+        rm -rf ${r_b_file}
     else
-        echo -e "\033[34m Warn: ${1} is missing.\033[0m"
+        echo -e "\033[34m Warn: ${r_b_file} is missing.\033[0m"
     fi
-    cp  ${2} ${1}
+    cp ${2} ${1}
 }
 
 function replace_file {
-    echo "replace $1"
-    if [ -f ${1} ]; then
-        rm -rf ${1}
+    r_b_file=$1/$2
+    echo "replace ${r_b_file}"
+    if [ -f ${r_b_file} ]; then
+        rm -rf ${r_b_file}
     fi
-    cp  ${2} ${1}
+    cp ${2} ${1}
 }
 
 
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
+PATCH_DR_CORE_PATH=dr_root/core
+PATCH_DR_CORE_LIB_PATH=dr_root/core/lib
+PATCH_DR_CORE_UNIX_PATH=dr_root/core/unix
+PATCH_DR_TOOLS_PATH=dr_root/tools
 
-DYNAMORIO_ROOT_PATH=$(cd "$CUR_DIR/../../../../dynamorio";pwd)
-DYNAMORIO_CORE_PATH=$DYNAMORIO_ROOT_PATH/core
-DYNAMORIO_CORE_LIB_PATH=$DYNAMORIO_ROOT_PATH/core/lib
-DYNAMORIO_CORE_UNIX_PATH=$DYNAMORIO_ROOT_PATH/core/unix
-DYNAMORIO_TOOLS_PATH=$DYNAMORIO_ROOT_PATH/tools
+DR_ROOT_PATH=$(cd "$CUR_DIR/../../../../dynamorio";pwd)
+DR_CORE_PATH=$DR_ROOT_PATH/core
+DR_CORE_LIB_PATH=$DR_ROOT_PATH/core/lib
+DR_CORE_UNIX_PATH=$DR_ROOT_PATH/core/unix
+DR_TOOLS_PATH=$DR_ROOT_PATH/tools
 
-replace_and_backup_file $DYNAMORIO_CORE_PATH/dynamo.c $CUR_DIR/dynamo.c
-replace_and_backup_file $DYNAMORIO_CORE_PATH/dispatch.c $CUR_DIR/dispatch.c
-replace_and_backup_file $DYNAMORIO_CORE_PATH/globals.h $CUR_DIR/globals.h
-replace_and_backup_file $DYNAMORIO_CORE_PATH/heap.c $CUR_DIR/heap.c
-replace_and_backup_file $DYNAMORIO_CORE_PATH/synch.c $CUR_DIR/synch.c
-replace_and_backup_file $DYNAMORIO_CORE_PATH/CMakeLists.txt $CUR_DIR/CMakeLists.txt.core
+cd $CUR_DIR
+cd $PATCH_DR_CORE_PATH
+replace_and_backup_file $DR_CORE_PATH dynamo.c
+replace_and_backup_file $DR_CORE_PATH dispatch.c
+replace_and_backup_file $DR_CORE_PATH globals.h
+replace_and_backup_file $DR_CORE_PATH heap.c
+replace_and_backup_file $DR_CORE_PATH synch.c
+replace_and_backup_file $DR_CORE_PATH CMakeLists.txt
 
-replace_file $DYNAMORIO_CORE_UNIX_PATH/drcctprof_attach.c $CUR_DIR/drcctprof_attach.c
-replace_and_backup_file $DYNAMORIO_CORE_UNIX_PATH/loader.c $CUR_DIR/loader.c
-replace_and_backup_file $DYNAMORIO_CORE_UNIX_PATH/signal.c $CUR_DIR/signal.c
+cd unix
+replace_file $DR_CORE_UNIX_PATH drcct_attach.c
+replace_and_backup_file $DR_CORE_UNIX_PATH loader.c
+replace_and_backup_file $DR_CORE_UNIX_PATH signal.c
 
-replace_and_backup_file $DYNAMORIO_CORE_LIB_PATH/dr_app.h $CUR_DIR/dr_app.h
-replace_file $DYNAMORIO_CORE_LIB_PATH/drcctprof_attach.h $CUR_DIR/drcctprof_attach.h
-replace_file $DYNAMORIO_CORE_LIB_PATH/drcctprof_attach.h $CUR_DIR/drcctprof_attach.h
+cd ../lib
+replace_and_backup_file $DR_CORE_LIB_PATH dr_app.h
+replace_file $DR_CORE_LIB_PATH drcct_attach.h
 
-replace_file $DYNAMORIO_TOOLS_PATH/drcctprofattach.c $CUR_DIR/drcctprofattach.c
-replace_and_backup_file $DYNAMORIO_TOOLS_PATH/CMakeLists.txt $CUR_DIR/CMakeLists.txt.tools
-
-# replace_and_backup_file $DYNAMORIO_CORE_LIB_PATH/dr_inject.h $CUR_DIR/dr_inject.h
-# replace_and_backup_file $DYNAMORIO_CORE_UNIX_PATH/injector.c $CUR_DIR/injector.c
-# replace_and_backup_file $DYNAMORIO_TOOLS_PATH/drdeploy.c $CUR_DIR/drdeploy.c
+cd ../../tools
+replace_file $DR_TOOLS_PATH drcctprof.c
+replace_and_backup_file $DR_TOOLS_PATH CMakeLists.txt

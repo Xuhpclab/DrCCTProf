@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -399,8 +399,8 @@ else (UNIX)
     win32/syscall.c
     win32/callback.c
     win32/drmarker.c
-    win32/ntdll.c
     win32/ntdll_shared.c
+    win32/ntdll.c
     win32/inject.c
     win32/inject_shared.c
     win32/module.c
@@ -424,8 +424,8 @@ else (UNIX)
    )
   set(PRELOAD_SRCS
     win32/pre_inject.c
-    win32/ntdll.c
     win32/ntdll_shared.c
+    win32/ntdll.c
     win32/inject_shared.c
     win32/drmarker.c
     ${preinject_asm_src}
@@ -439,10 +439,10 @@ else (UNIX)
   set(INJECTOR_SRCS
     win32/injector.c
     win32/inject.c
-    win32/ntdll.c
     win32/inject_shared.c
     win32/module_shared.c
     win32/ntdll_shared.c
+    win32/ntdll.c
     win32/resources.rc
     config.c
     win32/os.c
@@ -1027,24 +1027,24 @@ if (WIN32)
 endif (WIN32)
 
 ###########################################################################
-# DrCCTProfAttach library
+# DrCCTAttach library
 if (UNIX)
-  set(DRCCTPROFATTACH_SRCS
-    unix/drcctprof_attach.c
+  set(DRCCTATTACH_SRCS
+    unix/drcct_attach.c
     config.c    # to read config
     string.c
     io.c
     )
 
-  add_library(drcctprofattachlib STATIC ${DRCCTPROFATTACH_SRCS})
-  add_dependencies(drcctprofattachlib generate_syslog)
+  add_library(drcctattachlib STATIC ${DRCCTATTACH_SRCS})
+  add_dependencies(drcctattachlib generate_syslog)
 
   # We need our own memcpy + memset to avoid glibc versioning (i#1504).
-  target_link_libraries(drcctprofattachlib drdecode drlibc)
-  target_link_libraries(drcctprofattachlib drmemfuncs)
-  target_link_libraries(drcctprofattachlib unwind-ptrace unwind-generic unwind)
+  target_link_libraries(drcctattachlib drdecode drlibc)
+  target_link_libraries(drcctattachlib drmemfuncs)
+  target_link_libraries(drcctattachlib unwind-ptrace unwind-generic unwind)
 
-  set_target_properties(drcctprofattachlib PROPERTIES
+  set_target_properties(drcctattachlib PROPERTIES
     COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER")
 endif ()
 
@@ -1207,6 +1207,6 @@ if (UNIX)
 endif ()
 
 if (UNIX)
-  install_exported_target(drcctprofattachlib ${INSTALL_LIB_BASE})
-  DR_export_target(drcctprofattachlib)
+  install_exported_target(drcctattachlib ${INSTALL_LIB_BASE})
+  DR_export_target(drcctattachlib)
 endif (UNIX)
