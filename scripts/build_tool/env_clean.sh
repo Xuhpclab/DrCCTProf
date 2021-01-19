@@ -27,13 +27,13 @@ DYNAMORIO_CLIENT_PATH=$CUR_DIR/../../dynamorio/clients
 echo -e "Remove \033[34m$DYNAMORIO_CLIENT_PATH/drcctlib*\033[0m.."
 rm -rf $DYNAMORIO_CLIENT_PATH/drcctlib*
 
-PLATFORM=$(uname -m)
-IS_X86=false
-if [ $PLATFORM == 'x86_64' ]; then
-    IS_X86=true
-fi
+# PLATFORM=$(uname -m)
+# IS_X86=false
+# if [ $PLATFORM == 'x86_64' ]; then
+#     IS_X86=true
+# fi
 
-if [ "$IS_X86" == "true" ]; then
-    # necessary patch for dynamorio
-    $CUR_DIR/patch_for_dr/clean_patch.sh
-fi
+# if [ "$IS_X86" == "true" ]; then
+#     # necessary patch for dynamorio
+#     $CUR_DIR/patch_for_dr/clean_patch.sh
+# fi
