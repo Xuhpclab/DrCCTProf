@@ -182,7 +182,7 @@ index 00000000..23cae804
 +++ b/core/lib/drcct_attach.h
 @@ -0,0 +1,22 @@
 +/* 
-+ *  Copyright (c) 2020 Xuhpclab. All rights reserved.
++ *  Copyright (c) 2020-2021 Xuhpclab. All rights reserved.
 + *  Licensed under the MIT License.
 + *  See LICENSE file for more information.
 + */
@@ -460,7 +460,7 @@ index 00000000..be9dcd9c
 +++ b/core/unix/drcct_attach.c
 @@ -0,0 +1,940 @@
 +/*
-+ *  Copyright (c) 2020 Xuhpclab. All rights reserved.
++ *  Copyright (c) 2020-2021 Xuhpclab. All rights reserved.
 + *  Licensed under the MIT License.
 + *  See LICENSE file for more information.
 + */
@@ -1447,7 +1447,7 @@ index 00000000..41a94287
 +++ b/tools/drcctprof.c
 @@ -0,0 +1,622 @@
 +/* 
-+ *  Copyright (c) 2020 Xuhpclab. All rights reserved.
++ *  Copyright (c) 2020-2021 Xuhpclab. All rights reserved.
 + *  Licensed under the MIT License.
 + *  See LICENSE file for more information.
 + */
