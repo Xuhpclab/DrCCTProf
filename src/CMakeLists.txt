@@ -1,10 +1,10 @@
 # **********************************************************
-# Copyright (c) 2020 Xuhpclab. All rights reserved.
+# Copyright (c) 2020-2021 Xuhpclab. All rights reserved.
 # Licensed under the MIT License.
 # See LICENSE file for more information.
 #  **********************************************************
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 include(../make/policies.cmake NO_POLICY_SCOPE)
 
