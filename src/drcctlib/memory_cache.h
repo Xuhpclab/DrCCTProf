@@ -11,14 +11,15 @@
 #include <vector>
 
 #include "dr_api.h"
-#include "drcctlib_global_share.h"
+#include "drcctlib_defines.h"
+#include "drcctlib_utils.h"
 
 using namespace std;
 
-#define MEMORY_CACHE_PRINTF(format, args...) \
-    DRCCTLIB_PRINTF_TEMPLATE("memory_cache", format, ##args)
-#define MEMORY_CACHE_EXIT_PROCESS(format, args...) \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("memory_cache", format, ##args)
+#define MEMORY_CACHE_PRINTF(_FORMAT, _ARGS...) \
+    DRCCTLIB_PRINTF_TEMPLATE("memory_cache", _FORMAT, ##_ARGS)
+#define MEMORY_CACHE_EXIT_PROCESS(_FORMAT, _ARGS...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("memory_cache", _FORMAT, ##_ARGS)
 
 template <class T> class memory_cache_t {
 public:

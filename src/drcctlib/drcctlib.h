@@ -10,7 +10,8 @@
 #include <cstdint>
 
 #include "dr_api.h"
-#include "drcctlib_global_share.h"
+#include "drcctlib_defines.h"
+#include "drcctlib_utils.h"
 #include "drcctlib_filter_func_list.h"
 
 enum {

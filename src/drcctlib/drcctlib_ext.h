@@ -7,7 +7,8 @@
 #ifndef _DRCCTLIB_EXT_H_
 #define _DRCCTLIB_EXT_H_
 
-#include "drcctlib_global_share.h"
+#include "drcctlib_defines.h"
+#include "drcctlib_utils.h"
 
 // stack config
 typedef struct _thread_stack_config_t {

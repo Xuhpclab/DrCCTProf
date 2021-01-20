@@ -7,10 +7,10 @@
 #include "dr_api.h"
 #include "drcctlib.h"
 
-#define DRCCTLIB_PRINTF(format, args...) \
-    DRCCTLIB_PRINTF_TEMPLATE("instr_statistics", format, ##args)
-#define DRCCTLIB_EXIT_PROCESS(format, args...) \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("instr_statistics", format, ##args)
+#define DRCCTLIB_PRINTF(_FORMAT, _ARGS...) \
+    DRCCTLIB_PRINTF_TEMPLATE("instr_statistics", _FORMAT, ##_ARGS)
+#define DRCCTLIB_EXIT_PROCESS(_FORMAT, _ARGS...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("instr_statistics", _FORMAT, ##_ARGS)
 
 #define MAX_CLIENT_CCT_PRINT_DEPTH 10
 #define TOP_REACH_NUM_SHOW 200
@@ -69,15 +69,8 @@ FreeGlobalBuff()
 static void
 ClientInit(int argc, const char *argv[])
 {
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm.drcctlib_instr_statistics.out.";
-#else
-    char name[MAXIMUM_PATH] = "x86.drcctlib_instr_statistics.out.";
-#endif
-
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    pid_t pid = getpid();
-    sprintf(name + strlen(name), "%d", pid);
+    char name[MAXIMUM_PATH] = "";
+    DRCCTLIB_INIT_LOG_FILE_NAME(name, "drcctlib_instr_statistics", "out");
     DRCCTLIB_PRINTF("Creating log file at:%s", name);
 
     gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);

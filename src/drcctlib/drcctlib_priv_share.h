@@ -9,7 +9,8 @@
 
 #include <vector>
 
-#include "drcctlib_global_share.h"
+#include "drcctlib_defines.h"
+#include "drcctlib_utils.h"
 #include "splay_tree.h"
 
 #define bb_key_t int32_t

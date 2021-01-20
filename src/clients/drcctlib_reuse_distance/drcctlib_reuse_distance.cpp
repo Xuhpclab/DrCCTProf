@@ -14,10 +14,10 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...) \
-    DRCCTLIB_PRINTF_TEMPLATE("reuse_distance", format, ##args)
-#define DRCCTLIB_EXIT_PROCESS(format, args...) \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_distance", format, ##args)
+#define DRCCTLIB_PRINTF(_FORMAT, _ARGS...) \
+    DRCCTLIB_PRINTF_TEMPLATE("reuse_distance", _FORMAT, ##_ARGS)
+#define DRCCTLIB_EXIT_PROCESS(_FORMAT, _ARGS...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_distance", _FORMAT, ##_ARGS)
 
 #define SAMPLE_RUN
 #ifdef SAMPLE_RUN
@@ -335,14 +335,9 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
-    pid_t pid = getpid();
-#ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm-";
-#else
-    char name[MAXIMUM_PATH] = "x86-";
-#endif
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    sprintf(name + strlen(name), "-%d-drcctlib_reuse_distance", pid);
+    char name[MAXIMUM_PATH] = "";
+    DRCCTLIB_INIT_LOG_FILE_NAME(
+        name, "drcctlib_reuse_distance", "out");
     g_folder_name.assign(name, strlen(name));
     mkdir(g_folder_name.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 }

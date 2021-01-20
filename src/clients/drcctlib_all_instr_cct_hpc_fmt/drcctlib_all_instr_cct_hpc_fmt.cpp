@@ -10,10 +10,10 @@
 #include "drcctlib.h"
 #include "drcctlib_hpcviewer_format.h"
 
-#define DRCCTLIB_PRINTF(format, args...) \
-    DRCCTLIB_PRINTF_TEMPLATE("all_instr_cct_hpc_fmt", format, ##args)
-#define DRCCTLIB_EXIT_PROCESS(format, args...) \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("all_instr_cct_hpc_fmt", format, ##args)
+#define DRCCTLIB_PRINTF(_FORMAT, _ARGS...) \
+    DRCCTLIB_PRINTF_TEMPLATE("all_instr_cct_hpc_fmt", _FORMAT, ##_ARGS)
+#define DRCCTLIB_EXIT_PROCESS(_FORMAT, _ARGS...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("all_instr_cct_hpc_fmt", _FORMAT, ##_ARGS)
 
 static void
 ClientThreadStart(void *drcontext)

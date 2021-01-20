@@ -3,17 +3,17 @@
 DrCCTProf is a fine-grained call path profiling framework for binaries running on ARM and X86 architectures. Please see our [blog](https://xl10.github.io/blog/drcctprof.html) for more details.
 
 ![build master](https://github.com/Xuhpclab/DrCCTProf/workflows/build%20master/badge.svg)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/194a05c4a4164a15b225e5537803e39b)](https://www.codacy.com/manual/dolanzhao/DrCCTProf_SC20?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=dolanzhao/DrCCTProf_SC20&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/d9708750f8b24b60bc0102dd5b89e4dd)](https://www.codacy.com/gh/Xuhpclab/DrCCTProf/dashboard?utm_source=github.com&utm_medium=referral&utm_content=Xuhpclab/DrCCTProf&utm_campaign=Badge_Grade)
 ![license](https://img.shields.io/github/license/Xuhpclab/DrCCTProf)
 
 ## Contents
 
-- [Installation](#installation)
-- [Usage](#usage)
-- [Client tools](#client-tools)
-- [Support Platforms](#support-platforms)
-- [Obtaining Help](#obtaining-help)
-- [License](#license)
+-   [Installation](#installation)
+-   [Usage](#usage)
+-   [Client tools](#client-tools)
+-   [Support Platforms](#support-platforms)
+-   [Obtaining Help](#obtaining-help)
+-   [License](#license)
 
 ## Installation
 
@@ -23,10 +23,10 @@ DrCCTProf is a fine-grained call path profiling framework for binaries running o
 
 In order to build you'll need the following packages:
 
-* gcc (at least version 4.8)
-* binutils (at least version 2.26)
-* [cmake](https://cmake.org/download/) (at least version 3.7)
-* perl
+-   gcc (at least version 4.8)
+-   binutils (at least version 2.26)
+-   [cmake](https://cmake.org/download/) (at least version 3.7)
+-   perl
 
 To avoid conflicts with installed original version packages, we recommend that use [Spack](https://spack.io/) to manage the above packages and create a virtual environment to build and run DrCCTProf. 
 
@@ -37,6 +37,7 @@ Use the following commands to get sources and build DrCCTProf:
 ```console
 $ git clone --recurse https://github.com/Xuhpclab/DrCCTProf.git
 ```
+
 ```console
 $ ./build.sh
 ```
@@ -53,16 +54,15 @@ To run DrCCTProf, one needs to issue the following command:
 $ export drrun=/path/to/DrCCTProf/build/bin64/drrun
 ```
 
-
 #### 2 Run client tool
 
-* **x86_64**
+-   **x86_64**
 
 ```console
 $ $drrun -t <client tool> -- <application> [apllication args]
 ```
 
-* **aarch64**
+-   **aarch64**
 
 ```console
 $ $drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication args]
@@ -73,7 +73,7 @@ $ $drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication arg
 ### Internal client tools list
 
 | Name                                 | Features                                                                    | Status  |
-|--------------------------------------|-----------------------------------------------------------------------------|---------|
+| ------------------------------------ | --------------------------------------------------------------------------- | ------- |
 | drcctlib_cct_only_clean_call         | A tool that collects call path on each instruction.                         | release |
 | drcctlib_instr_statistics_clean_call | A instruction counting tool that counts each instruction.                   | release |
 | drcctlib_reuse_distance_client_cache | A reuse distance measurement tool.                                          | release |
@@ -91,16 +91,16 @@ The following platforms passed our tests.
 
 ### Linux
 
-| CPU                               | Systems         | Architecture |
-|-----------------------------------|-----------------|--------------|
-| Intel(R) Xeon(R) CPU E5-2699 v3   | Ubuntu 18.04    | x86_64       |
-| Intel(R) Xeon(R) CPU E5-2650 v4   | Ubuntu 14.04    | x86_64       |
-| Intel(R) Xeon(R) CPU E7-4830 v4   | Red Hat 4.8.3   | x86_64       |
-| Arm Cortex A53(Raspberry pi 3 b+) | Ubuntu 18.04    | aarch64      |
-| Arm Cortex-A57(Jetson Nano)       | Ubuntu 18.04    | aarch64      |
-| ThunderX2 99xx                    | Ubuntu 20.04    | aarch64      |
-| AWS Graviton1                     | Ubuntu 18.04    | aarch64      |
-| AWS Graviton2                     | Ubuntu 18.04    | aarch64      |
+| CPU                               | Systems       | Architecture |
+| --------------------------------- | ------------- | ------------ |
+| Intel(R) Xeon(R) CPU E5-2699 v3   | Ubuntu 18.04  | x86_64       |
+| Intel(R) Xeon(R) CPU E5-2650 v4   | Ubuntu 14.04  | x86_64       |
+| Intel(R) Xeon(R) CPU E7-4830 v4   | Red Hat 4.8.3 | x86_64       |
+| Arm Cortex A53(Raspberry pi 3 b+) | Ubuntu 18.04  | aarch64      |
+| Arm Cortex-A57(Jetson Nano)       | Ubuntu 18.04  | aarch64      |
+| ThunderX2 99xx                    | Ubuntu 20.04  | aarch64      |
+| AWS Graviton1                     | Ubuntu 18.04  | aarch64      |
+| AWS Graviton2                     | Ubuntu 18.04  | aarch64      |
 
 ## Obtaining Help
 

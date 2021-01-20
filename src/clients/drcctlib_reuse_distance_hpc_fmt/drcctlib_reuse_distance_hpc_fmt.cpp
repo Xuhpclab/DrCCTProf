@@ -13,10 +13,10 @@
 
 using namespace std;
 
-#define DRCCTLIB_PRINTF(format, args...) \
-    DRCCTLIB_PRINTF_TEMPLATE("reuse_distance_hpc_fmt", format, ##args)
-#define DRCCTLIB_EXIT_PROCESS(format, args...) \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_distance_hpc_fmt", format, ##args)
+#define DRCCTLIB_PRINTF(_FORMAT, _ARGS...) \
+    DRCCTLIB_PRINTF_TEMPLATE("reuse_distance_hpc_fmt", _FORMAT, ##_ARGS)
+#define DRCCTLIB_EXIT_PROCESS(_FORMAT, _ARGS...) \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("reuse_distance_hpc_fmt", _FORMAT, ##_ARGS)
 
 #define SAMPLE_RUN
 #ifdef SAMPLE_RUN
@@ -263,16 +263,9 @@ static void
 ThreadDebugFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    pid_t pid = getpid();
-#    ifdef ARM_CCTLIB
-    char debug_file_name[MAXIMUM_PATH] = "arm.";
-#    else
-    char debug_file_name[MAXIMUM_PATH] = "x86.";
-#    endif
-    gethostname(debug_file_name + strlen(debug_file_name),
-                MAXIMUM_PATH - strlen(debug_file_name));
-    sprintf(debug_file_name + strlen(debug_file_name),
-            "%d.drcctlib_reuse_distance_hpc_fmt.thread-%d.debug.log", pid, id);
+    char debug_file_name[MAXIMUM_PATH] = "";
+    DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(
+        debug_file_name, "drcctlib_reuse_distance_hpc_fmt", id, "debug.log");
     pt->log_file =
         dr_open_file(debug_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file != INVALID_FILE);
