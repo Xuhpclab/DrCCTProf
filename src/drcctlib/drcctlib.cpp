@@ -1927,26 +1927,26 @@ drcctlib_event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
         pt->signal_raise_bb_node = pt->cur_bb_node;
         pt->signal_raise_slot = pt->cur_slot;
         pt->signal_raise_state = pt->cur_state;
-        DRCCTLIB_PRINTF(
-            "drcctlib_event_kernel_xfer DR_XFER_SIGNAL_DELIVERY %d(thread %d)\n",
-            info->sig, pt->id);
+        // DRCCTLIB_PRINTF(
+        //     "drcctlib_event_kernel_xfer DR_XFER_SIGNAL_DELIVERY %d(thread %d)\n",
+        //     info->sig, pt->id);
     }
     if (info->type == DR_XFER_SIGNAL_RETURN) {
         IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
         pt->cur_bb_node = pt->signal_raise_bb_node;
         pt->cur_slot = pt->signal_raise_slot;
         pt->cur_state = pt->signal_raise_state;
-        DRCCTLIB_PRINTF(
-            "drcctlib_event_kernel_xfer DR_XFER_SIGNAL_RETURN %d(thread %d)\n", info->sig,
-            pt->id);
+        // DRCCTLIB_PRINTF(
+        //     "drcctlib_event_kernel_xfer DR_XFER_SIGNAL_RETURN %d(thread %d)\n", info->sig,
+        //     pt->id);
     }
 }
 
 static dr_signal_action_t
 drcctlib_event_signal(void *drcontext, dr_siginfo_t *siginfo)
 {
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    DRCCTLIB_PRINTF("drcctlib_event_signal %d(thread %d)\n", siginfo->sig, pt->id);
+    // per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    // DRCCTLIB_PRINTF("drcctlib_event_signal %d(thread %d)\n", siginfo->sig, pt->id);
     return DR_SIGNAL_DELIVER;
 }
 
@@ -2993,6 +2993,13 @@ drcctlib_get_context_handle(void *drcontext, int32_t slot){
         DRCCTLIB_EXIT_PROCESS("slot > cur_bb_node->max_slots");
     }
     return pt->cur_bb_node->child_ctxt_start_idx + slot;
+}
+
+DR_EXPORT
+context_handle_t
+drcctlib_get_context_handle(void *drcontext){
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    return pt->cur_bb_node->child_ctxt_start_idx;
 }
 
 DR_EXPORT
