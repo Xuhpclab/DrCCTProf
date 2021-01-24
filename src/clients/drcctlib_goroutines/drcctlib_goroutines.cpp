@@ -28,6 +28,8 @@ typedef struct _per_thread_t {
     thread_id_t thread_id;
     vector<context_handle_t> call_rt_exec_list;
     vector<uint64_t> go_g_addr_list;
+    vector<int64_t> goid_list;
+    vector<vector<int64_t>> go_ancestors_list;
 } per_thread_t;
 
 // client want to do
@@ -70,6 +72,28 @@ WrapBeforeRTExecute(void *wrapcxt, void **user_data)
     // } else {
     pt->call_rt_exec_list.push_back(drcctlib_get_context_handle(drcontext));
     pt->go_g_addr_list.push_back(go_g_addr);
+
+    int64_t *goid_addr = (int64_t *) (go_g_addr + 0x98);
+    pt->goid_list.push_back(*goid_addr);
+
+    vector<int64_t> ancestors;
+    if (*goid_addr != 1) {
+        uint64_t ancestors_slice_addr = *(uint64_t *)(go_g_addr + 0x120);
+        uint64_t ancestors_addr = *(uint64_t *)ancestors_slice_addr;
+        int64_t ancestors_slice_len = *(int64_t *)(ancestors_addr + 0x08);
+        //dr_fprintf(gTraceFile, "\ngoid %ld, slice length: %ld, slice cap: %ld\n", *goid_addr, ancestors_slice_len, *(int64_t *)(ancestors_addr + 0x10));
+        for (int64_t i = 0; ; i++) {
+            uint64_t ancestor_info = ancestors_addr + (uint64_t)i * 0x28;
+            int64_t ancestor_goid = *(int64_t *)(ancestor_info + 0x18);
+            ancestors.push_back(ancestor_goid);
+            if (ancestor_goid == 1) {
+                break;
+            }
+        }
+    }
+    pt->go_ancestors_list.push_back(ancestors);
+
+
     // DRCCTLIB_PRINTF("thread(%ld) runtime.execute to go_g_addr == NULL", pt->thread_id);
     // }
     
@@ -114,7 +138,20 @@ PrintAllRTExec(per_thread_t *pt)
         int64_t* go_g_goid_ptr = (int64_t*)(go_g_addr + 152);
         context_handle_t exec_ctxt = pt->call_rt_exec_list[i];
         dr_fprintf(gTraceFile, "\n\nthread(%ld) runtime.execute to goid(%d)", pt->thread_id, *go_g_goid_ptr);
+        dr_fprintf(gTraceFile, "\nthread(%ld) runtime.execute to test_goid(%d)", pt->thread_id, pt->goid_list[i]);    
         drcctlib_print_ctxt_hndl_msg(gTraceFile, exec_ctxt, false, false);
+
+        if (*go_g_goid_ptr != 1){
+            dr_fprintf(gTraceFile, "created by Goroutine(s) ");
+            for (uint64_t j = 0; j < pt->go_ancestors_list[i].size(); j++) {
+                if (j) {
+                    dr_fprintf(gTraceFile, " -> ");
+                }
+                dr_fprintf(gTraceFile, "%ld", pt->go_ancestors_list[i][j]);
+            }
+            dr_fprintf(gTraceFile, "\n");
+        }
+
         dr_fprintf(gTraceFile,
                    "====================================================================="
                    "===========\n");
