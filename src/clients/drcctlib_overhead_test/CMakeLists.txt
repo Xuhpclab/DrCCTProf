@@ -4,7 +4,7 @@
 # See LICENSE file for more information.
 #  **********************************************************
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -46,7 +46,7 @@ endif ()
 
 install_target(drcctlib_overhead_test ${INSTALL_CLIENTS_LIB})
 
-set(INSTALL_CCTTEST_CONFIG ${INSTALL_CLIENTS_BASE})
+set(INSTALL_DRCCTLIB_CLIENTS_LIB ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
   file(WRITE  ${dst} "# drcctlib_overhead_test tool config file\n")
@@ -67,7 +67,7 @@ set(BUILD_CLIENTS_LIB clients/${INSTALL_LIB})
 write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB})
 write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
 
-DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_CCTTEST_CONFIG})
+DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCCTLIB_CLIENTS_LIB})
 register_tool_file("drcctlib_overhead_test")
 
 ##################################################

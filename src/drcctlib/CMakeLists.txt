@@ -4,7 +4,7 @@
 # See LICENSE file for more information.
 #  **********************************************************
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
