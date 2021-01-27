@@ -317,14 +317,14 @@ GetGoFirstmoduledata(const module_data_t *info)
         if(gopclntab_scn) {
             Elf_Shdr *section_header = elf_getshdr(gopclntab_scn);
             gopclntab_addr = section_header->sh_addr;
-            DRCCTLIB_PRINTF(".gopclntab start addr %p", gopclntab_addr);
+            // DRCCTLIB_PRINTF(".gopclntab start addr %p", gopclntab_addr);
         }
         Elf_Scn *noptrdata_scn = find_elf_section_by_name(elf, ".noptrdata");
         if(noptrdata_scn) {
             Elf_Shdr *section_header = elf_getshdr(noptrdata_scn);
             uint64_t start_addr = section_header->sh_addr;
             uint64_t end_addr = start_addr + section_header->sh_size * 8;
-            DRCCTLIB_PRINTF("module start addr %p, end addr %p", start_addr, end_addr);
+            // DRCCTLIB_PRINTF("module start addr %p, end addr %p", start_addr, end_addr);
             for(uint64_t temp = start_addr; temp < end_addr; temp += 8) {
                 if (*((uint64_t*)temp)== gopclntab_addr) {
                     firstmoduledata = (go_moduledata_t*) temp;
@@ -381,7 +381,7 @@ OnMoudleLoad(void *drcontext, const module_data_t *info,
     if (func_entry != NULL) {
         drwrap_wrap(func_entry, WrapBeforeRTExecute, NULL);
     }
-    DRCCTLIB_PRINTF("finish module name %s", modname);
+    // DRCCTLIB_PRINTF("finish module name %s", modname);
 }
 
 static void
