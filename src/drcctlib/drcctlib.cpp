@@ -1714,7 +1714,7 @@ instr_exlusive_check(void *drcontext, bb_key_t bb_key,
             (per_thread_t *)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
         char code[DISASM_CACHE_SIZE];
         instr_disassemble_to_buffer(drcontext, instr, code, DISASM_CACHE_SIZE);
-        dr_fprintf(pt->log_file_instr, "!%d/%d/%s\n", bb_key, slot, code);
+        dr_fprintf(pt->log_file_instr, "!%d/%d/[%p]%s\n", bb_key, slot, instr_get_app_pc(instr), code);
     }
 }
 #endif
@@ -1852,7 +1852,7 @@ drcctlib_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
                                                     slot * DISASM_CACHE_SIZE,
                                                 DISASM_CACHE_SIZE);
                     IF_DRCCTLIB_DEBUG(
-                        dr_fprintf(pt->log_file_instr, "+%d/%d/%s\n", bb_key, slot,
+                        dr_fprintf(pt->log_file_instr, "+%d/%d/[%p]%s\n", bb_key, slot, instr_get_app_pc(instr), 
                                    bb_shadow->disasm_shadow + slot * DISASM_CACHE_SIZE);)
                 }
                 if (!interest_start &&

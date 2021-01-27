@@ -30,6 +30,8 @@ include_directories("${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/include")
 add_library(drcctlib_goroutines SHARED
 drcctlib_goroutines.cpp
 dr_go_wrap.cpp
+cgo_funcs.cpp
+elf_utils.cpp
   )
 
 configure_DynamoRIO_client(drcctlib_goroutines)

@@ -4,19 +4,21 @@
  *  See LICENSE file for more information.
  */
 
-#ifndef _DRCCTLIB_GO_WRAP_H_
-#define _DRCCTLIB_GO_WRAP_H_
+#ifndef _DR_GO_WRAP_H_
+#define _DR_GO_WRAP_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-DR_EXPORT
 void *
-dgw_get_go_func_arg(void *wrapcxt, int arg);
+dgw_get_go_func_arg(void *wrapcxt, int arg_no);
+
+void *
+dgw_get_go_func_retaddr(void *wrapcxt_opaque, int max, int ret);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // _DRCCTLIB_GO_WRAP_H_
+#endif // _DR_GO_WRAP_H_
