@@ -6,6 +6,8 @@
 #include <vector>
 #include <string>
 #include <string.h>
+#include <unordered_map>
+#include <utility>
 
 #include "dr_api.h"
 #include "drmgr.h"
@@ -76,6 +78,8 @@ static std::vector<std::string> blacklist;
 static go_moduledata_t* go_firstmoduledata;
 static vector<mutex_ctxt_t> mutex_ctxt_list;
 
+unordered_map<int64_t, vector<pair<bool, context_handle_t>>> lock_records;
+
 
 // client want to do
 void
@@ -85,6 +89,7 @@ CheckLockState(void *drcontext, int64_t cur_goid, context_handle_t cur_ctxt_hndl
     // DRCCTLIB_PRINTF("addr %p", ref->addr);
     for (size_t i = 0; i < mutex_ctxt_list.size(); i++) {
         if (addr == mutex_ctxt_list[i].state_addr) {
+            lock_records[cur_goid].push_back(make_pair(1, mutex_ctxt_list[i].create_context));
             DRCCTLIB_PRINTF("GOID(%d) LOCK %d(%d)", cur_goid, mutex_ctxt_list[i].create_context, ref->state);
             break;
         }
@@ -98,6 +103,7 @@ CheckUnlockState(void *drcontext, int64_t cur_goid, context_handle_t cur_ctxt_hn
     // DRCCTLIB_PRINTF("addr %p", ref->addr);
     for (size_t i = 0; i < mutex_ctxt_list.size(); i++) {
         if (addr == mutex_ctxt_list[i].state_addr) {
+            lock_records[cur_goid].push_back(make_pair(0, mutex_ctxt_list[i].create_context));
             DRCCTLIB_PRINTF("GOID(%d) Unlock %d(%d)", cur_goid, mutex_ctxt_list[i].create_context, ref->state);
             break;
         }
@@ -388,6 +394,17 @@ static void
 PrintAllRTExec(per_thread_t *pt)
 {
     dr_mutex_lock(thread_sync_lock);
+    for (auto it = lock_records.begin(); it != lock_records.end(); it++) {
+        dr_fprintf(gTraceFile, "goid %ld: \n", it->first);
+        for (uint64_t i = 0; i < it->second.size(); i++) {
+            if (it->second[i].first) {
+                dr_fprintf(gTraceFile, "Lock %d\n", it->second[i].second);
+            } else {
+                dr_fprintf(gTraceFile, "Unlock %d\n", it->second[i].second);
+            }
+        }
+        dr_fprintf(gTraceFile, "\n");
+    }
     for (uint64_t i = 0; i < pt->goid_list.size(); i++) {
         context_handle_t exec_ctxt = pt->call_rt_exec_list[i];
         dr_fprintf(gTraceFile, "\nthread(%ld) runtime.execute to test_goid(%d)", pt->thread_id, pt->goid_list[i]);    
