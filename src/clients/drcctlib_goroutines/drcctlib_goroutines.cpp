@@ -41,6 +41,8 @@ using namespace std;
 typedef struct _mutex_ctxt_t{
     app_pc state_addr;
     context_handle_t create_context;
+    app_pc container_addr;
+    int64_t cur_unlock_slow_goid;
 } mutex_ctxt_t;
 
 typedef struct _mem_ref_t {
@@ -52,9 +54,10 @@ typedef struct _per_thread_t {
     thread_id_t thread_id;
     mem_ref_t *cur_buf_list;
     void *cur_buf;
-    vector<context_handle_t> call_rt_exec_list;
-    vector<int64_t> goid_list;
-    vector<vector<int64_t>> go_ancestors_list;
+    context_handle_t last_newobject_ctxt_hndl;
+    vector<context_handle_t>* call_rt_exec_list;
+    vector<int64_t>* goid_list;
+    vector<vector<int64_t>>* go_ancestors_list;
 } per_thread_t;
 
 #define TLS_MEM_REF_BUFF_SIZE 100
@@ -74,11 +77,11 @@ static uint tls_offs;
 static file_t gTraceFile;
 static void *thread_sync_lock;
 
-static std::vector<std::string> blacklist;
-static go_moduledata_t* go_firstmoduledata;
-static vector<mutex_ctxt_t> mutex_ctxt_list;
+static std::vector<std::string> *blacklist;
+static go_moduledata_t *go_firstmoduledata;
 
-unordered_map<int64_t, vector<pair<bool, context_handle_t>>> lock_records;
+static vector<mutex_ctxt_t> *mutex_ctxt_list;
+static unordered_map<int64_t, vector<pair<bool, context_handle_t>>> *lock_records;
 
 
 // client want to do
@@ -87,10 +90,10 @@ CheckLockState(void *drcontext, int64_t cur_goid, context_handle_t cur_ctxt_hndl
 {
     app_pc addr = ref->addr;
     // DRCCTLIB_PRINTF("addr %p", ref->addr);
-    for (size_t i = 0; i < mutex_ctxt_list.size(); i++) {
-        if (addr == mutex_ctxt_list[i].state_addr) {
-            lock_records[cur_goid].push_back(make_pair(1, mutex_ctxt_list[i].create_context));
-            DRCCTLIB_PRINTF("GOID(%d) LOCK %d(%d)", cur_goid, mutex_ctxt_list[i].create_context, ref->state);
+    for (size_t i = 0; i < (*mutex_ctxt_list).size(); i++) {
+        if (addr == (*mutex_ctxt_list)[i].state_addr && cur_goid != (*mutex_ctxt_list)[i].cur_unlock_slow_goid) {
+            (*lock_records)[cur_goid].push_back(make_pair(1, (*mutex_ctxt_list)[i].create_context));
+            DRCCTLIB_PRINTF("GOID(%d) LOCK %d(%d)", cur_goid, (*mutex_ctxt_list)[i].create_context, ref->state);
             break;
         }
     }
@@ -101,10 +104,10 @@ CheckUnlockState(void *drcontext, int64_t cur_goid, context_handle_t cur_ctxt_hn
 {
     app_pc addr = ref->addr;
     // DRCCTLIB_PRINTF("addr %p", ref->addr);
-    for (size_t i = 0; i < mutex_ctxt_list.size(); i++) {
-        if (addr == mutex_ctxt_list[i].state_addr) {
-            lock_records[cur_goid].push_back(make_pair(0, mutex_ctxt_list[i].create_context));
-            DRCCTLIB_PRINTF("GOID(%d) Unlock %d(%d)", cur_goid, mutex_ctxt_list[i].create_context, ref->state);
+    for (size_t i = 0; i < (*mutex_ctxt_list).size(); i++) {
+        if (addr == (*mutex_ctxt_list)[i].state_addr) {
+            (*lock_records)[cur_goid].push_back(make_pair(0, (*mutex_ctxt_list)[i].create_context));
+            DRCCTLIB_PRINTF("GOID(%d) Unlock %d(%d)", cur_goid, (*mutex_ctxt_list)[i].create_context, ref->state);
             break;
         }
     }
@@ -118,8 +121,8 @@ InsertCleancall(int32_t slot, int32_t num, int32_t state)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
     int64_t cur_goid = 0;
-    if(pt->goid_list.size() > 0) {
-        cur_goid = pt->goid_list.back();
+    if((*(pt->goid_list)).size() > 0) {
+        cur_goid = (*(pt->goid_list)).back();
     }
     for (int i = 0; i < num; i++) {
         if (pt->cur_buf_list[i].addr != 0 && pt->cur_buf_list[i].state == 0) {
@@ -256,39 +259,104 @@ WrapBeforeRTExecute(void *wrapcxt, void **user_data)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     go_g_t* go_g_ptr = (go_g_t*)dgw_get_go_func_arg(wrapcxt, 0);
     context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
-    pt->call_rt_exec_list.push_back(cur_context);
-    pt->goid_list.push_back(go_g_ptr->goid);
+    (*(pt->call_rt_exec_list)).push_back(cur_context);
+    (*(pt->goid_list)).push_back(go_g_ptr->goid);
 
     vector<int64_t> ancestors;
     go_slice_t* ancestors_ptr = go_g_ptr->ancestors;
     if (ancestors_ptr != NULL) {
         go_ancestor_info_t* ancestor_infor_array = (go_ancestor_info_t*)ancestors_ptr->data;
         for(int i = 0; i < ancestors_ptr->len; i++) {
-                ancestors.push_back(ancestor_infor_array[i].goid);
+            ancestors.push_back(ancestor_infor_array[i].goid);
         }
     }
-    pt->go_ancestors_list.push_back(ancestors);
+    (*(pt->go_ancestors_list)).push_back(ancestors);
 }
 
 static void
 WrapBeforeRTNewObj(void *wrapcxt, void **user_data)
 {
     go_type_t* go_type_ptr = (go_type_t*)dgw_get_go_func_arg(wrapcxt, 0);
-    *user_data = (void*)(go_type_ptr);
+    if(cgo_type_kind_is(go_type_ptr, go_kind_t::kindStruct)) {
+        *user_data = (void*)(go_type_ptr);
+    } else {
+        *user_data = NULL;
+    }
 }
 
 static void
 WrapEndRTNewObj(void *wrapcxt, void *user_data)
 {
+    if(user_data == NULL) {
+        return;
+    }
+    void* drcontext = (void *)drwrap_get_drcontext(wrapcxt);
+    if(drcontext == NULL) {
+        drcontext = dr_get_current_drcontext();
+        if (drcontext == NULL) {
+            DRCCTLIB_EXIT_PROCESS("ERROR: WrapEndRTNewObj drcontext == NULL");
+        }
+    }
+    context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
     go_type_t* go_type_ptr = (go_type_t*)user_data;
     string type_str = cgo_get_type_name_string(go_type_ptr, go_firstmoduledata);
     if(strcmp(type_str.c_str(), "sync.Mutex") == 0) {
-        go_type_sync_mutex_t* ret_ptr = (go_type_sync_mutex_t*)dgw_get_go_func_retaddr(wrapcxt, 1, 0);
-        void* drcontext = (void *)drwrap_get_drcontext(wrapcxt); 
-        context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
-        mutex_ctxt_t mutxt_ctxt = {(app_pc)(&(ret_ptr->state)), cur_context};
-        // DRCCTLIB_PRINTF("mutxt_ctxt %p %d", mutxt_ctxt.state_addr, mutxt_ctxt.create_context);
-        mutex_ctxt_list.push_back(mutxt_ctxt);
+        go_sync_mutex_t* ret_ptr = (go_sync_mutex_t*)dgw_get_go_func_retaddr(wrapcxt, 1, 0);
+        mutex_ctxt_t mutxt_ctxt = {(app_pc)(&(ret_ptr->state)), cur_context, (app_pc)(ret_ptr), -1};
+        DRCCTLIB_PRINTF("mutxt_ctxt %p %p %d", ret_ptr, mutxt_ctxt.state_addr, mutxt_ctxt.create_context);
+        (*mutex_ctxt_list).push_back(mutxt_ctxt);
+    } else {
+        void* ret_ptr = NULL;
+        uint64_t offset = 0;
+        go_struct_type_t* go_struct_type_ptr = (go_struct_type_t*)go_type_ptr;
+        for(int64_t i = 0; i < cgo_get_struct_fields_length(go_struct_type_ptr); i++) {
+            go_type_t* field_type = cgo_get_struct_field_type(go_struct_type_ptr, i);
+            if (field_type) {
+                string field_type_str = cgo_get_type_name_string(field_type, go_firstmoduledata);
+                if(strcmp(field_type_str.c_str(), "sync.Mutex") == 0) {
+                    if (!ret_ptr) {
+                        ret_ptr = (void*)dgw_get_go_func_retaddr(wrapcxt, 1, 0);
+                        if (!ret_ptr) {
+                            continue;
+                        }
+                    }
+                    go_sync_mutex_t* mutex_ptr = (go_sync_mutex_t*)((uint64_t)ret_ptr + offset);
+                    mutex_ctxt_t mutxt_ctxt = {(app_pc)(&(mutex_ptr->state)), cur_context, (app_pc)(ret_ptr), -1};
+                    DRCCTLIB_PRINTF("mutxt_ctxt %p %p %d", ret_ptr, mutxt_ctxt.state_addr, mutxt_ctxt.create_context);
+                    (*mutex_ctxt_list).push_back(mutxt_ctxt);
+                }
+            }
+            offset += (uint64_t)field_type->size;
+        }
+        // DRCCTLIB_PRINTF("[%s]", type_str.c_str());
+        // DRCCTLIB_PRINTF("[%s]{%ld}", type_str.c_str(), go_type_ptr->size);
+        // DRCCTLIB_PRINTF("[%s]{%ld}", type_str.c_str(), cgo_get_struct_fields_length((go_struct_type_t*)go_type_ptr));
+    }
+}
+
+static void
+WrapBeforeSyncUnlockSlow(void *wrapcxt, void **user_data)
+{
+    void *drcontext = (void *)drwrap_get_drcontext(wrapcxt);
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    void* mutex_ptr = (void*)dgw_get_go_func_arg(wrapcxt, 0);
+    mutex_ctxt_t* unlock_slow_mutex_ctxt = NULL;
+    for (size_t i = 0; i < (*mutex_ctxt_list).size(); i++) {
+        if ((app_pc)mutex_ptr == (*mutex_ctxt_list)[i].state_addr) {
+            unlock_slow_mutex_ctxt = &(*mutex_ctxt_list)[i];
+            break;
+        }
+    }
+    unlock_slow_mutex_ctxt->cur_unlock_slow_goid = (*(pt->goid_list)).back();
+    *user_data = (void*)(unlock_slow_mutex_ctxt);
+}
+
+static void
+WrapEndSyncUnlockSlow(void *wrapcxt, void *user_data)
+{
+    mutex_ctxt_t* unlock_slow_mutex_ctxt = (mutex_ctxt_t*)user_data;
+    if(unlock_slow_mutex_ctxt) {
+        unlock_slow_mutex_ctxt->cur_unlock_slow_goid = -1;
     }
 }
 
@@ -369,8 +437,8 @@ OnMoudleLoad(void *drcontext, const module_data_t *info,
                                     bool loaded)
 {
     const char *modname = dr_module_preferred_name(info);
-    for (std::vector<std::string>::iterator i = blacklist.begin();
-            i != blacklist.end(); ++i) {
+    for (std::vector<std::string>::iterator i = (*blacklist).begin();
+            i != (*blacklist).end(); ++i) {
         if(strstr(modname, (*i).c_str())) {
             return;
         }
@@ -382,7 +450,10 @@ OnMoudleLoad(void *drcontext, const module_data_t *info,
     if (func_rt_newobj_entry != NULL) {
         drwrap_wrap(func_rt_newobj_entry, WrapBeforeRTNewObj, WrapEndRTNewObj);
     }
-
+    app_pc func_sync_ulock_slow_entry = moudle_get_function_entry(info, "sync.(*Mutex).unlockSlow", true);
+    if (func_sync_ulock_slow_entry != NULL) {
+        drwrap_wrap(func_sync_ulock_slow_entry, WrapBeforeSyncUnlockSlow, WrapEndSyncUnlockSlow);
+    }
     app_pc func_entry = moudle_get_function_entry(info, "runtime.execute", true);
     if (func_entry != NULL) {
         drwrap_wrap(func_entry, WrapBeforeRTExecute, NULL);
@@ -394,29 +465,19 @@ static void
 PrintAllRTExec(per_thread_t *pt)
 {
     dr_mutex_lock(thread_sync_lock);
-    for (auto it = lock_records.begin(); it != lock_records.end(); it++) {
-        dr_fprintf(gTraceFile, "goid %ld: \n", it->first);
-        for (uint64_t i = 0; i < it->second.size(); i++) {
-            if (it->second[i].first) {
-                dr_fprintf(gTraceFile, "Lock %d\n", it->second[i].second);
-            } else {
-                dr_fprintf(gTraceFile, "Unlock %d\n", it->second[i].second);
-            }
-        }
-        dr_fprintf(gTraceFile, "\n");
-    }
-    for (uint64_t i = 0; i < pt->goid_list.size(); i++) {
-        context_handle_t exec_ctxt = pt->call_rt_exec_list[i];
-        dr_fprintf(gTraceFile, "\nthread(%ld) runtime.execute to test_goid(%d)", pt->thread_id, pt->goid_list[i]);    
+
+    for (uint64_t i = 0; i < (*(pt->goid_list)).size(); i++) {
+        context_handle_t exec_ctxt = (*(pt->call_rt_exec_list))[i];
+        dr_fprintf(gTraceFile, "\nthread(%ld) runtime.execute to test_goid(%d)", pt->thread_id, (*(pt->goid_list))[i]);    
         drcctlib_print_ctxt_hndl_msg(gTraceFile, exec_ctxt, false, false);
 
-        if(pt->go_ancestors_list[i].size() > 0) {
+        if((*(pt->go_ancestors_list))[i].size() > 0) {
             dr_fprintf(gTraceFile, "created by Goroutine(s) ");
-            for (uint64_t j = 0; j < pt->go_ancestors_list[i].size(); j++) {
+            for (uint64_t j = 0; j < (*(pt->go_ancestors_list))[i].size(); j++) {
                 if (j) {
                     dr_fprintf(gTraceFile, " -> ");
                 }
-                dr_fprintf(gTraceFile, "%ld", pt->go_ancestors_list[i][j]);
+                dr_fprintf(gTraceFile, "%ld", (*(pt->go_ancestors_list))[i][j]);
             }
             dr_fprintf(gTraceFile, "\n");
         }
@@ -434,14 +495,6 @@ PrintAllRTExec(per_thread_t *pt)
 }
 
 static void
-InitMoudlesBlacklist()
-{
-    blacklist.push_back("libdrcctlib_goroutines.so");
-    blacklist.push_back("libdynamorio.so");
-    blacklist.push_back("linux-vdso.so");
-}
-
-static void
 ClientThreadStart(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
@@ -454,7 +507,9 @@ ClientThreadStart(void *drcontext)
     pt->cur_buf_list =
         (mem_ref_t *)dr_global_alloc(TLS_MEM_REF_BUFF_SIZE * sizeof(mem_ref_t));
     BUF_PTR(pt->cur_buf, mem_ref_t, INSTRACE_TLS_OFFS_BUF_PTR) = pt->cur_buf_list;
-    
+    pt->call_rt_exec_list = new vector<context_handle_t>;
+    pt->goid_list = new vector<int64_t>;
+    pt->go_ancestors_list = new vector<vector<int64_t>>;
 }
 
 static void
@@ -463,6 +518,9 @@ ClientThreadEnd(void *drcontext)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     PrintAllRTExec(pt);
     dr_global_free(pt->cur_buf_list, TLS_MEM_REF_BUFF_SIZE * sizeof(mem_ref_t));
+    delete pt->call_rt_exec_list;
+    delete pt->goid_list;
+    delete pt->go_ancestors_list;
     dr_thread_free(drcontext, pt, sizeof(per_thread_t));
 }
 
@@ -475,6 +533,47 @@ InterestInstrFilter(instr_t *instr)
         instr_get_opcode(instr) == OP_cmpxchg8b ||
         instr_get_opcode(instr) == OP_cmpxchg16b ||
         instr_get_opcode(instr) == OP_xadd);
+}
+
+
+static void
+InitMoudlesBlacklist()
+{
+    (*blacklist).push_back("libdrcctlib_goroutines.so");
+    (*blacklist).push_back("libdynamorio.so");
+    (*blacklist).push_back("linux-vdso.so");
+}
+
+static void
+InitBuffer()
+{
+    blacklist = new std::vector<std::string>();
+    mutex_ctxt_list = new vector<mutex_ctxt_t>();
+    lock_records = new unordered_map<int64_t, vector<pair<bool, context_handle_t>>>();
+}
+
+static void
+FreeBuffer()
+{
+    delete blacklist;
+    delete mutex_ctxt_list;
+    delete lock_records;
+}
+
+static void
+PorcessEndPrint()
+{
+    for (auto it = (*lock_records).begin(); it != (*lock_records).end(); it++) {
+        dr_fprintf(gTraceFile, "goid %ld: \n", it->first);
+        for (uint64_t i = 0; i < it->second.size(); i++) {
+            if (it->second[i].first) {
+                dr_fprintf(gTraceFile, "Lock %d\n", it->second[i].second);
+            } else {
+                dr_fprintf(gTraceFile, "Unlock %d\n", it->second[i].second);
+            }
+        }
+        dr_fprintf(gTraceFile, "\n");
+    }
 }
 
 static void
@@ -520,12 +619,18 @@ ClientInit(int argc, const char *argv[])
         DRCCTLIB_EXIT_PROCESS(
             "ERROR: drcctlib_reuse_distance_client_cache dr_raw_tls_calloc fail");
     }
-    drmgr_register_thread_init_event(ClientThreadStart);
-    drmgr_register_thread_exit_event(ClientThreadEnd);
+    drmgr_priority_t after_drcctlib_thread_init_pri = { sizeof(after_drcctlib_thread_init_pri),
+                                         "drcctlib_goroutines-thread_init", NULL, NULL,
+                                         DRCCTLIB_THREAD_EVENT_PRI + 1 };
+    drmgr_priority_t before_drcctlib_thread_exit_pri = { sizeof(before_drcctlib_thread_exit_pri),
+                                         "drcctlib_goroutines-thread-exit", NULL, NULL,
+                                         DRCCTLIB_THREAD_EVENT_PRI - 1 };
+    drmgr_register_thread_init_event_ex(ClientThreadStart, &after_drcctlib_thread_init_pri);
+    drmgr_register_thread_exit_event_ex(ClientThreadEnd, &before_drcctlib_thread_exit_pri);
 
-    drmgr_priority_t before_drcctlib_module_load = { sizeof(before_drcctlib_module_load), "before_drcctlib_module_load",
+    drmgr_priority_t after_drcctlib_module_load = { sizeof(after_drcctlib_module_load), "after_drcctlib_module_load",
                                          NULL, NULL, DRCCTLIB_MODULE_REGISTER_PRI + 1 };
-    drmgr_register_module_load_event_ex(OnMoudleLoad, &before_drcctlib_module_load);
+    drmgr_register_module_load_event_ex(OnMoudleLoad, &after_drcctlib_module_load);
 
     drcctlib_init(InterestInstrFilter, INVALID_FILE, InstrumentInsCallback,
                   false);
@@ -534,12 +639,14 @@ ClientInit(int argc, const char *argv[])
                               "unable to initialize drsym");
     }
     thread_sync_lock = dr_mutex_create();
+    InitBuffer();
     InitMoudlesBlacklist();
 }
 
 static void
 ClientExit(void)
 {
+    PorcessEndPrint();
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
@@ -565,6 +672,7 @@ ClientExit(void)
     }
     drutil_exit();
     dr_mutex_destroy(thread_sync_lock);
+    FreeBuffer();
 }
 
 #ifdef __cplusplus

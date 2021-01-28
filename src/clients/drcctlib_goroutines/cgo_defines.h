@@ -9,6 +9,47 @@
 
 #include <cstdint>
 
+#define  go_iota 0
+
+typedef enum _go_kind_t: uint8_t {
+	kindBool = 1 + go_iota,
+	kindInt,
+	kindInt8,
+	kindInt16,
+	kindInt32,
+	kindInt64,
+	kindUint,
+	kindUint8,
+	kindUint16,
+	kindUint32,
+	kindUint64,
+	kindUintptr,
+	kindFloat32,
+	kindFloat64,
+	kindComplex64,
+	kindComplex128,
+	kindArray,
+	kindChan,
+	kindFunc,
+	kindInterface,
+	kindMap,
+	kindPtr,
+	kindSlice,
+	kindString,
+	kindStruct,
+	kindUnsafePointer,
+
+	kindDirectIface = 1 << 5,
+	kindGCProg      = 1 << 6,
+	kindMask        = (1 << 5) - 1
+} go_kind_t;
+
+typedef struct _go_slice_t {
+    void* data;
+    int64_t len;
+    int64_t cap;
+} go_slice_t;
+
 typedef struct _go_type_t{
     void* size;
     void* ptrdata;
@@ -23,11 +64,28 @@ typedef struct _go_type_t{
     int32_t ptrToThis;
 } go_type_t;
 
-typedef struct _go_slice_t {
-    void* data;
-    int64_t len;
-    int64_t cap;
-} go_slice_t;
+typedef struct _go_name_t{
+	// bytes *byte
+	uint8_t *byte;
+} go_name_t;
+
+typedef struct _go_struct_type_t{
+	// rtype
+	go_type_t typ;
+	// pkgPath name
+	go_name_t pkgPath;
+	// fields  []structField // sorted by offset
+	go_slice_t fields;
+} go_struct_type_t;
+
+typedef struct _go_struct_field_t{
+	// name       name
+	go_name_t name;
+	// typ        *_type
+	go_type_t* typ;
+	// offsetAnon uintptr
+	void* offsetAnon;
+} go_struct_field_t;
 
 // ancestorInfo records details of where a goroutine was started.
 typedef struct _go_ancestor_info_t {
@@ -38,7 +96,6 @@ typedef struct _go_ancestor_info_t {
 	// gopc uintptr   // pc of go statement that created this goroutine
     void* gopc;
 } go_ancestor_info_t;
-
 
 typedef struct _go_string_t {
     void* data;
@@ -72,14 +129,14 @@ typedef struct _go_map_t {
     void* extra;
 } go_map_t;
 
-typedef struct _go_type_name_t {
-    uint8_t* data;
-} go_type_name_t;
+// typedef struct _go_type_name_t {
+//     uint8_t* data;
+// } go_type_name_t;
 
-typedef struct _go_type_sync_mutex_t {
+typedef struct _go_sync_mutex_t {
     int32_t state;
     uint32_t sema;
-} go_type_sync_mutex_t;
+} go_sync_mutex_t;
 
 typedef struct _go_moduledata_t {
     // pclntable    []byte

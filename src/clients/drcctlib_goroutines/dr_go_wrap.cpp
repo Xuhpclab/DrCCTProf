@@ -34,8 +34,6 @@ dgw_stack_arg_addr(drwrap_context_t *wrapcxt, uint arg)
 static inline reg_t *
 dgw_arg_addr(drwrap_context_t *wrapcxt, int arg)
 {
-    if (wrapcxt == NULL || wrapcxt->mc == NULL)
-        return NULL;
     drwrap_get_arg(wrapcxt, 0);
     return dgw_stack_arg_addr(wrapcxt, arg);
 }
@@ -44,6 +42,8 @@ void *
 dgw_get_go_func_arg(void *wrapcxt_opaque, int arg)
 {
     drwrap_context_t *wrapcxt = (drwrap_context_t *)wrapcxt_opaque;
+    if (wrapcxt == NULL || wrapcxt->mc == NULL)
+        return NULL;
     if (wrapcxt->where_am_i != DRWRAP_WHERE_PRE_FUNC)
         return NULL; /* can only get args in pre */
     reg_t *addr = dgw_arg_addr(wrapcxt, arg);
@@ -64,8 +64,6 @@ dgw_stack_ret_addr(drwrap_context_t *wrapcxt, uint max_args, uint ret)
 static inline reg_t *
 dgw_ret_addr(drwrap_context_t *wrapcxt, int max_args, int ret)
 {
-    if (wrapcxt == NULL || wrapcxt->mc == NULL)
-        return NULL;
     drwrap_get_retval(wrapcxt);
     return dgw_stack_ret_addr(wrapcxt, max_args, ret);
 }
@@ -74,11 +72,11 @@ void *
 dgw_get_go_func_retaddr(void *wrapcxt_opaque, int max_args, int ret)
 {
     drwrap_context_t *wrapcxt = (drwrap_context_t *)wrapcxt_opaque;
+    if (wrapcxt == NULL || wrapcxt->mc == NULL)
+        return NULL;
     if (wrapcxt->where_am_i != DRWRAP_WHERE_POST_FUNC)
         return NULL; /* can only get retval in post */
     reg_t *addr = dgw_ret_addr(wrapcxt, max_args, ret);
-    if (wrapcxt == NULL || wrapcxt->mc == NULL)
-        return NULL;
     if (addr == NULL)
         return NULL;
     else
