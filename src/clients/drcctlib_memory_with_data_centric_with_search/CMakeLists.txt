@@ -19,7 +19,7 @@ if (UNIX)
   add_compile_options(-std=c++11)
 
   if (DEBUG)
-    add_compile_options(-g3)
+    add_compile_options(-g)
   endif (DEBUG)
 endif (UNIX)
 
