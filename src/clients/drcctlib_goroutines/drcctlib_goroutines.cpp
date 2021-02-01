@@ -7,6 +7,7 @@
 #include <string>
 #include <string.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 #include "dr_api.h"
@@ -60,6 +61,14 @@ typedef struct _per_thread_t {
     vector<vector<int64_t>>* go_ancestors_list;
 } per_thread_t;
 
+typedef struct _deadlock_t {
+    int64_t goid0;
+    int64_t goid1;
+    app_pc mutex0;
+    app_pc mutex1;
+
+} deadlock_t;
+
 #define TLS_MEM_REF_BUFF_SIZE 100
 
 static int tls_idx;
@@ -82,7 +91,7 @@ static go_moduledata_t *go_firstmoduledata;
 
 static vector<mutex_ctxt_t> *mutex_ctxt_list;
 static unordered_map<int64_t, vector<pair<bool, context_handle_t>>> *lock_records;
-
+static unordered_map<int64_t, vector<pair<bool, app_pc>>> *test_lock_records;
 
 // client want to do
 void
@@ -92,8 +101,9 @@ CheckLockState(void *drcontext, int64_t cur_goid, context_handle_t cur_ctxt_hndl
     // DRCCTLIB_PRINTF("addr %p", ref->addr);
     for (size_t i = 0; i < (*mutex_ctxt_list).size(); i++) {
         if (addr == (*mutex_ctxt_list)[i].state_addr && cur_goid != (*mutex_ctxt_list)[i].cur_unlock_slow_goid) {
-            (*lock_records)[cur_goid].push_back(make_pair(1, (*mutex_ctxt_list)[i].create_context));
-            DRCCTLIB_PRINTF("GOID(%d) LOCK %d(%d)", cur_goid, (*mutex_ctxt_list)[i].create_context, ref->state);
+            (*lock_records)[cur_goid].emplace_back(1, (*mutex_ctxt_list)[i].create_context);
+            (*test_lock_records)[cur_goid].emplace_back(1, (*mutex_ctxt_list)[i].state_addr);
+            DRCCTLIB_PRINTF("GOID(%d) LOCK %p(%d)", cur_goid, (*mutex_ctxt_list)[i].state_addr, ref->state);
             break;
         }
     }
@@ -104,10 +114,11 @@ CheckUnlockState(void *drcontext, int64_t cur_goid, context_handle_t cur_ctxt_hn
 {
     app_pc addr = ref->addr;
     // DRCCTLIB_PRINTF("addr %p", ref->addr);
-    for (size_t i = 0; i < (*mutex_ctxt_list).size(); i++) {
+    for (size_t i = 0; i < mutex_ctxt_list->size(); i++) {
         if (addr == (*mutex_ctxt_list)[i].state_addr) {
-            (*lock_records)[cur_goid].push_back(make_pair(0, (*mutex_ctxt_list)[i].create_context));
-            DRCCTLIB_PRINTF("GOID(%d) Unlock %d(%d)", cur_goid, (*mutex_ctxt_list)[i].create_context, ref->state);
+            (*lock_records)[cur_goid].emplace_back(0, (*mutex_ctxt_list)[i].create_context);
+            (*test_lock_records)[cur_goid].emplace_back(0, (*mutex_ctxt_list)[i].state_addr);
+            DRCCTLIB_PRINTF("GOID(%d) Unlock %p(%d)", cur_goid, (*mutex_ctxt_list)[i].state_addr, ref->state);
             break;
         }
     }
@@ -121,8 +132,8 @@ InsertCleancall(int32_t slot, int32_t num, int32_t state)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
     int64_t cur_goid = 0;
-    if((*(pt->goid_list)).size() > 0) {
-        cur_goid = (*(pt->goid_list)).back();
+    if(pt->goid_list->size() > 0) {
+        cur_goid = pt->goid_list->back();
     }
     for (int i = 0; i < num; i++) {
         if (pt->cur_buf_list[i].addr != 0 && pt->cur_buf_list[i].state == 0) {
@@ -259,8 +270,8 @@ WrapBeforeRTExecute(void *wrapcxt, void **user_data)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     go_g_t* go_g_ptr = (go_g_t*)dgw_get_go_func_arg(wrapcxt, 0);
     context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
-    (*(pt->call_rt_exec_list)).push_back(cur_context);
-    (*(pt->goid_list)).push_back(go_g_ptr->goid);
+    pt->call_rt_exec_list->push_back(cur_context);
+    pt->goid_list->push_back(go_g_ptr->goid);
 
     vector<int64_t> ancestors;
     go_slice_t* ancestors_ptr = go_g_ptr->ancestors;
@@ -270,7 +281,7 @@ WrapBeforeRTExecute(void *wrapcxt, void **user_data)
             ancestors.push_back(ancestor_infor_array[i].goid);
         }
     }
-    (*(pt->go_ancestors_list)).push_back(ancestors);
+    pt->go_ancestors_list->push_back(ancestors);
 }
 
 static void
@@ -304,7 +315,7 @@ WrapEndRTNewObj(void *wrapcxt, void *user_data)
         go_sync_mutex_t* ret_ptr = (go_sync_mutex_t*)dgw_get_go_func_retaddr(wrapcxt, 1, 0);
         mutex_ctxt_t mutxt_ctxt = {(app_pc)(&(ret_ptr->state)), cur_context, (app_pc)(ret_ptr), -1};
         DRCCTLIB_PRINTF("mutxt_ctxt %p %p %d", ret_ptr, mutxt_ctxt.state_addr, mutxt_ctxt.create_context);
-        (*mutex_ctxt_list).push_back(mutxt_ctxt);
+        mutex_ctxt_list->push_back(mutxt_ctxt);
     } else {
         void* ret_ptr = NULL;
         uint64_t offset = 0;
@@ -323,7 +334,7 @@ WrapEndRTNewObj(void *wrapcxt, void *user_data)
                     go_sync_mutex_t* mutex_ptr = (go_sync_mutex_t*)((uint64_t)ret_ptr + offset);
                     mutex_ctxt_t mutxt_ctxt = {(app_pc)(&(mutex_ptr->state)), cur_context, (app_pc)(ret_ptr), -1};
                     DRCCTLIB_PRINTF("mutxt_ctxt %p %p %d", ret_ptr, mutxt_ctxt.state_addr, mutxt_ctxt.create_context);
-                    (*mutex_ctxt_list).push_back(mutxt_ctxt);
+                    mutex_ctxt_list->push_back(mutxt_ctxt);
                 }
             }
             offset += (uint64_t)field_type->size;
@@ -341,13 +352,13 @@ WrapBeforeSyncUnlockSlow(void *wrapcxt, void **user_data)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     void* mutex_ptr = (void*)dgw_get_go_func_arg(wrapcxt, 0);
     mutex_ctxt_t* unlock_slow_mutex_ctxt = NULL;
-    for (size_t i = 0; i < (*mutex_ctxt_list).size(); i++) {
+    for (size_t i = 0; i < mutex_ctxt_list->size(); i++) {
         if ((app_pc)mutex_ptr == (*mutex_ctxt_list)[i].state_addr) {
             unlock_slow_mutex_ctxt = &(*mutex_ctxt_list)[i];
             break;
         }
     }
-    unlock_slow_mutex_ctxt->cur_unlock_slow_goid = (*(pt->goid_list)).back();
+    unlock_slow_mutex_ctxt->cur_unlock_slow_goid = pt->goid_list->back();
     *user_data = (void*)(unlock_slow_mutex_ctxt);
 }
 
@@ -437,9 +448,9 @@ OnMoudleLoad(void *drcontext, const module_data_t *info,
                                     bool loaded)
 {
     const char *modname = dr_module_preferred_name(info);
-    for (std::vector<std::string>::iterator i = (*blacklist).begin();
-            i != (*blacklist).end(); ++i) {
-        if(strstr(modname, (*i).c_str())) {
+    for (std::vector<std::string>::iterator i = blacklist->begin();
+            i != blacklist->end(); ++i) {
+        if(strstr(modname, i->c_str())) {
             return;
         }
     }
@@ -466,7 +477,7 @@ PrintAllRTExec(per_thread_t *pt)
 {
     dr_mutex_lock(thread_sync_lock);
 
-    for (uint64_t i = 0; i < (*(pt->goid_list)).size(); i++) {
+    for (uint64_t i = 0; i < pt->goid_list->size(); i++) {
         context_handle_t exec_ctxt = (*(pt->call_rt_exec_list))[i];
         dr_fprintf(gTraceFile, "\nthread(%ld) runtime.execute to test_goid(%d)", pt->thread_id, (*(pt->goid_list))[i]);    
         drcctlib_print_ctxt_hndl_msg(gTraceFile, exec_ctxt, false, false);
@@ -539,9 +550,9 @@ InterestInstrFilter(instr_t *instr)
 static void
 InitMoudlesBlacklist()
 {
-    (*blacklist).push_back("libdrcctlib_goroutines.so");
-    (*blacklist).push_back("libdynamorio.so");
-    (*blacklist).push_back("linux-vdso.so");
+    blacklist->push_back("libdrcctlib_goroutines.so");
+    blacklist->push_back("libdynamorio.so");
+    blacklist->push_back("linux-vdso.so");
 }
 
 static void
@@ -550,6 +561,7 @@ InitBuffer()
     blacklist = new std::vector<std::string>();
     mutex_ctxt_list = new vector<mutex_ctxt_t>();
     lock_records = new unordered_map<int64_t, vector<pair<bool, context_handle_t>>>();
+    test_lock_records = new unordered_map<int64_t, vector<pair<bool, app_pc>>>();
 }
 
 static void
@@ -558,12 +570,100 @@ FreeBuffer()
     delete blacklist;
     delete mutex_ctxt_list;
     delete lock_records;
+    delete test_lock_records;
+}
+
+static void
+DetectDeadlock()
+{
+
+    vector<deadlock_t> deadlock_list;
+    unordered_set<int64_t> finished_set;
+    unordered_map<int64_t, unordered_multimap<app_pc, unordered_set<app_pc>>> lock_sequences;
+    struct lock_pair {
+        app_pc m1;
+        app_pc m2;
+
+        bool operator==(const lock_pair &l) const
+        {
+            return m1 == l.m1 && m2 == l.m2;
+        }
+    };
+    struct hash_func
+    {
+        size_t operator() (const lock_pair &l) const
+        {
+            size_t h1 = hash<app_pc>()(l.m1);
+            size_t h2 = hash<app_pc>()(l.m2);
+            return h1 ^ h2;
+        }
+    };
+    unordered_map<lock_pair, unordered_set<int64_t>, hash_func> lock_pair_goid_map;
+    // create other mutex lock sequences after a mutex lock
+    for (auto it = test_lock_records->begin(); it != test_lock_records->end(); it++) {
+        unordered_map<app_pc, unordered_set<app_pc>> active_sets;
+        unordered_set<app_pc> active_mutexes;
+        for (const auto &record : it->second) {
+            if (record.first) {
+                // if it is a lock, add it into other active mutexes' sets and make the mutex active
+                for (app_pc mutex : active_mutexes) {
+                    if (record.second != mutex) {
+                        active_sets[mutex].insert(record.second);
+                        lock_pair temp = {mutex < record.second ? mutex : record.second, 
+                                          mutex > record.second ? mutex : record.second};
+                        lock_pair_goid_map[temp].insert(it->first);
+                    }
+                }
+                active_mutexes.insert(record.second);
+            } else {
+                // if it is an unlock, add the mutex's sets to lock_sequences and make the mutex inactive
+                if (!active_sets[record.second].empty()) {
+                    lock_sequences[it->first].emplace(record.second, active_sets[record.second]);
+                }
+                active_sets.erase(record.second);
+                active_mutexes.erase(record.second);
+            }
+        }
+    }
+
+    // detect deadlocks based on the lock_sequences map
+    for (const auto &goid_based_seq : lock_sequences) {
+        for (const auto &mutex_based_seq: goid_based_seq.second) {
+            for (const auto &m : mutex_based_seq.second) {
+                lock_pair temp = {mutex_based_seq.first < m ? mutex_based_seq.first : m, 
+                                  mutex_based_seq.first > m ? mutex_based_seq.first : m};
+                for (auto it = lock_pair_goid_map[temp].begin(); it != lock_pair_goid_map[temp].end(); it++) {
+                    if (*it != goid_based_seq.first && 
+                        finished_set.find(*it) == finished_set.end()) {
+                        
+                        auto search = lock_sequences[*it].find(m);
+                        for (; search != lock_sequences[*it].end(); search++) {
+                            if (search->second.find(mutex_based_seq.first) != 
+                                search->second.end()) {
+                                
+                                deadlock_t deadlock = {goid_based_seq.first, *it, 
+                                                       mutex_based_seq.first, m};
+                                deadlock_list.push_back(deadlock);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        finished_set.insert(goid_based_seq.first);
+    }
+    
+    dr_fprintf(gTraceFile, "Deadlocks:\n");
+    for (auto deadlock : deadlock_list) {
+        dr_fprintf(gTraceFile, "goid: %ld, mutex: %p, and goid: %ld, mutex: %p\n", 
+                   deadlock.goid0, deadlock.mutex0, deadlock.goid1, deadlock.mutex1);
+    }
 }
 
 static void
 PorcessEndPrint()
 {
-    for (auto it = (*lock_records).begin(); it != (*lock_records).end(); it++) {
+    for (auto it = lock_records->begin(); it != lock_records->end(); it++) {
         dr_fprintf(gTraceFile, "goid %ld: \n", it->first);
         for (uint64_t i = 0; i < it->second.size(); i++) {
             if (it->second[i].first) {
@@ -574,6 +674,21 @@ PorcessEndPrint()
         }
         dr_fprintf(gTraceFile, "\n");
     }
+
+    for (auto it = test_lock_records->begin(); it != test_lock_records->end(); it++) {
+        dr_fprintf(gTraceFile, "goid %ld: \n", it->first);
+        for (uint64_t i = 0; i < it->second.size(); i++) {
+            if (it->second[i].first) {
+                dr_fprintf(gTraceFile, "Lock %p\n", it->second[i].second);
+            } else {
+                dr_fprintf(gTraceFile, "Unlock %p\n", it->second[i].second);
+            }
+        }
+        dr_fprintf(gTraceFile, "\n");
+    }
+
+    DetectDeadlock();
+    
 }
 
 static void
