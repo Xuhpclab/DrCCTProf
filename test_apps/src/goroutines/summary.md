@@ -6,7 +6,7 @@ There are several types of possible deadlock.
    goid 1: l1 l2 u2 u1
    goid 2: l2 l1 u1 u2
    ```
-   l means lock and u means unlock. The client is able to detect this kind of deadlock.  
+   The l means lock and u means unlock. The client is able to detect this kind of deadlock.  
    (2) Multiple goroutines:
    The more general situation is that there is a circular-wait condition  between several goroutines. For example:
    ```
@@ -69,5 +69,5 @@ There are several types of possible deadlock.
    ```
    fatal error: all goroutines are asleep - deadlock!
    ```
-   , print stack information, and exit. But if this bug happens in other goroutines and it doesnt't block the main goroutine, the program will exit after the main goroutines ends and won't output any information. We need to trace other goroutines' execution to see if they are blocked after consecutive locks to detect such kind of bug.  
+   , print stack information, and exit. But if this bug happens in other goroutines and it doesn't block the main goroutine, the program will exit after the main goroutine ends and won't output any information. We need to trace other goroutines' execution to see if they are blocked after consecutive locks to detect such kind of bug.  
    
