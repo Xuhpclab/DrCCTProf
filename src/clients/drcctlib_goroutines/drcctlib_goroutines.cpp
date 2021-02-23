@@ -61,13 +61,13 @@ typedef struct _per_thread_t {
     vector<vector<int64_t>>* go_ancestors_list;
 } per_thread_t;
 
-typedef struct _deadlock_t {
-    int64_t goid0;
-    int64_t goid1;
-    app_pc mutex0;
+struct deadlock_t {
+    int64_t goid;
     app_pc mutex1;
+    app_pc mutex2;
 
-} deadlock_t;
+    deadlock_t(int64_t g, app_pc m1, app_pc m2): goid(g), mutex1(m1), mutex2(m2) { }
+};
 
 #define TLS_MEM_REF_BUFF_SIZE 100
 
@@ -577,7 +577,7 @@ static void
 DetectDeadlock()
 {
 
-    vector<deadlock_t> deadlock_list;
+    vector<vector<deadlock_t>> deadlock_list;
     unordered_set<int64_t> finished_set;
     unordered_map<int64_t, unordered_multimap<app_pc, unordered_set<app_pc>>> lock_sequences;
     struct lock_pair {
@@ -591,10 +591,10 @@ DetectDeadlock()
     };
     struct hash_func
     {
-        size_t operator() (const lock_pair &l) const
+        size_t operator() (const lock_pair &rhs) const
         {
-            size_t h1 = hash<app_pc>()(l.m1);
-            size_t h2 = hash<app_pc>()(l.m2);
+            size_t h1 = hash<app_pc>()(rhs.m1);
+            size_t h2 = hash<app_pc>()(rhs.m2);
             return h1 ^ h2;
         }
     };
@@ -626,9 +626,9 @@ DetectDeadlock()
         }
     }
 
-    // detect deadlocks based on the lock_sequences map
+    // detect deadlocks based on the lock_sequences map (two mutexes)
     for (const auto &goid_based_seq : lock_sequences) {
-        for (const auto &mutex_based_seq: goid_based_seq.second) {
+        for (const auto &mutex_based_seq : goid_based_seq.second) {
             for (const auto &m : mutex_based_seq.second) {
                 lock_pair temp = {mutex_based_seq.first < m ? mutex_based_seq.first : m, 
                                   mutex_based_seq.first > m ? mutex_based_seq.first : m};
@@ -636,14 +636,16 @@ DetectDeadlock()
                     if (*it != goid_based_seq.first && 
                         finished_set.find(*it) == finished_set.end()) {
                         
-                        auto search = lock_sequences[*it].find(m);
-                        for (; search != lock_sequences[*it].end(); search++) {
+                        for (auto search = lock_sequences[*it].find(m);
+                             search != lock_sequences[*it].end(); search++) {
+                        
                             if (search->second.find(mutex_based_seq.first) != 
                                 search->second.end()) {
                                 
-                                deadlock_t deadlock = {goid_based_seq.first, *it, 
-                                                       mutex_based_seq.first, m};
-                                deadlock_list.push_back(deadlock);
+                                vector<deadlock_t> current_deadlock_group;
+                                current_deadlock_group.push_back({goid_based_seq.first, mutex_based_seq.first, m});
+                                current_deadlock_group.push_back({*it, m, mutex_based_seq.first});
+                                deadlock_list.push_back(current_deadlock_group);
                             }
                         }
                     }
@@ -652,11 +654,74 @@ DetectDeadlock()
         }
         finished_set.insert(goid_based_seq.first);
     }
+    finished_set.clear();
+
+    //multiple mutexes
+    for (const auto &goid_based_seq : lock_sequences) {
+        for (const auto &mutex_based_seq : goid_based_seq.second) {
+            for (const auto &m : mutex_based_seq.second) {
+                vector<deadlock_t> current_deadlock_group;
+                current_deadlock_group.push_back({goid_based_seq.first, mutex_based_seq.first, m});
+                finished_set.insert(goid_based_seq.first);
+
+                app_pc mutex_target = mutex_based_seq.first;
+                bool has_deadlock = false;
+                bool has_mutex_target = false;
+                for (size_t i = 0; i < lock_sequences.size(); ++i) {
+                    for (const auto &sub_goid_based_seq : lock_sequences) {
+                        if (finished_set.find(sub_goid_based_seq.first) == finished_set.end()) {
+                            for (const auto &sub_mutex_based_seq : sub_goid_based_seq.second) {
+                                if (sub_mutex_based_seq.first != mutex_target) {
+                                    // target mutex found
+                                    if (sub_mutex_based_seq.second.find(mutex_target) != 
+                                        sub_mutex_based_seq.second.end()) {
+                                        
+                                        finished_set.insert(sub_goid_based_seq.first);
+                                        current_deadlock_group.push_back({sub_goid_based_seq.first, 
+                                                                          sub_mutex_based_seq.first, 
+                                                                          mutex_target});
+                                        // has circular waiting or not
+                                        if (sub_mutex_based_seq.first == m) {
+                                            has_deadlock = true;
+                                        } else {
+                                            mutex_target = sub_mutex_based_seq.first;
+                                            has_mutex_target = true;
+                                        }
+                                    }
+                                }
+                                if (has_mutex_target || has_deadlock) {
+                                    break;
+                                }
+                            }
+                        }
+                        if (has_mutex_target || has_deadlock) {
+                            break;
+                        }
+                    }
+                    if (has_deadlock) {
+                        break;
+                    } else if (!has_mutex_target) {
+                        break;
+                    }
+                    has_mutex_target = false;
+                }
+                if (has_deadlock) {
+                    deadlock_list.push_back(current_deadlock_group);
+                    has_deadlock = false;
+                }
+                finished_set.clear();
+            }
+        }
+    }
     
     dr_fprintf(gTraceFile, "Deadlocks:\n");
-    for (auto deadlock : deadlock_list) {
-        dr_fprintf(gTraceFile, "goid: %ld, mutex: %p, and goid: %ld, mutex: %p\n", 
-                   deadlock.goid0, deadlock.mutex0, deadlock.goid1, deadlock.mutex1);
+    for (const auto &deadlock_group : deadlock_list) {
+        dr_fprintf(gTraceFile, "deadlock: \n");
+        for (const auto &deadlock : deadlock_group) {
+            dr_fprintf(gTraceFile, "          goid: %ld, mutex: %p, mutex: %p\n", 
+                       deadlock.goid, deadlock.mutex1, deadlock.mutex2);
+        }
+        dr_fprintf(gTraceFile, "\n");
     }
 }
 
