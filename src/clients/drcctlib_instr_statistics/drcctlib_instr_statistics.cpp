@@ -133,19 +133,12 @@ ClientExit(void)
         if (output_list[i].handle == 0) {
             break;
         }
-        // dr_fprintf(gTraceFile, "NO. %d ins call number %lld ctxt handle %lld==== \n",
-        // i+1, output_list[i].count, output_list[i].handle);
-        dr_fprintf(gTraceFile, "NO. %d ins call number %lld ctxt handle %lld====", i + 1,
-                   output_list[i].count, output_list[i].handle);
-        drcctlib_print_ctxt_hndl_msg(gTraceFile, output_list[i].handle, false, false);
-        dr_fprintf(gTraceFile,
-                   "====================================================================="
-                   "===========\n");
-        drcctlib_print_full_cct(gTraceFile, output_list[i].handle, true, false,
-                                MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile,
-                   "====================================================================="
-                   "===========\n\n\n");
+        dr_fprintf(gTraceFile, "NO. %d PC ", i + 1);
+        drcctlib_print_backtrace_first_item(gTraceFile, output_list[i].handle, true, false);
+        dr_fprintf(gTraceFile, "=>EXECUTION TIMES\n%lld\n=>BACKTRACE\n",
+                   output_list[i].count);
+        drcctlib_print_backtrace(gTraceFile, output_list[i].handle, false, true, -1);
+        dr_fprintf(gTraceFile, "\n\n\n");
     }
     dr_global_free(output_list, TOP_REACH_NUM_SHOW * sizeof(output_format_t));
     FreeGlobalBuff();

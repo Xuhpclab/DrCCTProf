@@ -2668,14 +2668,14 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
             ctxt = ctxt_create(ctxt_hndl, sym.line, addr);
         }
         sprintf(ctxt->func_name, "%s", sym.name);
-        sprintf(ctxt->file_path, "%s", sym.file);
+        sprintf(ctxt->file_path, "%s/../%s", data->full_path, sym.file);
         sprintf(ctxt->code_asm, "%s", code);
         dr_free_module_data(data);
         return ctxt;
     } else {
         ctxt = ctxt_create(ctxt_hndl, 0, addr);
         sprintf(ctxt->func_name, "<noname>");
-        sprintf(ctxt->file_path, "%s", sym.file);
+        sprintf(ctxt->file_path, "%s/../%s", data->full_path, sym.file);
         sprintf(ctxt->code_asm, "%s", code);
         
     }
@@ -3076,40 +3076,37 @@ drcctlib_free_full_cct(context_t * contxt_list)
 
 DR_EXPORT
 void
-drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print_asm,
-                             bool print_file_path)
+drcctlib_print_backtrace_first_item(file_t file, context_handle_t ctxt_hndl, bool print_asm,
+                              bool print_source_line)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
-        DRCCTLIB_EXIT_PROCESS("drcctlib_print_ctxt_hndl_msg: !ctxt_hndl_is_valid");
+        DRCCTLIB_EXIT_PROCESS("drcctlib_print_backtrace_first_item: !ctxt_hndl_is_valid");
     }
 
     if (file == INVALID_FILE) {
         file = global_log_file;
     }
     context_t *ctxt = ctxt_get_from_ctxt_hndl(ctxt_hndl);
-    if (print_asm && print_file_path) {
-        dr_fprintf(file, "%s(%d):\"(%p)%s\"[%s]\n", ctxt->func_name, ctxt->line_no,
-                   (uint64_t)ctxt->ip, ctxt->code_asm, ctxt->file_path);
-    } else if (print_asm) {
-        dr_fprintf(file, "%s(%d):\"(%p)%s\"\n", ctxt->func_name, ctxt->line_no,
-                   (uint64_t)ctxt->ip, ctxt->code_asm);
-    } else if (print_file_path) {
-        dr_fprintf(file, "%s(%d):\"(%p)\"[%s]\n", ctxt->func_name, ctxt->line_no,
-                   (uint64_t)ctxt->ip, ctxt->file_path);
-    } else {
-        dr_fprintf(file, "%s(%d):\"(%p)\"\n", ctxt->func_name, ctxt->line_no,
-                   (uint64_t)ctxt->ip);
+
+    dr_fprintf(file, "%p", (uint64_t)ctxt->ip);
+    if (print_asm) {
+        dr_fprintf(file, " \"%s\"", ctxt->code_asm);
     }
+    if (print_source_line) {
+        dr_fprintf(file, " in %s at [%s:%d]", ctxt->func_name, ctxt->file_path,
+                   ctxt->line_no);
+    }
+    dr_fprintf(file, "\n");
     ctxt_free(ctxt);
 }
 
 DR_EXPORT
 void
-drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm,
-                        bool print_file_path, int max_depth)
+drcctlib_print_backtrace(file_t file, context_handle_t ctxt_hndl, bool print_asm,
+                        bool print_source_line, int max_depth)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
-        DRCCTLIB_EXIT_PROCESS("drcctlib_print_full_cct: !ctxt_hndl_is_valid");
+        DRCCTLIB_EXIT_PROCESS("drcctlib_print_backtrace: !ctxt_hndl_is_valid");
     }
     bool print_all = false;
     if (max_depth < 0) {
@@ -3119,8 +3116,8 @@ drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm,
         file = global_log_file;
     }
     context_handle_t cur_ctxt_hndl = ctxt_hndl;
-    drcctlib_print_ctxt_hndl_msg(file, cur_ctxt_hndl, print_asm, print_file_path);
-
+    dr_fprintf(file, "#0   ");
+    drcctlib_print_backtrace_first_item(file, cur_ctxt_hndl, print_asm, print_source_line);
     int depth = 0;
     while (true) {
         if (cur_ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
@@ -3131,9 +3128,37 @@ drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm,
             break;
         }
         cur_ctxt_hndl = bb_node_caller_ctxt_hndl(ctxt_hndl_parent_bb_node(cur_ctxt_hndl));
-        drcctlib_print_ctxt_hndl_msg(file, cur_ctxt_hndl, print_asm, print_file_path);
-        depth++;
+        depth++; 
+        if(depth < 10){
+            dr_fprintf(file, "#%d   ", depth);
+        } else if(depth < 100) {
+            dr_fprintf(file, "#%d  ", depth);
+        } else {
+            dr_fprintf(file, "#%d ", depth);
+        }
+        drcctlib_print_backtrace_first_item(file, cur_ctxt_hndl, print_asm, print_source_line);
     }
+}
+
+DR_EXPORT
+void
+drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print_asm,
+                             bool print_source_line)
+{
+    DRCCTLIB_PRINTF("drcctlib_print_ctxt_hndl_msg() is deprecated, "
+                    "drcctlib_print_backtrace_first_item() "
+                    "should be used instead.");
+    drcctlib_print_backtrace_first_item(file, ctxt_hndl, print_asm, print_source_line);
+}
+
+DR_EXPORT
+void
+drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm,
+                        bool print_source_line, int max_depth)
+{
+    DRCCTLIB_PRINTF("drcctlib_print_full_cct() is deprecated, drcctlib_print_backtrace() "
+                    "should be used instead.");
+    drcctlib_print_backtrace(file, ctxt_hndl, print_asm, print_source_line, max_depth);
 }
 
 DR_EXPORT

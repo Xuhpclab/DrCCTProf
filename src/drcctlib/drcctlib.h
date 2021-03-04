@@ -97,6 +97,7 @@ typedef struct _context_t {
     struct _context_t *pre_ctxt;
 } context_t;
 
+DR_EXPORT
 /**
  * Initialize DrCCTLib with
  * an instruction filter,
@@ -129,7 +130,6 @@ typedef struct _context_t {
  * May be null.
  * @flag the flag telling DRCCTLib how to operate.
  */
-DR_EXPORT
 bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
                  void (*func1)(void *, instr_instrument_msg_t *),
@@ -196,13 +196,31 @@ drcctlib_free_full_cct(context_t *contxt_list);
 
 DR_EXPORT
 void
-drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print_asm,
-                             bool print_file_path);
+drcctlib_print_backtrace_first_item(file_t file, context_handle_t ctxt_hndl, bool print_asm,
+                              bool print_source_line);
 
 DR_EXPORT
 void
+drcctlib_print_backtrace(file_t file, context_handle_t ctxt_hndl, bool print_asm,
+                        bool print_source_line, int max_depth);
+
+DR_EXPORT
+/**
+ * Legacy, deprecated backtrace first item print routine.
+ * \deprecated drcctlib_print_backtrace_item() should be used instead.
+ */
+void
+drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print_asm,
+                             bool print_source_line);
+
+DR_EXPORT
+/**
+ * Legacy, deprecated backtrace list print routine.
+ * \deprecated drcctlib_print_backtrace() should be used instead.
+ */
+void
 drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm,
-                        bool print_file_path, int max_depth);
+                        bool print_source_line, int max_depth);
 
 DR_EXPORT
 app_pc
