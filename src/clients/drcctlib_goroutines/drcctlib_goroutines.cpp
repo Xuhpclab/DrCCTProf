@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <queue>
 
 #include "dr_api.h"
 #include "drmgr.h"
@@ -61,12 +62,44 @@ typedef struct _per_thread_t {
     vector<vector<int64_t>>* go_ancestors_list;
 } per_thread_t;
 
+struct lock_record_t {
+    bool op;
+    app_pc mutex_addr;
+    context_handle_t ctxt;
+
+    lock_record_t(bool o, app_pc addr, context_handle_t c): op(o), mutex_addr(addr), ctxt(c) { }
+};
+
+struct chan_op_record_t {
+    int64_t goid;
+    int op;
+    app_pc chan_addr;
+    context_handle_t ctxt;
+
+    chan_op_record_t(int64_t g, int o, app_pc addr, context_handle_t c): goid(g), op(o), chan_addr(addr), ctxt(c) { }
+};
+
 struct deadlock_t {
     int64_t goid;
     app_pc mutex1;
     app_pc mutex2;
 
     deadlock_t(int64_t g, app_pc m1, app_pc m2): goid(g), mutex1(m1), mutex2(m2) { }
+};
+
+struct chan_deadlock_t {
+    int64_t goid;
+    app_pc chan;
+    app_pc mutex;
+
+    chan_deadlock_t(int64_t g, app_pc c, app_pc m): goid(g), chan(c), mutex(m) { }
+};
+
+struct blocked_channel_t {
+    app_pc chan_addr;
+    context_handle_t ctxt;
+
+    blocked_channel_t(app_pc addr, context_handle_t c): chan_addr(addr), ctxt(c) { }
 };
 
 #define TLS_MEM_REF_BUFF_SIZE 100
@@ -91,7 +124,9 @@ static go_moduledata_t *go_firstmoduledata;
 
 static vector<mutex_ctxt_t> *mutex_ctxt_list;
 static unordered_map<int64_t, vector<pair<bool, context_handle_t>>> *lock_records;
-static unordered_map<int64_t, vector<pair<bool, app_pc>>> *test_lock_records;
+static unordered_map<int64_t, vector<lock_record_t>> *test_lock_records;
+static unordered_map<int64_t, vector<chan_op_record_t>> *chan_op_records;
+static unordered_map<app_pc, vector<chan_op_record_t>> *op_records_per_chan;
 
 // client want to do
 void
@@ -102,8 +137,9 @@ CheckLockState(void *drcontext, int64_t cur_goid, context_handle_t cur_ctxt_hndl
     for (size_t i = 0; i < (*mutex_ctxt_list).size(); i++) {
         if (addr == (*mutex_ctxt_list)[i].state_addr && cur_goid != (*mutex_ctxt_list)[i].cur_unlock_slow_goid) {
             (*lock_records)[cur_goid].emplace_back(1, (*mutex_ctxt_list)[i].create_context);
-            (*test_lock_records)[cur_goid].emplace_back(1, (*mutex_ctxt_list)[i].state_addr);
-            DRCCTLIB_PRINTF("GOID(%d) LOCK %p(%d)", cur_goid, (*mutex_ctxt_list)[i].state_addr, ref->state);
+            context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
+            (*test_lock_records)[cur_goid].emplace_back(1, (*mutex_ctxt_list)[i].state_addr, cur_context);
+            DRCCTLIB_PRINTF("GOID(%d) LOCK %p(%d), context: %d", cur_goid, (*mutex_ctxt_list)[i].state_addr, ref->state, cur_context);
             break;
         }
     }
@@ -117,8 +153,9 @@ CheckUnlockState(void *drcontext, int64_t cur_goid, context_handle_t cur_ctxt_hn
     for (size_t i = 0; i < mutex_ctxt_list->size(); i++) {
         if (addr == (*mutex_ctxt_list)[i].state_addr) {
             (*lock_records)[cur_goid].emplace_back(0, (*mutex_ctxt_list)[i].create_context);
-            (*test_lock_records)[cur_goid].emplace_back(0, (*mutex_ctxt_list)[i].state_addr);
-            DRCCTLIB_PRINTF("GOID(%d) Unlock %p(%d)", cur_goid, (*mutex_ctxt_list)[i].state_addr, ref->state);
+            context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
+            (*test_lock_records)[cur_goid].emplace_back(0, (*mutex_ctxt_list)[i].state_addr, cur_context);
+            DRCCTLIB_PRINTF("GOID(%d) Unlock %p(%d), context: %d", cur_goid, (*mutex_ctxt_list)[i].state_addr, ref->state, cur_context);
             break;
         }
     }
@@ -371,6 +408,61 @@ WrapEndSyncUnlockSlow(void *wrapcxt, void *user_data)
     }
 }
 
+static void
+WrapEndRTMakechan(void *wrapcxt, void *user_data)
+{
+    void* drcontext = (void *)drwrap_get_drcontext(wrapcxt);
+    if(drcontext == NULL) {
+        drcontext = dr_get_current_drcontext();
+        if (drcontext == NULL) {
+            DRCCTLIB_EXIT_PROCESS("ERROR: WrapEndRTNewObj drcontext == NULL");
+        }
+    }
+    context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
+    go_hchan_t *chan_ptr = (go_hchan_t*) dgw_get_go_func_retaddr(wrapcxt, 2, 0);
+    string chan_type_str = cgo_get_type_name_string((go_type_t*) chan_ptr->elemtype, go_firstmoduledata);
+    DRCCTLIB_PRINTF("channel: %p, type: %s, size: %ld\n", chan_ptr, chan_type_str.c_str(), chan_ptr->dataqsiz);
+}
+
+static void
+WrapBeforeRTChansend(void *wrapcxt, void **user_data)
+{
+    go_hchan_t *chan_ptr = (go_hchan_t*) dgw_get_go_func_arg(wrapcxt, 0);
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    int64_t cur_goid = pt->goid_list->back();
+    context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
+    (*chan_op_records)[cur_goid].emplace_back(cur_goid, 1, (app_pc) chan_ptr, cur_context);
+    (*op_records_per_chan)[(app_pc) chan_ptr].emplace_back(cur_goid, 1, (app_pc) chan_ptr, cur_context);
+    DRCCTLIB_PRINTF("send to channel: %p, context: %ld\n", chan_ptr, cur_context);
+}
+
+static void
+WrapBeforeRTChanrecv(void *wrapcxt, void **user_data)
+{
+    go_hchan_t *chan_ptr = (go_hchan_t*) dgw_get_go_func_arg(wrapcxt, 0);
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    int64_t cur_goid = pt->goid_list->back();
+    context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
+    (*chan_op_records)[cur_goid].emplace_back(cur_goid, 2, (app_pc) chan_ptr, cur_context);
+    (*op_records_per_chan)[(app_pc) chan_ptr].emplace_back(cur_goid, 2, (app_pc) chan_ptr, cur_context);
+    DRCCTLIB_PRINTF("Receive from channel: %p, context: %ld\n", chan_ptr, cur_context);
+}
+
+static void
+WrapBeforeRTClosechan(void *wrapcxt, void **user_data)
+{
+    go_hchan_t *chan_ptr = (go_hchan_t*) dgw_get_go_func_arg(wrapcxt, 0);
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    int64_t cur_goid = pt->goid_list->back();
+    context_handle_t cur_context = drcctlib_get_context_handle(drcontext);
+    (*chan_op_records)[cur_goid].emplace_back(cur_goid, 0, (app_pc) chan_ptr, cur_context);
+    (*op_records_per_chan)[(app_pc) chan_ptr].emplace_back(cur_goid, 0, (app_pc) chan_ptr, cur_context);
+    DRCCTLIB_PRINTF("Close channel: %p, context: %ld\n", chan_ptr, cur_context);
+}
+
 static go_moduledata_t*
 GetGoFirstmoduledata(const module_data_t *info)
 {
@@ -469,6 +561,22 @@ OnMoudleLoad(void *drcontext, const module_data_t *info,
     if (func_entry != NULL) {
         drwrap_wrap(func_entry, WrapBeforeRTExecute, NULL);
     }
+    app_pc func_makechan_entry = moudle_get_function_entry(info, "runtime.makechan", true);
+    if (func_makechan_entry != NULL) {
+        drwrap_wrap(func_makechan_entry, NULL, WrapEndRTMakechan);
+    }
+    app_pc func_chansend_entry = moudle_get_function_entry(info, "runtime.chansend", true);
+    if (func_chansend_entry != NULL) {
+        drwrap_wrap(func_chansend_entry, WrapBeforeRTChansend, NULL);
+    }
+    app_pc func_chanrecv_entry = moudle_get_function_entry(info, "runtime.chanrecv", true);
+    if (func_chanrecv_entry != NULL) {
+        drwrap_wrap(func_chanrecv_entry, WrapBeforeRTChanrecv, NULL);
+    }
+    app_pc func_closechan_entry = moudle_get_function_entry(info, "runtime.closechan", true);
+    if (func_closechan_entry != NULL) {
+        drwrap_wrap(func_closechan_entry, WrapBeforeRTClosechan, NULL);
+    }
     // DRCCTLIB_PRINTF("finish module name %s", modname);
 }
 
@@ -561,7 +669,9 @@ InitBuffer()
     blacklist = new std::vector<std::string>();
     mutex_ctxt_list = new vector<mutex_ctxt_t>();
     lock_records = new unordered_map<int64_t, vector<pair<bool, context_handle_t>>>();
-    test_lock_records = new unordered_map<int64_t, vector<pair<bool, app_pc>>>();
+    test_lock_records = new unordered_map<int64_t, vector<lock_record_t>>();
+    chan_op_records = new unordered_map<int64_t, vector<chan_op_record_t>>();
+    op_records_per_chan = new unordered_map<app_pc, vector<chan_op_record_t>>();
 }
 
 static void
@@ -571,6 +681,8 @@ FreeBuffer()
     delete mutex_ctxt_list;
     delete lock_records;
     delete test_lock_records;
+    delete chan_op_records;
+    delete op_records_per_chan;
 }
 
 static void
@@ -604,24 +716,24 @@ DetectDeadlock()
         unordered_map<app_pc, unordered_set<app_pc>> active_sets;
         unordered_set<app_pc> active_mutexes;
         for (const auto &record : it->second) {
-            if (record.first) {
+            if (record.op) {
                 // if it is a lock, add it into other active mutexes' sets and make the mutex active
                 for (app_pc mutex : active_mutexes) {
-                    if (record.second != mutex) {
-                        active_sets[mutex].insert(record.second);
-                        lock_pair temp = {mutex < record.second ? mutex : record.second, 
-                                          mutex > record.second ? mutex : record.second};
+                    if (record.mutex_addr != mutex) {
+                        active_sets[mutex].insert(record.mutex_addr);
+                        lock_pair temp = {mutex < record.mutex_addr ? mutex : record.mutex_addr, 
+                                          mutex > record.mutex_addr ? mutex : record.mutex_addr};
                         lock_pair_goid_map[temp].insert(it->first);
                     }
                 }
-                active_mutexes.insert(record.second);
+                active_mutexes.insert(record.mutex_addr);
             } else {
                 // if it is an unlock, add the mutex's sets to lock_sequences and make the mutex inactive
-                if (!active_sets[record.second].empty()) {
-                    lock_sequences[it->first].emplace(record.second, active_sets[record.second]);
+                if (!active_sets[record.mutex_addr].empty()) {
+                    lock_sequences[it->first].emplace(record.mutex_addr, active_sets[record.mutex_addr]);
                 }
-                active_sets.erase(record.second);
-                active_mutexes.erase(record.second);
+                active_sets.erase(record.mutex_addr);
+                active_mutexes.erase(record.mutex_addr);
             }
         }
     }
@@ -713,15 +825,150 @@ DetectDeadlock()
             }
         }
     }
-    
-    dr_fprintf(gTraceFile, "Deadlocks:\n");
-    for (const auto &deadlock_group : deadlock_list) {
-        dr_fprintf(gTraceFile, "deadlock: \n");
-        for (const auto &deadlock : deadlock_group) {
-            dr_fprintf(gTraceFile, "          goid: %ld, mutex: %p, mutex: %p\n", 
-                       deadlock.goid, deadlock.mutex1, deadlock.mutex2);
+
+    // channel related deadlock
+    struct mutex_before_each_chan {
+        int op;
+        app_pc chan_addr;
+        unordered_set<app_pc> locked_mutex_set;
+        unordered_set<app_pc> unlocked_mutex_set;
+    };
+    unordered_map<int64_t, vector<mutex_before_each_chan>> mutex_before_chans;
+    vector<vector<chan_deadlock_t>> chan_deadlock_list;
+
+    // construct locked and unlocked mutex set before the channle operation
+    for (auto it = chan_op_records->begin(); it != chan_op_records->end(); ++it) {
+        for (const auto &chan_op_record : it->second) {
+            mutex_before_each_chan temp;
+            temp.op = chan_op_record.op;
+            temp.chan_addr = chan_op_record.chan_addr;
+            for (const auto &mutex_op : (*test_lock_records)[it->first]) {
+                if (mutex_op.ctxt >= chan_op_record.ctxt) {
+                    break;
+                }
+                if (mutex_op.op) {
+                    temp.locked_mutex_set.insert(mutex_op.mutex_addr);
+                    temp.unlocked_mutex_set.insert(mutex_op.mutex_addr);
+                } else {
+                    temp.locked_mutex_set.erase(mutex_op.mutex_addr);
+                }
+            }
+            mutex_before_chans[it->first].push_back(temp);
         }
-        dr_fprintf(gTraceFile, "\n");
+    }
+
+    // detect deadlock with channel
+    for (auto it1 = mutex_before_chans.begin(); it1 != mutex_before_chans.end(); ++it1) {
+        for (const auto &send_op : it1->second) {
+            if (send_op.op == 1) {
+                for (auto it2 = mutex_before_chans.begin(); it2 != mutex_before_chans.end(); ++it2) {
+                    if (it2->first != it1->first) {
+                        for (const auto &recv_op : it2->second) {
+                            if ((recv_op.op == 2) && (send_op.chan_addr == recv_op.chan_addr)) {
+                                for (const auto &locked_mutex : send_op.locked_mutex_set) {
+                                    if (recv_op.locked_mutex_set.find(locked_mutex) != recv_op.locked_mutex_set.end()) {
+                                        vector<chan_deadlock_t> cur_chan_deadlock;
+                                        cur_chan_deadlock.push_back({it1->first, send_op.chan_addr, locked_mutex});
+                                        cur_chan_deadlock.push_back({it2->first, send_op.chan_addr, locked_mutex});
+                                        chan_deadlock_list.push_back(cur_chan_deadlock);
+                                    }
+                                    if (recv_op.unlocked_mutex_set.find(locked_mutex) != recv_op.unlocked_mutex_set.end()) {
+                                        vector<chan_deadlock_t> cur_chan_deadlock;
+                                        cur_chan_deadlock.push_back({it1->first, send_op.chan_addr, locked_mutex});
+                                        cur_chan_deadlock.push_back({it2->first, send_op.chan_addr, locked_mutex});
+                                        chan_deadlock_list.push_back(cur_chan_deadlock);
+                                    }
+                                }
+                                for (const auto &unlocked_mutex : send_op.unlocked_mutex_set) {
+                                    if (recv_op.locked_mutex_set.find(unlocked_mutex) != recv_op.locked_mutex_set.end()) {
+                                        vector<chan_deadlock_t> cur_chan_deadlock;
+                                        cur_chan_deadlock.push_back({it1->first, send_op.chan_addr, unlocked_mutex});
+                                        cur_chan_deadlock.push_back({it2->first, send_op.chan_addr, unlocked_mutex});
+                                        chan_deadlock_list.push_back(cur_chan_deadlock);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //detect blocked channel
+    vector<chan_op_record_t> blocked_channel_list;
+    for (auto it = op_records_per_chan->begin(); it != op_records_per_chan->end(); ++it) {
+        std::queue<chan_op_record_t> sends;
+        std::queue<chan_op_record_t> recvs;
+        for (const auto &record : it->second) {
+            if (record.op == 1) {
+                if (recvs.empty()) {
+                    sends.push(record);
+                } else {
+                    recvs.pop();
+                }
+            } else if (record.op == 2) {
+                if (sends.empty()) {
+                    recvs.push(record);
+                } else {
+                    sends.pop();
+                }
+            } else {
+                while ( !(sends.empty() && recvs.empty()) ) {
+                    if (!sends.empty()) {
+                        sends.pop();
+                    }
+                    if (!recvs.empty()) {
+                        recvs.pop();
+                    }
+                }
+                break;
+            }
+        }
+        if (!sends.empty()) {
+            blocked_channel_list.push_back({sends.front().goid, sends.front().op, 
+                                            sends.front().chan_addr, sends.front().ctxt});
+        } else if (!recvs.empty()) {
+            blocked_channel_list.push_back({sends.front().goid, recvs.front().op, 
+                                            recvs.front().chan_addr, recvs.front().ctxt});
+        }
+    }
+    
+    if (!deadlock_list.empty()) {
+        dr_fprintf(gTraceFile, "Deadlocks:\n");
+        for (const auto &deadlock_group : deadlock_list) {
+            dr_fprintf(gTraceFile, "deadlock: \n");
+            for (const auto &deadlock : deadlock_group) {
+                dr_fprintf(gTraceFile, "          goid: %ld, mutex: %p, mutex: %p\n", 
+                        deadlock.goid, deadlock.mutex1, deadlock.mutex2);
+            }
+            dr_fprintf(gTraceFile, "\n");
+        }
+    }
+
+    if (!chan_deadlock_list.empty()) {
+        dr_fprintf(gTraceFile, "Channel related deadlocks:\n");
+        for (const auto &chan_deadlock_group : chan_deadlock_list) {
+            dr_fprintf(gTraceFile, "deadlock: \n");
+            for (const auto &deadlock : chan_deadlock_group) {
+                dr_fprintf(gTraceFile, "        goid: %ld, chan: %p, mutex: %p\n",
+                        deadlock.goid, deadlock.chan, deadlock.mutex);
+            }
+            dr_fprintf(gTraceFile, "\n");
+        }
+    }
+
+    if (!blocked_channel_list.empty()) {
+        dr_fprintf(gTraceFile, "Blocked channel:\n");
+        for (const auto &blocked_channel : blocked_channel_list) {
+            if (blocked_channel.op == 1) {
+                dr_fprintf(gTraceFile, "        goid: %ld, channel: %p, context: %d, operation: send to\n", 
+                        blocked_channel.goid, blocked_channel.chan_addr, blocked_channel.ctxt);
+            } else {
+                dr_fprintf(gTraceFile, "        goid: %ld, channel: %p, context: %d, operation: receive from\n", 
+                        blocked_channel.goid, blocked_channel.chan_addr, blocked_channel.ctxt);
+            }
+        }
     }
 }
 
@@ -743,10 +990,10 @@ PorcessEndPrint()
     for (auto it = test_lock_records->begin(); it != test_lock_records->end(); it++) {
         dr_fprintf(gTraceFile, "goid %ld: \n", it->first);
         for (uint64_t i = 0; i < it->second.size(); i++) {
-            if (it->second[i].first) {
-                dr_fprintf(gTraceFile, "Lock %p\n", it->second[i].second);
+            if (it->second[i].op) {
+                dr_fprintf(gTraceFile, "Lock %p\n", it->second[i].mutex_addr);
             } else {
-                dr_fprintf(gTraceFile, "Unlock %p\n", it->second[i].second);
+                dr_fprintf(gTraceFile, "Unlock %p\n", it->second[i].mutex_addr);
             }
         }
         dr_fprintf(gTraceFile, "\n");

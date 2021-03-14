@@ -245,7 +245,7 @@ typedef struct _go_gobuf_t {
     void* bp;
 } go_gobuf_t;
 
-typedef struct _go_g_t{
+typedef struct _go_g_t {
     // // Stack parameters.
 	// // stack describes the actual stack memory: [stack.lo, stack.hi).
 	// // stackguard0 is the stack pointer compared in the Go stack growth prologue.
@@ -373,6 +373,68 @@ typedef struct _go_g_t{
 	// gcAssistBytes int64
     int64_t gcAssistBytes;
 } go_g_t;
+
+typedef struct _go_sudog_t {
+	// The following fields are protected by the hchan.lock of the
+	// channel this sudog is blocking on. shrinkstack depends on
+	// this for sudogs involved in channel ops.
+
+	void* g; 
+
+	void* next;
+	void* prev;
+	void* elem; // data element (may point to stack)
+
+	// The following fields are never accessed concurrently.
+	// For channels, waitlink is only accessed by g.
+	// For semaphores, all fields (including the ones above)
+	// are only accessed when holding a semaRoot lock.
+
+	int64_t acquiretime;
+	int64_t releasetime;
+	uint32_t ticket;
+
+	// isSelect indicates g is participating in a select, so
+	// g.selectDone must be CAS'd to win the wake-up race.
+	bool isSelect;
+
+	void* parent; // semaRoot binary tree
+	void* waitlink; // g.waiting list or semaRoot
+	void* waittail; // semaRoot
+	void* c; // channel
+} go_sudog_t;
+
+typedef struct _go_waitq_t {
+	go_sudog_t* first;
+	go_sudog_t* last;
+} go_waitq_t;
+
+typedef struct _go_runtime_mutex_t {
+	int64_t rank;
+	int64_t pad;
+	void* key;
+} go_runtime_mutex_t;
+
+typedef struct _go_hchan_t {
+	int64_t qcount;           // total data in the queue
+	int64_t dataqsiz;           // size of the circular queue
+	void* buf; // points to an array of dataqsiz elements
+	uint16_t elemsize;
+	uint32_t closed;
+	void* elemtype; // element type
+	uint64_t sendx;   // send index
+	uint64_t recvx;   // receive index
+	go_waitq_t recvq;  // list of recv waiters
+	go_waitq_t sendq;  // list of send waiters
+
+	// lock protects all fields in hchan, as well as several
+	// fields in sudogs blocked on this channel.
+	//
+	// Do not change another G's status while holding this lock
+	// (in particular, do not ready a G), as this can deadlock
+	// with stack shrinking.
+	go_runtime_mutex_t lock;
+} go_hchan_t;
 
 
 
