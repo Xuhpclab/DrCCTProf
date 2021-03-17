@@ -162,6 +162,10 @@ drcctlib_get_context_handle(void *drcontext, int32_t slot);
 
 DR_EXPORT
 context_handle_t
+drcctlib_get_context_handle(void *drcontext);
+
+DR_EXPORT
+context_handle_t
 drcctlib_get_global_context_handle_num();
 
 // API for ctxt_hndl
