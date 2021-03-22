@@ -17,6 +17,7 @@
 #include <string>
 #include <algorithm> 
 #include <sys/stat.h>
+#include <limits.h>
 
 #define DRCCTLIB_PRINTF(_FORMAT, _ARGS...) \
     DRCCTLIB_PRINTF_TEMPLATE("numa_client", _FORMAT, ##_ARGS)
@@ -31,7 +32,15 @@ using namespace std;
 typedef struct _numa_metric_t {
   uint64_t local_access;
   uint64_t remote_access;
+  uint64_t min;
+  uint64_t max;
 } numa_metric_t;
+
+typedef struct _global_numa_metric_t {
+  uint64_t local_access;
+  uint64_t remote_access;
+  vector<pair<uint64_t, uint64_t>> pattern;
+} global_numa_metric_t;
 
 typedef struct _per_thread_t {
     uint64_t sample_idx;
@@ -40,7 +49,7 @@ typedef struct _per_thread_t {
 
 static std::string g_folder_name;
 static int tls_idx;
-static map<context_handle_t, numa_metric_t> global_numa_map;
+static map<context_handle_t, global_numa_metric_t> global_numa_map;
 void *lock;
 file_t output_file;
 
@@ -59,7 +68,7 @@ DoWhatClientWantTodo(void *drcontext, per_thread_t *pt, context_handle_t cur_ctx
 
     map<context_handle_t, numa_metric_t>::iterator it = pt->tls_numa_map->find(data_ctxt_hndl);
     if (it == pt->tls_numa_map->end()) {
-      numa_metric_t metric = {0, 0};
+      numa_metric_t metric = {0, 0, ULONG_MAX, 0};
       pt->tls_numa_map->insert(std::pair<context_handle_t,numa_metric_t>(data_ctxt_hndl,metric));
     }
 
@@ -72,6 +81,10 @@ DoWhatClientWantTodo(void *drcontext, per_thread_t *pt, context_handle_t cur_ctx
       else {
         (*(pt->tls_numa_map))[data_ctxt_hndl].remote_access++;
       }
+      if ((*(pt->tls_numa_map))[data_ctxt_hndl].min > (uint64_t)addr)
+        (*(pt->tls_numa_map))[data_ctxt_hndl].min = (uint64_t)addr;
+      if ((*(pt->tls_numa_map))[data_ctxt_hndl].max < (uint64_t)addr)
+        (*(pt->tls_numa_map))[data_ctxt_hndl].max = (uint64_t)addr;
     }
 }
 
@@ -131,16 +144,17 @@ ClientThreadEnd(void *drcontext)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
     // merge all local maps to the global map
-    global_numa_map.clear();
     dr_mutex_lock(lock);
     for (map<context_handle_t,numa_metric_t>::iterator it= (*(pt->tls_numa_map)).begin(); it!= (*(pt->tls_numa_map)).end(); ++it) {
       if (global_numa_map.find(it->first) == global_numa_map.end()) {
-        global_numa_map[it->first] = it->second;
+        global_numa_map[it->first].local_access = it->second.local_access;
+        global_numa_map[it->first].remote_access = it->second.remote_access;
       }
       else {
         global_numa_map[it->first].local_access += it->second.local_access;
         global_numa_map[it->first].remote_access += it->second.remote_access;
       }
+      global_numa_map[it->first].pattern.push_back(make_pair(it->second.min, it->second.max));
     }
     dr_mutex_unlock(lock);
 
@@ -160,11 +174,12 @@ ClientInit(int argc, const char *argv[])
     OutputFileInit();
 
     lock = dr_mutex_create();
+    global_numa_map.clear();
 }
 
 bool
-comp(const pair<context_handle_t,numa_metric_t> &t1, 
-        const pair<context_handle_t,numa_metric_t> &t2)
+comp(const pair<context_handle_t,global_numa_metric_t> &t1, 
+        const pair<context_handle_t,global_numa_metric_t> &t2)
 {
   return (t1.second.remote_access > t2.second.remote_access);
 }
@@ -172,8 +187,8 @@ comp(const pair<context_handle_t,numa_metric_t> &t1,
 static void
 print_result ()
 {
-  vector<pair<context_handle_t,numa_metric_t>> vec;
-  for (map<context_handle_t,numa_metric_t>::iterator it= global_numa_map.begin(); it!= global_numa_map.end(); ++it) {
+  vector<pair<context_handle_t,global_numa_metric_t>> vec;
+  for (map<context_handle_t,global_numa_metric_t>::iterator it= global_numa_map.begin(); it!= global_numa_map.end(); ++it) {
     if (it->second.remote_access > 0) vec.push_back(*it);
   }
   // sort the vector
@@ -194,6 +209,11 @@ print_result ()
             dr_fprintf(output_file, "STATIC_OBJECT %s\n",
                        drcctlib_get_str_from_strpool(-vec[i].first));
     }   
+    dr_fprintf(output_file, "------pattern------\n");
+    for (uint j = 0; j < vec[i].second.pattern.size(); j++) {
+      dr_fprintf(output_file, "%lu-[0x%llx, 0x%llx] ", j, vec[i].second.pattern[j].first, vec[i].second.pattern[j].second);
+    }
+    dr_fprintf(output_file, "\n");
   }
   dr_close_file(output_file);
 }
