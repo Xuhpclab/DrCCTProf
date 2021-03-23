@@ -64,7 +64,7 @@ DoWhatClientWantTodo(void *drcontext, per_thread_t *pt, context_handle_t cur_ctx
         data_ctxt_hndl = data_hndl.path_handle;
     } else if (data_hndl.object_type == STATIC_OBJECT) {
         data_ctxt_hndl = -data_hndl.sym_name; // a negative value
-    }
+    } 
 
     map<context_handle_t, numa_metric_t>::iterator it = pt->tls_numa_map->find(data_ctxt_hndl);
     if (it == pt->tls_numa_map->end()) {
@@ -101,17 +101,16 @@ InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_n
     }
    
     int numa_access_node = 0;
-    if (syscall(SYS_getcpu, NULL, &numa_access_node, NULL) == 0) {
-      for (int32_t i = 0; i < mem_ref_num; i++) {
-        if (mem_ref_start[i].slot >= slot_num) {
-            break;
-        }
-        pt->sample_idx ++;
-        if (pt->sample_idx == SAMPLE_PERIOD) {
-          DoWhatClientWantTodo(drcontext, pt, ctxt_hndl + mem_ref_start[i].slot,
+    syscall(SYS_getcpu, NULL, &numa_access_node, NULL);
+    for (int32_t i = 0; i < mem_ref_num; i++) {
+      if (mem_ref_start[i].slot >= slot_num) {
+          break;
+      }
+      pt->sample_idx ++;
+      if (pt->sample_idx >= SAMPLE_PERIOD) {
+        DoWhatClientWantTodo(drcontext, pt, ctxt_hndl + mem_ref_start[i].slot,
                              mem_ref_start[i].addr, numa_access_node);
-          pt->sample_idx = 0;
-        }
+        pt->sample_idx = 0;
       }
     }
 }

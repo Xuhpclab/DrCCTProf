@@ -2340,6 +2340,9 @@ datacentric_static_alloc(const module_data_t *info)
         return;
     }
     // DRCCTLIB_PRINTF("------ success map %s", info->full_path);
+
+    int absolute = -1; // this load module uses absolute address or relative address
+
     // in memory
     Elf *elf = elf_memory((char *)map_base,
                           map_size); // Initialize 'elf' pointer to our file descriptor
@@ -2350,8 +2353,22 @@ datacentric_static_alloc(const module_data_t *info)
         int symbol_count = shdr->sh_size / shdr->sh_entsize;
         Elf_Sym *syms = (Elf_Sym *)(((char *)map_base) + shdr->sh_offset);
         for (int i = 0; i < symbol_count; i++) {
-            if ((syms[i].st_size == 0) ||
-                (ELF_ST_TYPE(syms[i].st_info) != STT_OBJECT)) { // not a variable
+            // This is a temooral solution: if the first symbol in the load module (the symbol with the smallest address)
+            // has the address greater than the load module's start address, we believe this load module uses the absolute
+	    // address. Typically, it is the executable. 
+            // FIXME: We will give a neat solution in DynamoRIO kernel to distinguish relative and absolute addresses
+            // used by the load modules.
+            if ((syms[i].st_size == 0)) continue;
+
+            if (absolute == -1) {
+              if (syms[i].st_value >= (uint64_t)info->start) {
+	        absolute = 1;
+              }
+              else {
+		absolute = 0;
+              }
+	    }
+            if (ELF_ST_TYPE(syms[i].st_info) != STT_OBJECT) { // not a variable
                 continue;
             }
             data_handle_t data_hndl;
@@ -2361,8 +2378,16 @@ datacentric_static_alloc(const module_data_t *info)
             // DRCCTLIB_PRINTF("STATIC_OBJECT %s %d", sym_name,
             // (uint32_t)syms[i].st_size); dr_fprintf(global_debug_file, "STATIC_OBJECT %s
             // %d \n", sym_name, (uint32_t)syms[i].st_size);
-            init_shadow_memory_space((void *)((uint64_t)(info->start) + syms[i].st_value),
+	    // DRCCTLIB_PRINTF ("symbol %s, relative addr %p, start %p, end %p\n", sym_name, (void*)syms[i].st_value, info->start, info->end);
+            if (absolute == 1) {
+              // If use absolute address, no need to add up the module start address
+              init_shadow_memory_space((void *)syms[i].st_value,
                                      (uint32_t)syms[i].st_size, data_hndl);
+            }
+	    else { 
+              init_shadow_memory_space((void *)((uint64_t)(info->start) + syms[i].st_value),
+                                     (uint32_t)syms[i].st_size, data_hndl);
+            }
         }
     }
     dr_unmap_file(map_base, map_size);
