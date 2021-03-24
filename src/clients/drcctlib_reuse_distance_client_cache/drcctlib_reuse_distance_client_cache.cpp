@@ -420,7 +420,7 @@ static void
 ThreadDebugFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    char name[MAXIMUM_PATH] = "";
+    char name[MAXIMUM_FILEPATH] = "";
     sprintf(name + strlen(name), "%s/thread-%d.debug.log", g_folder_name.c_str(), id);
     pt->log_file = dr_open_file(name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file != INVALID_FILE);
@@ -431,7 +431,7 @@ static void
 ThreadOutputFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    char name[MAXIMUM_PATH] = "";
+    char name[MAXIMUM_FILEPATH] = "";
     sprintf(name + strlen(name), "%s/thread-%d.topn.log", g_folder_name.c_str(), id);
     pt->output_file = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->output_file != INVALID_FILE);
@@ -487,7 +487,7 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
-    char name[MAXIMUM_PATH] = "";
+    char name[MAXIMUM_FILEPATH] = "";
     DRCCTLIB_INIT_LOG_FILE_NAME(
         name, "drcctlib_reuse_distance_client_cache", "out");
     g_folder_name.assign(name, strlen(name));

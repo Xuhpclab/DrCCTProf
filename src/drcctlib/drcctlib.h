@@ -47,56 +47,6 @@ typedef struct _mem_ref_msg_t {
     app_pc addr;
 } mem_ref_msg_t;
 
-/**
- * DrCCTLib Calling Context.
- * Clients may access this calling context
- * via drcctlib_get_full_cct.
- */
-typedef struct _context_t {
-    /**
-     * The name of the function/symbol
-     * associated with this calling context
-     */
-    char func_name[MAXIMUM_SYMNAME];
-
-    /**
-     * The file path of the source code of the guest program
-     * at the current point in the program.
-     * Will not be available when the guest program is
-     * compiled without debug information.
-     */
-    char file_path[MAXIMUM_PATH];
-
-    /**
-     * String representation of the dissassembly of the code.
-     */
-    char code_asm[DISASM_CACHE_SIZE];
-
-    /**
-     * The context handle that refers to this context.
-     */
-    context_handle_t ctxt_hndl;
-
-    /**
-     * The line of the source code of the guest program
-     * at the current point in the program.
-     * Will not be available when the guest program is compiled
-     * without debug information.
-     */
-    int line_no;
-
-    /**
-     * The instruction pointer at the current point in the program.
-     * May be null.
-     */
-    app_pc ip;
-
-    /**
-     * The context that occurs before this context.
-     */
-    struct _context_t *pre_ctxt;
-} context_t;
-
 DR_EXPORT
 /**
  * Initialize DrCCTLib with

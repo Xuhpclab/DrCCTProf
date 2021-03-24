@@ -1987,7 +1987,7 @@ connect_unwind_nodes(per_thread_t *pt, cct_bb_node_t* child, cct_bb_node_t* pare
 static inline void 
 pt_init_unwind_nodes(per_thread_t *pt, void *drcontext)
 {
-    char callpath_pc_file_name[MAXIMUM_PATH] = "";
+    char callpath_pc_file_name[MAXIMUM_FILEPATH] = "";
     sprintf(callpath_pc_file_name + strlen(callpath_pc_file_name), "/home/dolanwm/.dynamorio/drcctprof.callpath.pc.attach.%d", dr_get_thread_id(drcontext));
     if(!dr_file_exists(callpath_pc_file_name)) {
         return;
@@ -1995,7 +1995,7 @@ pt_init_unwind_nodes(per_thread_t *pt, void *drcontext)
     file_t callpath_pc_file =
         dr_open_file(callpath_pc_file_name, DR_FILE_READ);
 
-    char callpath_sym_file_name[MAXIMUM_PATH] = "";
+    char callpath_sym_file_name[MAXIMUM_FILEPATH] = "";
     sprintf(callpath_sym_file_name + strlen(callpath_sym_file_name), "/home/dolanwm/.dynamorio/drcctprof.callpath.sym.attach.%d", dr_get_thread_id(drcontext));
     file_t callpath_sym_file =
         dr_open_file(callpath_sym_file_name, DR_FILE_READ);
@@ -2130,8 +2130,8 @@ pt_init(void *drcontext, per_thread_t *pt, int id)
     pt->speedup_cache_index = pt->id > SPEEDUP_SUPPORT_THREAD_MAX_NUM ? -1 : pt->id;
 #endif
 #ifdef DRCCTLIB_DEBUG
-    char bb_file_name[MAXIMUM_PATH] = "";
-    char instr_file_name[MAXIMUM_PATH] = "";
+    char bb_file_name[MAXIMUM_FILEPATH] = "";
+    char instr_file_name[MAXIMUM_FILEPATH] = "";
     DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(bb_file_name, "fwk", id, "bb.log");
     DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(instr_file_name, "fwk", id, "instr.log");
     pt->log_file_bb =
@@ -2643,7 +2643,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
     drsym_error_t symres;
     drsym_info_t sym;
     char name[MAXIMUM_SYMNAME];
-    char file[MAXIMUM_PATH];
+    char file[MAXIMUM_FILEPATH];
     module_data_t *data;
     data = dr_lookup_module(addr);
     if (data == NULL) {
@@ -2657,7 +2657,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
     sym.name = name;
     sym.name_size = MAXIMUM_SYMNAME;
     sym.file = file;
-    sym.file_size = MAXIMUM_PATH;
+    sym.file_size = MAXIMUM_FILEPATH;
     symres = drsym_lookup_address(data->full_path, addr - data->start, &sym,
                                   DRSYM_DEFAULT_FLAGS);
     context_t *ctxt;
@@ -2668,14 +2668,14 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
             ctxt = ctxt_create(ctxt_hndl, sym.line, addr);
         }
         sprintf(ctxt->func_name, "%s", sym.name);
-        sprintf(ctxt->file_path, "%s/../%s", data->full_path, sym.file);
+        sprintf(ctxt->file_path, "%s", sym.file);
         sprintf(ctxt->code_asm, "%s", code);
         dr_free_module_data(data);
         return ctxt;
     } else {
         ctxt = ctxt_create(ctxt_hndl, 0, addr);
         sprintf(ctxt->func_name, "<noname>");
-        sprintf(ctxt->file_path, "%s/../%s", data->full_path, sym.file);
+        sprintf(ctxt->file_path, "%s", sym.file);
         sprintf(ctxt->code_asm, "%s", code);
         
     }
@@ -2686,7 +2686,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
 // void
 // drcctlib_init_debug_file()
 // {
-//     char debug_file_name[MAXIMUM_PATH] = "";
+//     char debug_file_name[MAXIMUM_FILEPATH] = "";
 //     DRCCTLIB_INIT_LOG_FILE_NAME(debug_file_name, "fwk", "debug.log")
 //     global_debug_file =
 //         dr_open_file(debug_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
@@ -2698,7 +2698,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
 static void
 drcctlib_init_attach_file()
 {
-    char attach_file_name[MAXIMUM_PATH] = "";
+    char attach_file_name[MAXIMUM_FILEPATH] = "";
     sprintf(attach_file_name + strlen(attach_file_name), "/home/dolanwm/.dynamorio/drcctprof.attach.%d", getpid());
     file_t global_attach_file =
         dr_open_file(attach_file_name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);

@@ -194,7 +194,7 @@ FreeBuffer()
 void
 InitLogFile()
 {
-    char name[MAXIMUM_PATH] = "";
+    char name[MAXIMUM_FILEPATH] = "";
     DRCCTLIB_INIT_LOG_FILE_NAME(name, "drcctlib_memory_instr_statistics_clean_call", "out");
     DRCCTLIB_PRINTF("Creating log file at:%s", name);
 
