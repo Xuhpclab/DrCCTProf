@@ -20,7 +20,9 @@ set(DynamoRIO_USE_LIBC OFF)
 set(srcs
   protobuf-c/protobuf-c.c
   profile.pb-c.c
+  pprof_profile.pb-c.c
   drcctlib_vscodeex_format.cpp
+  drcctlib_pprof_format.cpp
   splay_tree.cpp
   drcctlib.cpp
   drcctlib_hpcviewer_format.cpp
@@ -57,7 +59,9 @@ install_ext_header(drcctlib.h)
 install_ext_header(drcctlib_ext.h)
 install_ext_header(drcctlib_hpcviewer_format.h)
 install_ext_header(drcctlib_vscodeex_format.h)
+install_ext_header(drcctlib_pprof_format.h)
 install_ext_header(protobuf-c/protobuf-c.h)
 install_ext_header(profile.pb-c.h)
+install_ext_header(pprof_profile.pb-c.h)
 install_ext_header(shadow_memory.h)
 install_ext_header(memory_cache.h)

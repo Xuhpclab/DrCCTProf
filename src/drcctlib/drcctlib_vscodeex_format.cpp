@@ -564,7 +564,7 @@ DrCCTProf::Profile::profile_t::add_sample(context_t *ctxt)
             "== NULL .");
     }
     DrCCTProf::Profile::sample_t *sample = new DrCCTProf::Profile::sample_t(this->add_context(ctxt));
-    (*sample_list_).push_back(sample);
+    (*this->sample_list_).push_back(sample);
     return sample;
 }
 
