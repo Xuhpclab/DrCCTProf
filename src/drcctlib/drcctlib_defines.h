@@ -91,7 +91,7 @@
  * Clients may access this calling context
  * via drcctlib_get_full_cct.
  */
-typedef struct _context_t {
+typedef struct _inner_context_t {
     /**
      * The name of the function/symbol
      * associated with this calling context
@@ -133,7 +133,7 @@ typedef struct _context_t {
     /**
      * The context that occurs before this context.
      */
-    struct _context_t *pre_ctxt;
-} context_t;
+    struct _inner_context_t *pre_ctxt;
+} inner_context_t;
 
 #endif //_DRCCTLIB_GLOBAL_SHARE_H_

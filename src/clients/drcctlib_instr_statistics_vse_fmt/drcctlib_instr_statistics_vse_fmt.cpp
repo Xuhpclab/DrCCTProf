@@ -136,9 +136,8 @@ ClientExit(void)
         if (output_list[i].handle == 0) {
             break;
         }
-        context_t* cur_ctxt = drcctlib_get_full_cct(output_list[i].handle);
-        Profile::sample_t *sample = profile->add_sample(cur_ctxt);
-        sample->append_metirc(new Profile::fmt_metric_t(0, output_list[i].count, 0));
+        inner_context_t* cur_ctxt = drcctlib_get_full_cct(output_list[i].handle);
+        profile->add_sample(cur_ctxt)->append_metirc(output_list[i].count);
         drcctlib_free_full_cct(cur_ctxt);
     }
     profile->serialize_to_file("instr_statistics.drcctprof");

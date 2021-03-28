@@ -20,6 +20,17 @@
 
 namespace DrCCTProf { namespace Profile {
 
+    class string_table_t;
+    class metric_type_t;
+    class metric_t;
+    class source_file_t;
+    class function_t;
+    class line_t;
+    class location_t;
+    class context_t;
+    class sample_t;
+    class profile_t;
+
     typedef struct _function_map_key_t{
         int64_t file_path_;
         int64_t name_;
@@ -69,12 +80,12 @@ namespace DrCCTProf { namespace Profile {
         char* table_buffer_;
     };
 
-    class fmt_metric_type_t {
+    class metric_type_t {
     public:
         DR_EXPORT
-        fmt_metric_type_t(int64_t value_type, int64_t unit, int64_t des);
+        metric_type_t(int64_t value_type, int64_t unit, int64_t des);
         DR_EXPORT
-        ~fmt_metric_type_t();
+        ~metric_type_t();
 
         DR_EXPORT
         Drcctprof__Profile__MetricType * encode();
@@ -86,12 +97,16 @@ namespace DrCCTProf { namespace Profile {
         Drcctprof__Profile__MetricType buffer_;
     };
 
-    class fmt_metric_t {
+    class metric_t {
     public:
         DR_EXPORT
-        fmt_metric_t(int64_t int_value, uint64_t uint_value, int64_t str_value);
+        metric_t(int64_t int_value);
         DR_EXPORT
-        ~fmt_metric_t();
+        metric_t(uint64_t uint_value);
+        DR_EXPORT
+        metric_t(int64_t int_value, uint64_t uint_value, int64_t str_index);
+        DR_EXPORT
+        ~metric_t();
 
         DR_EXPORT
         Drcctprof__Profile__Metric *
@@ -100,7 +115,7 @@ namespace DrCCTProf { namespace Profile {
     private:
         int64_t int_value_;
         uint64_t uint_value_;
-        int64_t str_value_;
+        int64_t str_index_;
 
         Drcctprof__Profile__Metric buffer_;
     };
@@ -203,14 +218,14 @@ namespace DrCCTProf { namespace Profile {
         Drcctprof__Profile__Location buffer_;
     };
 
-    class fmt_context_t {
+    class context_t {
     public:
         DR_EXPORT
-        fmt_context_t(uint64_t id, location_t *location, fmt_context_t *parent);
-        DR_EXPORT ~fmt_context_t();
+        context_t(uint64_t id, location_t *location, context_t *parent);
+        DR_EXPORT ~context_t();
         DR_EXPORT
         void
-        add_child(fmt_context_t *child);
+        add_child(context_t *child);
 
         DR_EXPORT
         uint64_t
@@ -223,8 +238,8 @@ namespace DrCCTProf { namespace Profile {
     private:
         uint64_t id_;
         location_t *location_;
-        fmt_context_t *parent_;
-        std::vector<fmt_context_t *> *children_;
+        context_t *parent_;
+        std::vector<context_t *> *children_;
 
         Drcctprof__Profile__Context buffer_;
     };
@@ -232,21 +247,34 @@ namespace DrCCTProf { namespace Profile {
     class sample_t {
     public:
         DR_EXPORT
-        sample_t(fmt_context_t *context);
+        sample_t(profile_t * profile, context_t *context);
         DR_EXPORT
         ~sample_t();
         DR_EXPORT
         void
-        append_metirc(fmt_metric_t *metric);
+        append_metirc(metric_t *metric);
+
+        DR_EXPORT
+        void
+        append_metirc(int64_t value);
+
+        DR_EXPORT
+        void
+        append_metirc(uint64_t value);
+
+        DR_EXPORT
+        void
+        append_metirc(std::string value);
 
         DR_EXPORT
         Drcctprof__Profile__Sample *
         encode();
 
     private:
-        fmt_context_t *context_;
-        std::vector<fmt_metric_t *> *metric_;
+        context_t *context_;
+        std::vector<metric_t *> *metric_;
 
+        profile_t *profile_;
         Drcctprof__Profile__Sample buffer_;
     };
 
@@ -270,30 +298,34 @@ namespace DrCCTProf { namespace Profile {
         add_metric_type(int64_t value_type, std::string unit, std::string des);
 
         DR_EXPORT
-        sample_t *
-        add_sample(context_t *ctxt);
+        int64_t
+        add_string(std::string str);
 
         DR_EXPORT
-        fmt_context_t *
-        add_context(context_t *ctxt);
+        sample_t *
+        add_sample(inner_context_t *ctxt);
+
+        DR_EXPORT
+        context_t *
+        add_context(inner_context_t *ctxt);
 
         DR_EXPORT
         location_t *
-        add_location(context_t *ctxt);
+        add_location(inner_context_t *ctxt);
 
         DR_EXPORT
         function_t *
-        add_function(context_t *ctxt);
+        add_function(inner_context_t *ctxt);
 
         DR_EXPORT
         source_file_t *
-        add_source_file(context_t *ctxt);
+        add_source_file(inner_context_t *ctxt);
 
     private:
-        std::vector<fmt_metric_type_t *> *metric_type_list_;
+        std::vector<metric_type_t *> *metric_type_list_;
         std::vector<sample_t *> *sample_list_;
 
-        std::map<uint64_t, fmt_context_t *> *context_map_;
+        std::map<uint64_t, context_t *> *context_map_;
         std::map<uint64_t, location_t *> *location_map_;
 
         uint64_t func_max_id_;

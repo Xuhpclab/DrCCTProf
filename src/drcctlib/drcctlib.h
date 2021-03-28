@@ -124,12 +124,12 @@ bool
 drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl);
 
 DR_EXPORT
-context_t *
+inner_context_t *
 drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth);
 
 DR_EXPORT
 void
-drcctlib_free_cct(context_t *contxt_list);
+drcctlib_free_cct(inner_context_t *contxt_list);
 
 /**
  * Given the context handle,
@@ -137,16 +137,16 @@ drcctlib_free_cct(context_t *contxt_list);
  * @param ctxt_hdnl the context handle
  */
 DR_EXPORT
-context_t *
+inner_context_t *
 drcctlib_get_full_cct(context_handle_t ctxt_hndl);
 
 DR_EXPORT
-context_t *
+inner_context_t *
 drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth);
 
 DR_EXPORT
 void
-drcctlib_free_full_cct(context_t *contxt_list);
+drcctlib_free_full_cct(inner_context_t *contxt_list);
 
 DR_EXPORT
 void

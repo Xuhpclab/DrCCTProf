@@ -105,7 +105,7 @@ PrintTreeItem(tree_item_t* item){
     if (!item) {
         return;
     }
-    context_t * cct_list = drcctlib_get_cct(item->handle, 0);
+    inner_context_t * cct_list = drcctlib_get_cct(item->handle, 0);
     if(cct_list != NULL) {
         dr_fprintf(flameGraphJson, "\n{");
         dr_fprintf(flameGraphJson, "\n\"ctxt_hndl\": \"%llu\",", item->handle);
@@ -168,8 +168,8 @@ ClientExit(void)
     map<context_handle_t, tree_item_t*> tree_item_map;
     tree_item_t* tree_root = NULL;
     for (int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
-        context_t * cct_list = drcctlib_get_full_cct(output_list[i].handle);
-        context_t * cur_list = cct_list;
+        inner_context_t * cct_list = drcctlib_get_full_cct(output_list[i].handle);
+        inner_context_t * cur_list = cct_list;
         tree_item_t* last_tree_item = NULL;
         while (cur_list != NULL) {
             map<context_handle_t, tree_item_t*>::iterator it = tree_item_map.find(cur_list->ctxt_hndl);
@@ -207,7 +207,7 @@ ClientExit(void)
 
     dr_fprintf(ctxtMapJson, "{");
     for (map<context_handle_t, tree_item_t*>::iterator it = tree_item_map.begin(); it != tree_item_map.end(); it++) {
-        context_t * cct_list = drcctlib_get_cct(it->first, 0);
+        inner_context_t * cct_list = drcctlib_get_cct(it->first, 0);
         if(cct_list != NULL) {
             dr_fprintf(ctxtMapJson, "\n    \"%llu\":{", cct_list->ctxt_hndl);
             dr_fprintf(ctxtMapJson, "\n        \"pc\": \"%p\",", cct_list->ip);
@@ -227,11 +227,11 @@ ClientExit(void)
 
     dr_fprintf(callPathJson, "{");
     for (map<context_handle_t, tree_item_t*>::iterator it = tree_item_map.begin(); it != tree_item_map.end(); ) {
-        context_t * cct_list = drcctlib_get_full_cct(it->first, -1);
+        inner_context_t * cct_list = drcctlib_get_full_cct(it->first, -1);
         if (cct_list == NULL) {
             continue;
         }
-        context_t * cur_list = cct_list;
+        inner_context_t * cur_list = cct_list;
         dr_fprintf(callPathJson, "\n    \"%llu\":[\n        ", cct_list->ctxt_hndl);
         cur_list = cur_list->pre_ctxt;
         while (cur_list != NULL) {

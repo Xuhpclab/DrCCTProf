@@ -2589,11 +2589,11 @@ get_thread_id_by_root_bb(cct_bb_node_t *bb)
     return -1;
 }
 
-static inline context_t *
+static inline inner_context_t *
 ctxt_create(context_handle_t ctxt_hndl, int line_no, app_pc ip)
 {
-    context_t *ctxt = (context_t *)dr_raw_mem_alloc(
-        sizeof(context_t), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    inner_context_t *ctxt = (inner_context_t *)dr_raw_mem_alloc(
+        sizeof(inner_context_t), DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     ctxt->ctxt_hndl = ctxt_hndl;
     ctxt->line_no = line_no;
     ctxt->ip = ip;
@@ -2602,20 +2602,20 @@ ctxt_create(context_handle_t ctxt_hndl, int line_no, app_pc ip)
 }
 
 static inline void
-ctxt_free(context_t *ctxt)
+ctxt_free(inner_context_t *ctxt)
 {
     if (ctxt == NULL) {
         return;
     }
     ctxt_free(ctxt->pre_ctxt);
-    dr_raw_mem_free(ctxt, sizeof(context_t));
+    dr_raw_mem_free(ctxt, sizeof(inner_context_t));
 }
 
-static inline context_t *
+static inline inner_context_t *
 ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
 {
     if (ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
-        context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
+        inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
         sprintf(ctxt->func_name, "PROCESS[%d]_ROOT_CTXT", getpid());
         sprintf(ctxt->file_path, " ");
         sprintf(ctxt->code_asm, " ");
@@ -2628,7 +2628,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
             DRCCTLIB_EXIT_PROCESS(
                 "bb->key == THREAD_ROOT_BB_SHARED_BB_KEY get_thread_id_by_root_bb == -1");
         }
-        context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
+        inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
         sprintf(ctxt->func_name, "THREAD[%d]_ROOT_CTXT", id);
         sprintf(ctxt->file_path, " ");
         sprintf(ctxt->code_asm, " ");
@@ -2647,7 +2647,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
     module_data_t *data;
     data = dr_lookup_module(addr);
     if (data == NULL) {
-        context_t *ctxt = ctxt_create(ctxt_hndl, 0, addr);
+        inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, addr);
         sprintf(ctxt->func_name, "badIp[%s]", code);
         sprintf(ctxt->file_path, " ");
         sprintf(ctxt->code_asm, "%s", code);
@@ -2660,7 +2660,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
     sym.file_size = MAXIMUM_FILEPATH;
     symres = drsym_lookup_address(data->full_path, addr - data->start, &sym,
                                   DRSYM_DEFAULT_FLAGS);
-    context_t *ctxt;
+    inner_context_t *ctxt;
     if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
         if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
             ctxt = ctxt_create(ctxt_hndl, 0, addr);
@@ -3017,7 +3017,7 @@ drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl)
 }
 
 DR_EXPORT
-context_t *
+inner_context_t *
 drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
@@ -3027,8 +3027,8 @@ drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth)
     if (max_depth < 0) {
         get_all = true;
     }
-    context_t *start = ctxt_get_from_ctxt_hndl(ctxt_hndl);
-    context_t *next_ctxt = start;
+    inner_context_t *start = ctxt_get_from_ctxt_hndl(ctxt_hndl);
+    inner_context_t *next_ctxt = start;
     context_handle_t next_ctxt_hndl = ctxt_hndl;
     int cur_depth = 0;
 
@@ -3040,7 +3040,7 @@ drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth)
             break;
         }
         next_ctxt_hndl = bb_node_caller_ctxt_hndl(ctxt_hndl_parent_bb_node(next_ctxt_hndl));
-        context_t *ctxt = ctxt_get_from_ctxt_hndl(next_ctxt_hndl);
+        inner_context_t *ctxt = ctxt_get_from_ctxt_hndl(next_ctxt_hndl);
         next_ctxt->pre_ctxt = ctxt;
         next_ctxt = ctxt;
         cur_depth++;
@@ -3050,7 +3050,7 @@ drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth)
 
 
 DR_EXPORT
-context_t *
+inner_context_t *
 drcctlib_get_full_cct(context_handle_t ctxt_hndl)
 {
     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
@@ -3061,7 +3061,7 @@ drcctlib_get_full_cct(context_handle_t ctxt_hndl)
 
 
 DR_EXPORT
-context_t *
+inner_context_t *
 drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth)
 {
     return drcctlib_get_full_cct(ctxt_hndl);
@@ -3069,14 +3069,14 @@ drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth)
 
 DR_EXPORT
 void
-drcctlib_free_cct(context_t * contxt_list)
+drcctlib_free_cct(inner_context_t * contxt_list)
 {
     ctxt_free(contxt_list);
 }
 
 DR_EXPORT
 void
-drcctlib_free_full_cct(context_t * contxt_list)
+drcctlib_free_full_cct(inner_context_t * contxt_list)
 {
     drcctlib_free_cct(contxt_list);
 }
@@ -3093,7 +3093,7 @@ drcctlib_print_backtrace_first_item(file_t file, context_handle_t ctxt_hndl, boo
     if (file == INVALID_FILE) {
         file = global_log_file;
     }
-    context_t *ctxt = ctxt_get_from_ctxt_hndl(ctxt_hndl);
+    inner_context_t *ctxt = ctxt_get_from_ctxt_hndl(ctxt_hndl);
 
     dr_fprintf(file, "%p", (uint64_t)ctxt->ip);
     if (print_asm) {
@@ -3284,8 +3284,8 @@ drcctlib_have_same_source_line(context_handle_t ctxt_hndl1, context_handle_t ctx
     if (ctxt_hndl1 == ctxt_hndl2) {
         return true;
     }
-    context_t *ctxt1 = ctxt_get_from_ctxt_hndl(ctxt_hndl1);
-    context_t *ctxt2 = ctxt_get_from_ctxt_hndl(ctxt_hndl2);
+    inner_context_t *ctxt1 = ctxt_get_from_ctxt_hndl(ctxt_hndl1);
+    inner_context_t *ctxt2 = ctxt_get_from_ctxt_hndl(ctxt_hndl2);
     int line_no1 = ctxt1->line_no;
     int line_no2 = ctxt2->line_no;
     ctxt_free(ctxt1);

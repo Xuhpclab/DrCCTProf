@@ -118,10 +118,10 @@ DrCCTProf::Profile::string_table_t::encode()
 }
 
 /*
- * DrCCTProf::Profile::fmt_metric_type_t
+ * DrCCTProf::Profile::metric_type_t
  */
 
-DrCCTProf::Profile::fmt_metric_type_t::fmt_metric_type_t(int64_t value_type, int64_t unit, int64_t des)
+DrCCTProf::Profile::metric_type_t::metric_type_t(int64_t value_type, int64_t unit, int64_t des)
     : value_type_(value_type)
     , unit_(unit)
     , des_(des)
@@ -129,12 +129,12 @@ DrCCTProf::Profile::fmt_metric_type_t::fmt_metric_type_t(int64_t value_type, int
     this->buffer_ = DRCCTPROF__PROFILE__METRIC_TYPE__INIT;
 }
 
-DrCCTProf::Profile::fmt_metric_type_t::~fmt_metric_type_t()
+DrCCTProf::Profile::metric_type_t::~metric_type_t()
 {
 }
 
 Drcctprof__Profile__MetricType *
-DrCCTProf::Profile::fmt_metric_type_t::encode()
+DrCCTProf::Profile::metric_type_t::encode()
 {
     this->buffer_.value_type = this->value_type_;
     this->buffer_.unit = this->unit_;
@@ -143,27 +143,43 @@ DrCCTProf::Profile::fmt_metric_type_t::encode()
 }
 
 /*
- * DrCCTProf::Profile::fmt_metric_t
+ * DrCCTProf::Profile::metric_t
  */
 
-DrCCTProf::Profile::fmt_metric_t::fmt_metric_t(int64_t int_value, uint64_t uint_value, int64_t str_value)
+DrCCTProf::Profile::metric_t::metric_t(int64_t int_value)
     : int_value_(int_value)
-    , uint_value_(uint_value)
-    , str_value_(str_value)
+    , uint_value_(0)
+    , str_index_(0)
 {
     this->buffer_ = DRCCTPROF__PROFILE__METRIC__INIT;
 }
 
-DrCCTProf::Profile::fmt_metric_t::~fmt_metric_t()
+DrCCTProf::Profile::metric_t::metric_t(uint64_t uint_value)
+    : int_value_(0)
+    , uint_value_(uint_value)
+    , str_index_(0)
+{
+    this->buffer_ = DRCCTPROF__PROFILE__METRIC__INIT;
+}
+
+DrCCTProf::Profile::metric_t::metric_t(int64_t int_value, uint64_t uint_value, int64_t str_index)
+    : int_value_(int_value)
+    , uint_value_(uint_value)
+    , str_index_(str_index)
+{
+    this->buffer_ = DRCCTPROF__PROFILE__METRIC__INIT;
+}
+
+DrCCTProf::Profile::metric_t::~metric_t()
 {
 }
 
 Drcctprof__Profile__Metric *
-DrCCTProf::Profile::fmt_metric_t::encode()
+DrCCTProf::Profile::metric_t::encode()
 {
     this->buffer_.int_value = this->int_value_;
     this->buffer_.uint_value = this->uint_value_;
-    this->buffer_.str_value = this->str_value_;
+    this->buffer_.str_value = this->str_index_;
     return &(this->buffer_);
 }
 
@@ -178,7 +194,7 @@ DrCCTProf::Profile::source_file_t::source_file_t(uint64_t id, int64_t file_name,
     , location_path_(location_path)
     , type_(type)
 {
-    buffer_ = DRCCTPROF__PROFILE__SOURCE_FILE__INIT;
+    this->buffer_ = DRCCTPROF__PROFILE__SOURCE_FILE__INIT;
 }
 
 DrCCTProf::Profile::source_file_t::~source_file_t()
@@ -213,7 +229,7 @@ DrCCTProf::Profile::function_t::function_t(uint64_t id, int64_t name, int64_t sy
     , start_line_(start_line)
     , source_file_(source_file)
 {
-    buffer_ = DRCCTPROF__PROFILE__FUNCTION__INIT;
+    this->buffer_ = DRCCTPROF__PROFILE__FUNCTION__INIT;
 }
 
 DrCCTProf::Profile::function_t::~function_t()
@@ -316,41 +332,41 @@ DrCCTProf::Profile::location_t::encode()
 }
 
 /*
- * DrCCTProf::Profile::fmt_context_t
+ * DrCCTProf::Profile::context_t
  */
 
-DrCCTProf::Profile::fmt_context_t::fmt_context_t(uint64_t id, DrCCTProf::Profile::location_t *location, DrCCTProf::Profile::fmt_context_t *parent)
+DrCCTProf::Profile::context_t::context_t(uint64_t id, DrCCTProf::Profile::location_t *location, DrCCTProf::Profile::context_t *parent)
     : id_(id)
     , location_(location)
     , parent_(parent)
 {
-    this->children_ = new std::vector<DrCCTProf::Profile::fmt_context_t *>();
+    this->children_ = new std::vector<DrCCTProf::Profile::context_t *>();
     this->buffer_ = DRCCTPROF__PROFILE__CONTEXT__INIT;
     if (this->parent_) {
         this->parent_->add_child(this);
     }
 }
 
-DrCCTProf::Profile::fmt_context_t::~fmt_context_t()
+DrCCTProf::Profile::context_t::~context_t()
 {
     delete this->children_;
     free(this->buffer_.children_id);
 }
 
 uint64_t
-DrCCTProf::Profile::fmt_context_t::get_id()
+DrCCTProf::Profile::context_t::get_id()
 {
     return this->id_;
 }
 
 void
-DrCCTProf::Profile::fmt_context_t::add_child(DrCCTProf::Profile::fmt_context_t *child)
+DrCCTProf::Profile::context_t::add_child(DrCCTProf::Profile::context_t *child)
 {
     (*this->children_).push_back(child);
 }
 
 Drcctprof__Profile__Context *
-DrCCTProf::Profile::fmt_context_t::encode()
+DrCCTProf::Profile::context_t::encode()
 {
     this->buffer_.id = this->id_;
     this->buffer_.location_id = this->location_->get_id();
@@ -377,25 +393,43 @@ DrCCTProf::Profile::fmt_context_t::encode()
  * DrCCTProf::Profile::sample_t
  */
 
-DrCCTProf::Profile::sample_t::sample_t(DrCCTProf::Profile::fmt_context_t *context)
+DrCCTProf::Profile::sample_t::sample_t(profile_t * profile, DrCCTProf::Profile::context_t *context)
     : context_(context)
 {
-    this->metric_ = new std::vector<DrCCTProf::Profile::fmt_metric_t *>();
+    this->metric_ = new std::vector<DrCCTProf::Profile::metric_t *>();
     this->buffer_ = DRCCTPROF__PROFILE__SAMPLE__INIT;
 }
 
 DrCCTProf::Profile::sample_t::~sample_t()
 {
     std::for_each(std::begin(*this->metric_), std::end(*this->metric_),
-                  [](DrCCTProf::Profile::fmt_metric_t *m) { delete m; });
+                  [](DrCCTProf::Profile::metric_t *m) { delete m; });
     delete this->metric_;
     free(this->buffer_.metric);
 }
 
 void
-DrCCTProf::Profile::sample_t::append_metirc(DrCCTProf::Profile::fmt_metric_t *metric)
+DrCCTProf::Profile::sample_t::append_metirc(DrCCTProf::Profile::metric_t *metric)
 {
     (*this->metric_).push_back(metric);
+}
+
+void
+DrCCTProf::Profile::sample_t::append_metirc(int64_t value)
+{
+    (*this->metric_).push_back(new Profile::metric_t(value));
+}
+
+void
+DrCCTProf::Profile::sample_t::append_metirc(uint64_t value)
+{
+    (*this->metric_).push_back(new Profile::metric_t(value));
+}
+
+void
+DrCCTProf::Profile::sample_t::append_metirc(std::string value)
+{
+    (*this->metric_).push_back(new Profile::metric_t(0, 0, this->profile_->add_string(value)));
 }
 
 Drcctprof__Profile__Sample *
@@ -422,14 +456,14 @@ DrCCTProf::Profile::profile_t::profile_t()
     : func_max_id_(0)
 {
     this->string_table_ = new DrCCTProf::Profile::string_table_t();
-    this->context_map_ = new std::map<uint64_t, DrCCTProf::Profile::fmt_context_t *>();
+    this->context_map_ = new std::map<uint64_t, DrCCTProf::Profile::context_t *>();
     this->location_map_ = new std::map<uint64_t, DrCCTProf::Profile::location_t *>();
 
     this->func_map_ = new std::map<DrCCTProf::Profile::function_map_key_t, DrCCTProf::Profile::function_t *>();
     this->source_file_map_ = new std::map<int64_t, DrCCTProf::Profile::source_file_t *>();
 
     this->sample_list_ = new std::vector<DrCCTProf::Profile::sample_t *>();
-    this->metric_type_list_ = new std::vector<DrCCTProf::Profile::fmt_metric_type_t *>();
+    this->metric_type_list_ = new std::vector<DrCCTProf::Profile::metric_type_t *>();
 
     this->buffer_ = DRCCTPROF__PROFILE__PROFILE__INIT;
 }
@@ -438,7 +472,7 @@ DrCCTProf::Profile::profile_t::~profile_t()
 {
     std::for_each(std::begin(*this->metric_type_list_),
                   std::end(*this->metric_type_list_),
-                  [](DrCCTProf::Profile::fmt_metric_type_t *mt) { delete mt; });
+                  [](DrCCTProf::Profile::metric_type_t *mt) { delete mt; });
     delete this->metric_type_list_;
     free(this->buffer_.metric_type);
 
@@ -549,46 +583,52 @@ DrCCTProf::Profile::profile_t::serialize_to_file(const char *file_name)
 void
 DrCCTProf::Profile::profile_t::add_metric_type(int64_t value_type, std::string unit, std::string des)
 {
-    DrCCTProf::Profile::fmt_metric_type_t *metric_type =
-        new DrCCTProf::Profile::fmt_metric_type_t(value_type, this->string_table_->add_string(unit),
-                              this->string_table_->add_string(des));
+    DrCCTProf::Profile::metric_type_t *metric_type =
+        new DrCCTProf::Profile::metric_type_t(value_type, this->add_string(unit),
+                              this->add_string(des));
     (*this->metric_type_list_).push_back(metric_type);
 }
 
 DrCCTProf::Profile::sample_t *
-DrCCTProf::Profile::profile_t::add_sample(context_t *ctxt)
+DrCCTProf::Profile::profile_t::add_sample(inner_context_t *ctxt)
 {
     if (ctxt == NULL) {
         DRCCTLIB_EXIT_PROCESS(
             "Error: [DrCCTProf::Profile::profile_t::add_sample(char* c_str)] ctxt "
             "== NULL .");
     }
-    DrCCTProf::Profile::sample_t *sample = new DrCCTProf::Profile::sample_t(this->add_context(ctxt));
+    DrCCTProf::Profile::sample_t *sample = new DrCCTProf::Profile::sample_t(this, this->add_context(ctxt));
     (*sample_list_).push_back(sample);
     return sample;
 }
 
-DrCCTProf::Profile::fmt_context_t *
-DrCCTProf::Profile::profile_t::add_context(context_t *ctxt)
+int64_t
+DrCCTProf::Profile::profile_t::add_string(std::string str)
+{
+    return this->add_string(str);
+}
+
+DrCCTProf::Profile::context_t *
+DrCCTProf::Profile::profile_t::add_context(inner_context_t *ctxt)
 {
     if (ctxt == NULL) {
         return NULL;
     }
-    std::map<uint64_t, DrCCTProf::Profile::fmt_context_t *>::iterator it =
+    std::map<uint64_t, DrCCTProf::Profile::context_t *>::iterator it =
         (*this->context_map_).find(ctxt->ctxt_hndl);
     if (it != (*this->context_map_).end()) {
         return it->second;
     }
-    DrCCTProf::Profile::fmt_context_t *parent_f_ctxt = this->add_context(ctxt->pre_ctxt);
-    DrCCTProf::Profile::fmt_context_t *cur_f_ctxt =
-        new DrCCTProf::Profile::fmt_context_t(ctxt->ctxt_hndl, this->add_location(ctxt), parent_f_ctxt);
+    DrCCTProf::Profile::context_t *parent_f_ctxt = this->add_context(ctxt->pre_ctxt);
+    DrCCTProf::Profile::context_t *cur_f_ctxt =
+        new DrCCTProf::Profile::context_t(ctxt->ctxt_hndl, this->add_location(ctxt), parent_f_ctxt);
     (*this->context_map_)
-        .insert(std::pair<uint64_t, DrCCTProf::Profile::fmt_context_t *>(ctxt->ctxt_hndl, cur_f_ctxt));
+        .insert(std::pair<uint64_t, DrCCTProf::Profile::context_t *>(ctxt->ctxt_hndl, cur_f_ctxt));
     return cur_f_ctxt;
 }
 
 DrCCTProf::Profile::location_t *
-DrCCTProf::Profile::profile_t::add_location(context_t *ctxt)
+DrCCTProf::Profile::profile_t::add_location(inner_context_t *ctxt)
 {
     std::map<uint64_t, DrCCTProf::Profile::location_t *>::iterator it = (*this->location_map_).find((ptr_int_t)ctxt->ip);
     if (it != (*this->location_map_).end()) {
@@ -601,10 +641,10 @@ DrCCTProf::Profile::profile_t::add_location(context_t *ctxt)
 }
 
 DrCCTProf::Profile::function_t *
-DrCCTProf::Profile::profile_t::add_function(context_t *ctxt)
+DrCCTProf::Profile::profile_t::add_function(inner_context_t *ctxt)
 {
-    DrCCTProf::Profile::function_map_key_t key = { this->string_table_->add_string(ctxt->file_path),
-                               this->string_table_->add_string(ctxt->func_name) };
+    DrCCTProf::Profile::function_map_key_t key = { this->add_string(ctxt->file_path),
+                               this->add_string(ctxt->func_name) };
     std::map<DrCCTProf::Profile::function_map_key_t, DrCCTProf::Profile::function_t *>::iterator it = (*this->func_map_).find(key);
     if (it != (*this->func_map_).end()) {
         it->second->set_start_line(ctxt->line_no);
@@ -617,9 +657,9 @@ DrCCTProf::Profile::profile_t::add_function(context_t *ctxt)
 }
 
 DrCCTProf::Profile::source_file_t *
-DrCCTProf::Profile::profile_t::add_source_file(context_t *ctxt)
+DrCCTProf::Profile::profile_t::add_source_file(inner_context_t *ctxt)
 {
-    int64_t file_path_idx = this->string_table_->add_string(ctxt->file_path);
+    int64_t file_path_idx = this->add_string(ctxt->file_path);
     std::map<int64_t, DrCCTProf::Profile::source_file_t *>::iterator it =
         (*this->source_file_map_).find(file_path_idx);
     if (it != (*this->source_file_map_).end()) {
