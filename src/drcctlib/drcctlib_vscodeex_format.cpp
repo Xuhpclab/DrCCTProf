@@ -605,7 +605,7 @@ DrCCTProf::Profile::profile_t::add_sample(inner_context_t *ctxt)
 int64_t
 DrCCTProf::Profile::profile_t::add_string(std::string str)
 {
-    return this->add_string(str);
+    return this->string_table_->add_string(str);
 }
 
 DrCCTProf::Profile::context_t *

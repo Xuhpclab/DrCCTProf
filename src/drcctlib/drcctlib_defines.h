@@ -106,6 +106,8 @@ typedef struct _inner_context_t {
      */
     char file_path[MAXIMUM_FILEPATH];
 
+    char module_path[MAXIMUM_FILEPATH];
+
     /**
      * String representation of the dissassembly of the code.
      */

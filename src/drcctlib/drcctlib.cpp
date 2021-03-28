@@ -2617,8 +2617,9 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
     if (ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
         inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
         sprintf(ctxt->func_name, "PROCESS[%d]_ROOT_CTXT", getpid());
-        sprintf(ctxt->file_path, " ");
-        sprintf(ctxt->code_asm, " ");
+        sprintf(ctxt->file_path, "<NULL>");
+        sprintf(ctxt->module_path, "<NULL>");
+        sprintf(ctxt->code_asm, "<NULL>");
         return ctxt;
     }
     cct_bb_node_t *bb = ctxt_hndl_parent_bb_node(ctxt_hndl);
@@ -2630,8 +2631,9 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
         }
         inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
         sprintf(ctxt->func_name, "THREAD[%d]_ROOT_CTXT", id);
-        sprintf(ctxt->file_path, " ");
-        sprintf(ctxt->code_asm, " ");
+        sprintf(ctxt->file_path, "<NULL>");
+        sprintf(ctxt->module_path, "<NULL>");
+        sprintf(ctxt->code_asm, "<NULL>");
         return ctxt;
     }
     bb_shadow_t *shadow = global_bb_shadow_cache->get_object_by_index(bb->key);
@@ -2649,7 +2651,8 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
     if (data == NULL) {
         inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, addr);
         sprintf(ctxt->func_name, "badIp[%s]", code);
-        sprintf(ctxt->file_path, " ");
+        sprintf(ctxt->file_path, "<MISSING>");
+        sprintf(ctxt->module_path, "<MISSING>");
         sprintf(ctxt->code_asm, "%s", code);
         return ctxt;
     }
@@ -2669,13 +2672,15 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
         }
         sprintf(ctxt->func_name, "%s", sym.name);
         sprintf(ctxt->file_path, "%s", sym.file);
+        sprintf(ctxt->module_path, "%s", data->full_path);
         sprintf(ctxt->code_asm, "%s", code);
         dr_free_module_data(data);
         return ctxt;
     } else {
         ctxt = ctxt_create(ctxt_hndl, 0, addr);
-        sprintf(ctxt->func_name, "<noname>");
+        sprintf(ctxt->func_name, "<MISSING>");
         sprintf(ctxt->file_path, "%s", sym.file);
+        sprintf(ctxt->module_path, "%s", data->full_path);
         sprintf(ctxt->code_asm, "%s", code);
         
     }
