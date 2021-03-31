@@ -630,13 +630,17 @@ DrCCTProf::Profile::profile_t::add_context(inner_context_t *ctxt)
 DrCCTProf::Profile::location_t *
 DrCCTProf::Profile::profile_t::add_location(inner_context_t *ctxt)
 {
-    std::map<uint64_t, DrCCTProf::Profile::location_t *>::iterator it = (*this->location_map_).find((ptr_int_t)ctxt->ip);
+    uint64_t location_id = (ptr_int_t)ctxt->ip;
+    if (strstr(ctxt->func_name, "THREAD[") && strstr(ctxt->func_name, "]_ROOT_CTXT")) {
+        location_id = 0xFFFFFFFFFFFFFFFF - location_id;
+    }
+    std::map<uint64_t, DrCCTProf::Profile::location_t *>::iterator it = (*this->location_map_).find(location_id);
     if (it != (*this->location_map_).end()) {
         return it->second;
     }
-    DrCCTProf::Profile::location_t *location = new DrCCTProf::Profile::location_t((ptr_int_t)ctxt->ip);
+    DrCCTProf::Profile::location_t *location = new DrCCTProf::Profile::location_t(location_id);
     location->append_line(new DrCCTProf::Profile::line_t(this->add_function(ctxt), ctxt->line_no));
-    (*this->location_map_).insert(std::pair<uint64_t, DrCCTProf::Profile::location_t *>((ptr_int_t)ctxt->ip, location));
+    (*this->location_map_).insert(std::pair<uint64_t, DrCCTProf::Profile::location_t *>(location_id, location));
     return location;
 }
 

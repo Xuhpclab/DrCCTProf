@@ -4,13 +4,8 @@
  *  See LICENSE file for more information.
  */
 
-#include <iterator>
-#include <vector>
-#include <map>
-
 #include "dr_api.h"
 #include "drcctlib.h"
-#include "drcctlib_utils.h"
 #include "drcctlib_vscodeex_format.h"
 
 #define DRCCTLIB_PRINTF(_FORMAT, _ARGS...) \
@@ -32,33 +27,35 @@ uint64_t *gloabl_hndl_call_num;
 using namespace std;
 using namespace DrCCTProf;
 
-// client want to do
-void
-DoWhatClientWantTodo(void *drcontext, context_handle_t cur_ctxt_hndl)
+// dr clean call per ins cache
+static inline void
+InstrumentPerInsCache(void *drcontext, context_handle_t ctxt_hndl, int32_t mem_ref_num,
+                      mem_ref_msg_t *mem_ref_start, void *data)
 {
-    // use {cur_ctxt_hndl}
-    gloabl_hndl_call_num[cur_ctxt_hndl]++;
+    gloabl_hndl_call_num[ctxt_hndl]++;
 }
 
-// dr clean call
-void
-InsertCleancall(int32_t slot)
+static inline void
+InstrumentPerBBCache(void *drcontext, context_handle_t ctxt_hndl, int32_t slot_num,
+                     int32_t mem_ref_num, mem_ref_msg_t *mem_ref_start, void **data)
 {
-    void *drcontext = dr_get_current_drcontext();
-    context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
-    DoWhatClientWantTodo(drcontext, cur_ctxt_hndl);
-}
-
-// analysis
-void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
-{
-
-    instrlist_t *bb = instrument_msg->bb;
-    instr_t *instr = instrument_msg->instr;
-    int32_t slot = instrument_msg->slot;
-
-    dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 1, OPND_CREATE_CCT_INT(slot));
+    int32_t temp_index = 0;
+    for (int32_t i = 0; i < slot_num; i++) {
+        int32_t ins_ref_number = 0;
+        mem_ref_msg_t *ins_cache_mem_start = NULL;
+        for (; temp_index < mem_ref_num; temp_index++) {
+            if (mem_ref_start[temp_index].slot == i) {
+                if (ins_cache_mem_start == NULL) {
+                    ins_cache_mem_start = mem_ref_start + temp_index;
+                }
+                ins_ref_number++;
+            } else if (mem_ref_start[temp_index].slot > i) {
+                break;
+            }
+        }
+        InstrumentPerInsCache(drcontext, ctxt_hndl + i, ins_ref_number,
+                              ins_cache_mem_start, data);
+    }
 }
 
 static inline void
@@ -82,7 +79,8 @@ static void
 ClientInit(int argc, const char *argv[])
 {
     InitGlobalBuff();
-    drcctlib_init(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, false);
+    drcctlib_init_ex(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, NULL, NULL,
+                     InstrumentPerBBCache, DRCCTLIB_CACHE_MODE);
 }
 
 typedef struct _output_format_t {

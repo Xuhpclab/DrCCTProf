@@ -217,6 +217,7 @@ typedef struct _per_thread_t {
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     per_thread_cct_info_t cct_info;
 #endif
+    std::vector<datacentric_node_t> *thread_dynamic_datacentric_nodes;
 } per_thread_t;
 
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
@@ -282,6 +283,11 @@ static int global_string_pool_idle_idx = 0;
 #define ATOMIC_ADD_STRING_POOL_INDEX(origin, val) dr_atomic_add32_return_sum(&origin, val)
 
 static ConcurrentShadowMemory<data_handle_t> *global_shadow_memory;
+
+void *global_cct_info_lock;
+void *dynamic_datacentric_nodes_lock;
+static std::vector<datacentric_node_t> *dynamic_datacentric_nodes;
+static std::vector<datacentric_node_t> *static_datacentric_nodes;
 
 // ctxt to ipnode
 static inline context_handle_t
@@ -2085,6 +2091,7 @@ pt_init(void *drcontext, per_thread_t *pt, int id)
         }
         pt->dmem_alloc_size = 0;
         pt->dmem_alloc_ctxt_hndl = 0;
+        pt->thread_dynamic_datacentric_nodes = new std::vector<datacentric_node_t>();
     } else {
         pt->stack_unlimited = false;
         pt->init_stack_cache = true;
@@ -2179,6 +2186,15 @@ drcctlib_event_thread_end(void *drcontext)
 #ifdef CCTLIB_64
     refresh_per_thread_cct_tree(drcontext, pt);
     per_thread_end_bb_cache_refresh(drcontext, pt);
+    if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
+        dr_mutex_lock(dynamic_datacentric_nodes_lock);
+        std::vector<datacentric_node_t>::iterator it = (*pt->thread_dynamic_datacentric_nodes).begin();
+        for (; it != (*pt->thread_dynamic_datacentric_nodes).end();it++) {
+            (*dynamic_datacentric_nodes).push_back(*it);
+        }
+        dr_mutex_unlock(dynamic_datacentric_nodes_lock);
+        free(pt->thread_dynamic_datacentric_nodes);
+    }
     if ((global_flags & DRCCTLIB_CACHE_MODE) != 0) {
         dr_global_free(pt->bb_cache,
                        BB_CACHE_MESSAGE_MAX_NUM * sizeof(bb_cache_message_t));
@@ -2301,6 +2317,7 @@ datacentric_dynamic_alloc(void *wrapcxt, void *user_data)
     data_hndl.object_type = DYNAMIC_OBJECT;
     data_hndl.path_handle = pt->dmem_alloc_ctxt_hndl;
     init_shadow_memory_space(ptr, pt->dmem_alloc_size, data_hndl);
+    (*pt->thread_dynamic_datacentric_nodes).push_back({data_hndl, pt->dmem_alloc_size});
 }
 
 // compute static variables
@@ -2363,6 +2380,7 @@ datacentric_static_alloc(const module_data_t *info)
             // %d \n", sym_name, (uint32_t)syms[i].st_size);
             init_shadow_memory_space((void *)((uint64_t)(info->start) + syms[i].st_value),
                                      (uint32_t)syms[i].st_size, data_hndl);
+            (*static_datacentric_nodes).push_back({data_hndl, (uint32_t)syms[i].st_size});
         }
     }
     dr_unmap_file(map_base, map_size);
@@ -2478,6 +2496,8 @@ init_global_buff()
             DRCCTLIB_EXIT_PROCESS(
                 "init_global_buff error: dr_raw_mem_alloc fail global_string_pool");
         }
+        dynamic_datacentric_nodes = new std::vector<datacentric_node_t>();
+        static_datacentric_nodes = new std::vector<datacentric_node_t>();
     }
 
     global_bb_node_cache = new memory_cache_t<cct_bb_node_t>(
@@ -2506,6 +2526,8 @@ free_global_buff()
     dr_raw_mem_free(global_ip_node_buff, CONTEXT_HANDLE_MAX * sizeof(cct_ip_node_t));
     if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
         dr_raw_mem_free(global_string_pool, STRING_POOL_NODES_MAX * sizeof(char));
+        delete dynamic_datacentric_nodes;
+        delete static_datacentric_nodes;
     }
 
     for (int i = 0; i < THREAD_MAX_NUM; i++) {
@@ -2535,6 +2557,7 @@ create_global_locks()
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     global_cct_info_lock = dr_mutex_create();
 #endif
+    dynamic_datacentric_nodes_lock = dr_mutex_create();
 }
 
 static inline void
@@ -2550,6 +2573,7 @@ destroy_global_locks()
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     dr_mutex_destroy(global_cct_info_lock);
 #endif
+    dr_mutex_destroy(dynamic_datacentric_nodes_lock);
 }
 
 static size_t
@@ -2629,7 +2653,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
             DRCCTLIB_EXIT_PROCESS(
                 "bb->key == THREAD_ROOT_BB_SHARED_BB_KEY get_thread_id_by_root_bb == -1");
         }
-        inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, 0);
+        inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, (app_pc)(ptr_int_t)id);
         sprintf(ctxt->func_name, "THREAD[%d]_ROOT_CTXT", id);
         sprintf(ctxt->file_path, "<NULL>");
         sprintf(ctxt->module_path, "<NULL>");
@@ -3347,6 +3371,55 @@ char *
 drcctlib_get_str_from_strpool(int index)
 {
     return global_string_pool + index;
+}
+
+DR_EXPORT
+std::vector<datacentric_node_t> *
+drcctlib_get_static_datacentric_nodes()
+{
+    return static_datacentric_nodes;
+}
+
+DR_EXPORT
+std::vector<datacentric_node_t> *
+drcctlib_get_dynamic_datacentric_nodes()
+{
+    return dynamic_datacentric_nodes;
+}
+
+static context_handle_t gloabl_cur_datacentric_node_idx = 0;
+
+DR_EXPORT
+inner_context_t *
+drcctlib_get_full_cct_of_datacentric_nodes(datacentric_node_t datacentric_node)
+{
+    if (gloabl_cur_datacentric_node_idx == 0) {
+        gloabl_cur_datacentric_node_idx = global_ip_node_buff_idle_idx;
+    } else {
+        gloabl_cur_datacentric_node_idx ++;
+    }
+    inner_context_t *ctxt = ctxt_create(gloabl_cur_datacentric_node_idx, 0, 0);
+    if (datacentric_node.hndl.object_type == STATIC_OBJECT) {
+        sprintf(ctxt->func_name, "[static] %s(%lu)",drcctlib_get_str_from_strpool(datacentric_node.hndl.sym_name), datacentric_node.count);
+    } else {
+        sprintf(ctxt->func_name, "[dynamic] (%lu)", datacentric_node.count);
+    }
+    sprintf(ctxt->file_path, "<NULL>");
+    sprintf(ctxt->module_path, "<NULL>");
+    sprintf(ctxt->code_asm, "<NULL>");
+
+    if (datacentric_node.hndl.object_type == STATIC_OBJECT) {
+        inner_context_t *root_ctxt = ctxt_create(THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE, 0, 0);
+        sprintf(root_ctxt->func_name, "PROCESS[%d]_ROOT_CTXT", getpid());
+        sprintf(root_ctxt->file_path, "<NULL>");
+        sprintf(root_ctxt->module_path, "<NULL>");
+        sprintf(root_ctxt->code_asm, "<NULL>");
+        ctxt->pre_ctxt = root_ctxt;
+    } else {
+        inner_context_t *create_ctxt = drcctlib_get_full_cct(datacentric_node.hndl.path_handle);
+        ctxt->pre_ctxt = create_ctxt;
+    }
+    return ctxt;
 }
 
 /* ======drcctlib ext api====== */

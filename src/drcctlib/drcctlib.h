@@ -8,6 +8,7 @@
 #define _DRCCTLIB_H_
 
 #include <cstdint>
+#include <vector>
 
 #include "dr_api.h"
 #include "drcctlib_defines.h"
@@ -227,5 +228,23 @@ drcctlib_get_data_hndl(void *drcontext, void *address);
 DR_EXPORT
 char *
 drcctlib_get_str_from_strpool(int index);
+
+
+typedef struct _datacentric_node_t {
+    data_handle_t hndl;
+    uint64_t count;
+} datacentric_node_t;
+
+DR_EXPORT
+std::vector<datacentric_node_t> *
+drcctlib_get_static_datacentric_nodes();
+
+DR_EXPORT
+std::vector<datacentric_node_t> *
+drcctlib_get_dynamic_datacentric_nodes();
+
+DR_EXPORT
+inner_context_t *
+drcctlib_get_full_cct_of_datacentric_nodes(datacentric_node_t datacentric_node);
 
 #endif // _DRCCTLIB_H_
