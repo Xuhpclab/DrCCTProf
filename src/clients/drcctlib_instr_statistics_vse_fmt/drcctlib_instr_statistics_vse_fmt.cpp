@@ -138,7 +138,7 @@ ClientExit(void)
         profile->add_sample(cur_ctxt)->append_metirc(output_list[i].count);
         drcctlib_free_full_cct(cur_ctxt);
     }
-    profile->serialize_to_file("instr_statistics.drcctprof");
+    profile->serialize_to_file("instr_statistics.normal.drcctprof");
     delete profile;
     dr_global_free(output_list, TOP_REACH_NUM_SHOW * sizeof(output_format_t));
     FreeGlobalBuff();

@@ -280,7 +280,9 @@ static thread_shared_memory_cache_t<bb_shadow_t> *global_bb_shadow_cache;
 
 static char *global_string_pool;
 static int global_string_pool_idle_idx = 0;
+static context_handle_t global_static_datacentric_node_idx = 0;
 #define ATOMIC_ADD_STRING_POOL_INDEX(origin, val) dr_atomic_add32_return_sum(&origin, val)
+#define ATOMIC_ADD_STATIC_DC_NODE_INDEX(origin, val) dr_atomic_add32_return_sum(&origin, val)
 
 static ConcurrentShadowMemory<data_handle_t> *global_shadow_memory;
 
@@ -2232,14 +2234,21 @@ static inline int32_t
 next_string_pool_idx(char *name)
 {
     int32_t len = strlen(name) + 1;
-    int32_t next_idx = ATOMIC_ADD_STRING_POOL_INDEX(global_string_pool_idle_idx, len);
+    int32_t next_idx = ATOMIC_ADD_STRING_POOL_INDEX(global_string_pool_idle_idx, len + 4);
     if (next_idx >= STRING_POOL_NODES_MAX) {
         DRCCTLIB_EXIT_PROCESS(
             "Preallocated String Pool exhausted. CCTLib couldn't fit your "
             "application in its memory. Try a smaller program.");
     }
+    context_handle_t next_static_datacentric_node_hndl = 0x0FFFFFFF - ATOMIC_ADD_STATIC_DC_NODE_INDEX(global_static_datacentric_node_idx, 1);
+    if (next_static_datacentric_node_hndl < CONTEXT_HANDLE_MAX) {
+        DRCCTLIB_EXIT_PROCESS(
+            "next_static_datacentric_node_hndl < CONTEXT_HANDLE_MAX");
+    }
+    context_handle_t* static_datacentric_node_handl = (context_handle_t*)(global_string_pool + next_idx - len - 4);
+    *static_datacentric_node_handl = next_static_datacentric_node_hndl + 1;
     strncpy(global_string_pool + next_idx - len, name, len);
-    return next_idx - len;
+    return next_idx - len - 4;
 }
 
 static void
@@ -2370,11 +2379,12 @@ datacentric_static_alloc(const module_data_t *info)
         int symbol_count = shdr->sh_size / shdr->sh_entsize;
         Elf_Sym *syms = (Elf_Sym *)(((char *)map_base) + shdr->sh_offset);
         for (int i = 0; i < symbol_count; i++) {
-            // This is a temooral solution: if the first symbol in the load module (the symbol with the smallest address)
-            // has the address greater than the load module's start address, we believe this load module uses the absolute
-	    // address. Typically, it is the executable. 
-            // FIXME: We will give a neat solution in DynamoRIO kernel to distinguish relative and absolute addresses
-            // used by the load modules.
+            // This is a temooral solution: if the first symbol in the load module (the
+            // symbol with the smallest address) has the address greater than the load
+            // module's start address, we believe this load module uses the absolute
+            // address. Typically, it is the executable.
+            // FIXME: We will give a neat solution in DynamoRIO kernel to distinguish
+            // relative and absolute addresses used by the load modules.
             if ((syms[i].st_size == 0)) continue;
 
             if (absolute == -1) {
@@ -2678,7 +2688,7 @@ ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
             DRCCTLIB_EXIT_PROCESS(
                 "bb->key == THREAD_ROOT_BB_SHARED_BB_KEY get_thread_id_by_root_bb == -1");
         }
-        inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, (app_pc)(ptr_int_t)id);
+        inner_context_t *ctxt = ctxt_create(ctxt_hndl, 0, (app_pc)(0xFFFFFFFFFFFFFFFF - (uint64_t)id));
         sprintf(ctxt->func_name, "THREAD[%d]_ROOT_CTXT", id);
         sprintf(ctxt->file_path, "<NULL>");
         sprintf(ctxt->module_path, "<NULL>");
@@ -3395,7 +3405,14 @@ DR_EXPORT
 char *
 drcctlib_get_str_from_strpool(int index)
 {
-    return global_string_pool + index;
+    return global_string_pool + index + 4;
+}
+
+DR_EXPORT
+context_handle_t
+drcctlib_get_hndl_from_strpool(int index)
+{
+    return *(context_handle_t*)(global_string_pool + index);
 }
 
 DR_EXPORT
@@ -3412,38 +3429,45 @@ drcctlib_get_dynamic_datacentric_nodes()
     return dynamic_datacentric_nodes;
 }
 
-static context_handle_t gloabl_cur_datacentric_node_idx = 0;
-
 DR_EXPORT
 inner_context_t *
 drcctlib_get_full_cct_of_datacentric_nodes(datacentric_node_t datacentric_node)
-{
-    if (gloabl_cur_datacentric_node_idx == 0) {
-        gloabl_cur_datacentric_node_idx = global_ip_node_buff_idle_idx;
-    } else {
-        gloabl_cur_datacentric_node_idx ++;
-    }
-    inner_context_t *ctxt = ctxt_create(gloabl_cur_datacentric_node_idx, 0, 0);
+{   
     if (datacentric_node.hndl.object_type == STATIC_OBJECT) {
-        sprintf(ctxt->func_name, "[static] %s(%lu)",drcctlib_get_str_from_strpool(datacentric_node.hndl.sym_name), datacentric_node.count);
-    } else {
-        sprintf(ctxt->func_name, "[dynamic] (%lu)", datacentric_node.count);
-    }
-    sprintf(ctxt->file_path, "<NULL>");
-    sprintf(ctxt->module_path, "<NULL>");
-    sprintf(ctxt->code_asm, "<NULL>");
-
-    if (datacentric_node.hndl.object_type == STATIC_OBJECT) {
+        inner_context_t *ctxt = ctxt_create(drcctlib_get_hndl_from_strpool(datacentric_node.hndl.sym_name), 0, 0);
+        ctxt->ip = (app_pc)(ptr_int_t)0xFFFFFFFFFFFFFFFF - (0x0FFFFFFF - ctxt->ctxt_hndl) - 100000;
+        sprintf(ctxt->func_name, "[static alloc] %s",drcctlib_get_str_from_strpool(datacentric_node.hndl.sym_name));
+        sprintf(ctxt->file_path, "<NULL>");
+        sprintf(ctxt->module_path, "<NULL>");
+        sprintf(ctxt->code_asm, "<NULL>");
         inner_context_t *root_ctxt = ctxt_create(THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE, 0, 0);
         sprintf(root_ctxt->func_name, "PROCESS[%d]_ROOT_CTXT", getpid());
         sprintf(root_ctxt->file_path, "<NULL>");
         sprintf(root_ctxt->module_path, "<NULL>");
         sprintf(root_ctxt->code_asm, "<NULL>");
         ctxt->pre_ctxt = root_ctxt;
+        return ctxt;
     } else {
-        inner_context_t *create_ctxt = drcctlib_get_full_cct(datacentric_node.hndl.path_handle);
-        ctxt->pre_ctxt = create_ctxt;
+        return drcctlib_get_full_cct(datacentric_node.hndl.path_handle);
     }
+}
+
+DR_EXPORT
+inner_context_t *
+drcctlib_get_full_cct_of_static_datacentric_nodes(int index)
+{
+    inner_context_t *ctxt = ctxt_create(drcctlib_get_hndl_from_strpool(index), 0, 0);
+    ctxt->ip = (app_pc)(ptr_int_t)0xFFFFFFFFFFFFFFFF - (0x0FFFFFFF - ctxt->ctxt_hndl) - 100000;
+    sprintf(ctxt->func_name, "[static alloc] %s",drcctlib_get_str_from_strpool(index));
+    sprintf(ctxt->file_path, "<NULL>");
+    sprintf(ctxt->module_path, "<NULL>");
+    sprintf(ctxt->code_asm, "<NULL>");
+    inner_context_t *root_ctxt = ctxt_create(THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE, 0, 0);
+    sprintf(root_ctxt->func_name, "PROCESS[%d]_ROOT_CTXT", getpid());
+    sprintf(root_ctxt->file_path, "<NULL>");
+    sprintf(root_ctxt->module_path, "<NULL>");
+    sprintf(root_ctxt->code_asm, "<NULL>");
+    ctxt->pre_ctxt = root_ctxt;
     return ctxt;
 }
 

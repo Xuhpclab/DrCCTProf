@@ -39,37 +39,48 @@ static void
 ClientInit(int argc, const char *argv[])
 {
 }
-
+#define ALLOC_THRES 128
 static void
 ClientExit(void)
 {
-    Profile::profile_t* profile = new Profile::profile_t();
-    profile->add_metric_type(0, " ", "alloc type");
-    profile->add_metric_type(1, "bytes", "alloc memory");
     std::vector<datacentric_node_t>* static_datacentric_nodes = drcctlib_get_static_datacentric_nodes();
     std::vector<datacentric_node_t>* dynamic_datacentric_nodes = drcctlib_get_dynamic_datacentric_nodes();
 
+    Profile::profile_t* static_profile = new Profile::profile_t();
+    static_profile->add_metric_type(0, " ", "alloc type");
+    static_profile->add_metric_type(1, "bytes", "alloc memory");
     std::vector<datacentric_node_t>::iterator it = (*static_datacentric_nodes).begin();
     for (; it != (*static_datacentric_nodes).end();it++) {
+        if ((*it).count < ALLOC_THRES) {
+            continue;
+        }
         inner_context_t* cur_ctxt = drcctlib_get_full_cct_of_datacentric_nodes(*it);
-        DRCCTLIB_PRINTF("%s", cur_ctxt->func_name);
-        Profile::sample_t* sample = profile->add_sample(cur_ctxt);
+        // DRCCTLIB_PRINTF("%s", cur_ctxt->func_name);
+        Profile::sample_t* sample = static_profile->add_sample(cur_ctxt);
         sample->append_metirc((int64_t)0);
         sample->append_metirc((*it).count);
         drcctlib_free_full_cct(cur_ctxt);
     }
+    static_profile->serialize_to_file("static_data.datacentric.drcctprof");
+    delete static_profile;
 
+    Profile::profile_t* dynamic_profile = new Profile::profile_t();
+    dynamic_profile->add_metric_type(0, " ", "alloc type");
+    dynamic_profile->add_metric_type(1, "bytes", "alloc memory");
     it = (*dynamic_datacentric_nodes).begin();
     for (; it != (*dynamic_datacentric_nodes).end();it++) {
+        if ((*it).count < ALLOC_THRES) {
+            continue;
+        }
         inner_context_t* cur_ctxt = drcctlib_get_full_cct_of_datacentric_nodes(*it);
-        DRCCTLIB_PRINTF("%s", cur_ctxt->func_name);
-        Profile::sample_t* sample = profile->add_sample(cur_ctxt);
+        // DRCCTLIB_PRINTF("%s", cur_ctxt->func_name);
+        Profile::sample_t* sample = dynamic_profile->add_sample(cur_ctxt);
         sample->append_metirc((int64_t)1);
         sample->append_metirc((*it).count);
         drcctlib_free_full_cct(cur_ctxt);
     }
-    profile->serialize_to_file("normal.datacentric.drcctprof");
-    delete profile;
+    dynamic_profile->serialize_to_file("dynamic_data.datacentric.drcctprof");
+    delete dynamic_profile;
     drcctlib_exit();
 }
 

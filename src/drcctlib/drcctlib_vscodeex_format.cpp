@@ -631,9 +631,6 @@ DrCCTProf::Profile::location_t *
 DrCCTProf::Profile::profile_t::add_location(inner_context_t *ctxt)
 {
     uint64_t location_id = (ptr_int_t)ctxt->ip;
-    if (strstr(ctxt->func_name, "THREAD[") && strstr(ctxt->func_name, "]_ROOT_CTXT")) {
-        location_id = 0xFFFFFFFFFFFFFFFF - location_id;
-    }
     std::map<uint64_t, DrCCTProf::Profile::location_t *>::iterator it = (*this->location_map_).find(location_id);
     if (it != (*this->location_map_).end()) {
         return it->second;
