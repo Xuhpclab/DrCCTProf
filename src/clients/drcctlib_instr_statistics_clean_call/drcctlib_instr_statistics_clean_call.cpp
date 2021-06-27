@@ -94,7 +94,7 @@ ClientInit(int argc, const char *argv[])
     dr_fprintf(gTraceFile, "\n");
 
     InitGlobalBuff();
-    drcctlib_init(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, false);
+    drcctlib_init(DRCCTLIB_FILTER_ZERO_INSTR, INVALID_FILE, InstrumentInsCallback, false);
 }
 
 typedef struct _output_format_t {
