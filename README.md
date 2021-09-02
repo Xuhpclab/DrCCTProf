@@ -62,6 +62,12 @@ $ export drrun=/path/to/DrCCTProf/build/bin64/drrun
 $ $drrun -t <client tool> -- <application> [apllication args]
 ```
 
+e.g. The command below will start the client **drcctlib_instr_statistics_clean_call** to analyze **echo _"Hello World!"_**.
+
+```console
+$ $drrun -t drcctlib_instr_statistics_clean_call -- echo "Hello World!"
+```
+
 -   **aarch64**
 
 ```console
