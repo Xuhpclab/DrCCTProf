@@ -12,9 +12,9 @@
 #include "drcctlib.h"
 
 #define DRCCTLIB_PRINTF(_FORMAT, _ARGS...) \
-    DRCCTLIB_PRINTF_TEMPLATE("instr_statistics", _FORMAT, ##_ARGS)
+    DRCCTLIB_PRINTF_TEMPLATE("instr_statistics_clean_call", _FORMAT, ##_ARGS)
 #define DRCCTLIB_EXIT_PROCESS(_FORMAT, _ARGS...) \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("instr_statistics", _FORMAT, ##_ARGS)
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("instr_statistics_clean_call", _FORMAT, ##_ARGS)
 
 #ifdef ARM_CCTLIB
 #    define OPND_CREATE_CCT_INT OPND_CREATE_INT
@@ -164,7 +164,7 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_instr_statistics_clean_call'",
+    dr_set_client_name("DynamoRIO Client 'instr_statistics_clean_call'",
                        "http://dynamorio.org/issues");
 
     ClientInit(argc, argv);

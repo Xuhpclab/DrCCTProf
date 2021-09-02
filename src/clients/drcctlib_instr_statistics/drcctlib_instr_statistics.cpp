@@ -70,17 +70,11 @@ static void
 ClientInit(int argc, const char *argv[])
 {
     char name[MAXIMUM_FILEPATH] = "";
-    DRCCTLIB_INIT_LOG_FILE_NAME(name, "drcctlib_instr_statistics", "out");
+    DRCCTLIB_INIT_LOG_FILE_NAME(name, "instr_statistics", "out");
     DRCCTLIB_PRINTF("Creating log file at:%s", name);
 
     gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(gTraceFile != INVALID_FILE);
-    // print the arguments passed
-    dr_fprintf(gTraceFile, "\n");
-    for (int i = 0; i < argc; i++) {
-        dr_fprintf(gTraceFile, "%d %s ", i, argv[i]);
-    }
-    dr_fprintf(gTraceFile, "\n");
 
     InitGlobalBuff();
 }
@@ -153,7 +147,7 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_instr_statistics'",
+    dr_set_client_name("DynamoRIO Client 'instr_statistics'",
                        "http://dynamorio.org/issues");
 
     ClientInit(argc, argv);
