@@ -384,21 +384,6 @@ cur_child_ctxt_start_idx(slot_t num)
 }
 
 #ifdef ARM_CCTLIB
-static bool
-instr_is_exclusive_load(instr_t *instr)
-{
-    switch (instr_get_opcode(instr)) {
-    case OP_ldaxp:
-    case OP_ldaxr:
-    case OP_ldaxrb:
-    case OP_ldaxrh:
-    case OP_ldxp:
-    case OP_ldxr:
-    case OP_ldxrb:
-    case OP_ldxrh: return true;
-    }
-    return false;
-}
 
 static bool
 instr_is_ldstex(instr_t *instr)
