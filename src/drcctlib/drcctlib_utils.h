@@ -16,8 +16,8 @@
 
 #define DRCCTLIB_PRINTF_TEMPLATE(_CLIENT, _FORMAT, _ARGS...)                        \
     do {                                                                            \
-        char _HOST_NAME[MAXIMUM_PATH] = "";                                         \
-        gethostname(_HOST_NAME, MAXIMUM_PATH);                                      \
+        char _HOST_NAME[MAXIMUM_FILEPATH] = "";                                         \
+        gethostname(_HOST_NAME, MAXIMUM_FILEPATH);                                      \
         dr_printf("[drcctlib[" _CLIENT "](%s%d) msg]====" _FORMAT "\n", _HOST_NAME, \
                   getpid(), ##_ARGS);                                               \
     } while (0)
@@ -39,18 +39,19 @@
 #define DRCCTLIB_INIT_LOG_FILE_NAME(_BUFFER, _CLIENT, _SUFFIX)                       \
     do {                                                                             \
         sprintf(_BUFFER + strlen(_BUFFER), ARCH_NAME_PREFIX ".");                    \
-        gethostname(_BUFFER + strlen(_BUFFER), MAXIMUM_PATH - strlen(_BUFFER));      \
+        gethostname(_BUFFER + strlen(_BUFFER), MAXIMUM_FILEPATH - strlen(_BUFFER));      \
         sprintf(_BUFFER + strlen(_BUFFER), "-%d.%s.%s", getpid(), _CLIENT, _SUFFIX); \
     } while (0)
 
 #define DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(_BUFFER, _CLIENT, _THREAD_ID, _SUFFIX) \
     do {                                                                          \
         sprintf(_BUFFER + strlen(_BUFFER), ARCH_NAME_PREFIX ".");                 \
-        gethostname(_BUFFER + strlen(_BUFFER), MAXIMUM_PATH - strlen(_BUFFER));   \
+        gethostname(_BUFFER + strlen(_BUFFER), MAXIMUM_FILEPATH - strlen(_BUFFER));   \
         sprintf(_BUFFER + strlen(_BUFFER), "-%d.%s-%d.%s", getpid(), _CLIENT,     \
                 _THREAD_ID, _SUFFIX);                                             \
     } while (0)
 
+DR_EXPORT
 uint64_t
 hexadecimal_char_to_uint64(char* hex, int size);
 

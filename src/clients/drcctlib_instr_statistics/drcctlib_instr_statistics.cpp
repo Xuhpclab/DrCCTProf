@@ -69,18 +69,12 @@ FreeGlobalBuff()
 static void
 ClientInit(int argc, const char *argv[])
 {
-    char name[MAXIMUM_PATH] = "";
-    DRCCTLIB_INIT_LOG_FILE_NAME(name, "drcctlib_instr_statistics", "out");
+    char name[MAXIMUM_FILEPATH] = "";
+    DRCCTLIB_INIT_LOG_FILE_NAME(name, "instr_statistics", "out");
     DRCCTLIB_PRINTF("Creating log file at:%s", name);
 
     gTraceFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(gTraceFile != INVALID_FILE);
-    // print the arguments passed
-    dr_fprintf(gTraceFile, "\n");
-    for (int i = 0; i < argc; i++) {
-        dr_fprintf(gTraceFile, "%d %s ", i, argv[i]);
-    }
-    dr_fprintf(gTraceFile, "\n");
 
     InitGlobalBuff();
 }
@@ -133,19 +127,12 @@ ClientExit(void)
         if (output_list[i].handle == 0) {
             break;
         }
-        // dr_fprintf(gTraceFile, "NO. %d ins call number %lld ctxt handle %lld==== \n",
-        // i+1, output_list[i].count, output_list[i].handle);
-        dr_fprintf(gTraceFile, "NO. %d ins call number %lld ctxt handle %lld====", i + 1,
-                   output_list[i].count, output_list[i].handle);
-        drcctlib_print_ctxt_hndl_msg(gTraceFile, output_list[i].handle, false, false);
-        dr_fprintf(gTraceFile,
-                   "====================================================================="
-                   "===========\n");
-        drcctlib_print_full_cct(gTraceFile, output_list[i].handle, true, false,
-                                MAX_CLIENT_CCT_PRINT_DEPTH);
-        dr_fprintf(gTraceFile,
-                   "====================================================================="
-                   "===========\n\n\n");
+        dr_fprintf(gTraceFile, "NO. %d PC ", i + 1);
+        drcctlib_print_backtrace_first_item(gTraceFile, output_list[i].handle, true, false);
+        dr_fprintf(gTraceFile, "=>EXECUTION TIMES\n%lld\n=>BACKTRACE\n",
+                   output_list[i].count);
+        drcctlib_print_backtrace(gTraceFile, output_list[i].handle, false, true, -1);
+        dr_fprintf(gTraceFile, "\n\n\n");
     }
     dr_global_free(output_list, TOP_REACH_NUM_SHOW * sizeof(output_format_t));
     FreeGlobalBuff();
@@ -160,7 +147,7 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_instr_statistics'",
+    dr_set_client_name("DynamoRIO Client 'instr_statistics'",
                        "http://dynamorio.org/issues");
 
     ClientInit(argc, argv);

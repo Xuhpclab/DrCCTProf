@@ -8,6 +8,7 @@
 #define _DRCCTLIB_H_
 
 #include <cstdint>
+#include <vector>
 
 #include "dr_api.h"
 #include "drcctlib_defines.h"
@@ -47,56 +48,7 @@ typedef struct _mem_ref_msg_t {
     app_pc addr;
 } mem_ref_msg_t;
 
-/**
- * DrCCTLib Calling Context.
- * Clients may access this calling context
- * via drcctlib_get_full_cct.
- */
-typedef struct _context_t {
-    /**
-     * The name of the function/symbol
-     * associated with this calling context
-     */
-    char func_name[MAXIMUM_SYMNAME];
-
-    /**
-     * The file path of the source code of the guest program
-     * at the current point in the program.
-     * Will not be available when the guest program is
-     * compiled without debug information.
-     */
-    char file_path[MAXIMUM_PATH];
-
-    /**
-     * String representation of the dissassembly of the code.
-     */
-    char code_asm[DISASM_CACHE_SIZE];
-
-    /**
-     * The context handle that refers to this context.
-     */
-    context_handle_t ctxt_hndl;
-
-    /**
-     * The line of the source code of the guest program
-     * at the current point in the program.
-     * Will not be available when the guest program is compiled
-     * without debug information.
-     */
-    int line_no;
-
-    /**
-     * The instruction pointer at the current point in the program.
-     * May be null.
-     */
-    app_pc ip;
-
-    /**
-     * The context that occurs before this context.
-     */
-    struct _context_t *pre_ctxt;
-} context_t;
-
+DR_EXPORT
 /**
  * Initialize DrCCTLib with
  * an instruction filter,
@@ -129,7 +81,6 @@ typedef struct _context_t {
  * May be null.
  * @flag the flag telling DRCCTLib how to operate.
  */
-DR_EXPORT
 bool
 drcctlib_init_ex(bool (*filter)(instr_t *), file_t file,
                  void (*func1)(void *, instr_instrument_msg_t *),
@@ -162,6 +113,10 @@ drcctlib_get_context_handle(void *drcontext, int32_t slot);
 
 DR_EXPORT
 context_handle_t
+drcctlib_get_context_handle(void *drcontext);
+
+DR_EXPORT
+context_handle_t
 drcctlib_get_global_context_handle_num();
 
 // API for ctxt_hndl
@@ -170,12 +125,12 @@ bool
 drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl);
 
 DR_EXPORT
-context_t *
+inner_context_t *
 drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth);
 
 DR_EXPORT
 void
-drcctlib_free_cct(context_t *contxt_list);
+drcctlib_free_cct(inner_context_t *contxt_list);
 
 /**
  * Given the context handle,
@@ -183,26 +138,44 @@ drcctlib_free_cct(context_t *contxt_list);
  * @param ctxt_hdnl the context handle
  */
 DR_EXPORT
-context_t *
+inner_context_t *
 drcctlib_get_full_cct(context_handle_t ctxt_hndl);
 
 DR_EXPORT
-context_t *
+inner_context_t *
 drcctlib_get_full_cct(context_handle_t ctxt_hndl, int max_depth);
 
 DR_EXPORT
 void
-drcctlib_free_full_cct(context_t *contxt_list);
+drcctlib_free_full_cct(inner_context_t *contxt_list);
 
 DR_EXPORT
+void
+drcctlib_print_backtrace_first_item(file_t file, context_handle_t ctxt_hndl, bool print_asm,
+                              bool print_source_line);
+
+DR_EXPORT
+void
+drcctlib_print_backtrace(file_t file, context_handle_t ctxt_hndl, bool print_asm,
+                        bool print_source_line, int max_depth);
+
+DR_EXPORT
+/**
+ * Legacy, deprecated backtrace first item print routine.
+ * \deprecated drcctlib_print_backtrace_item() should be used instead.
+ */
 void
 drcctlib_print_ctxt_hndl_msg(file_t file, context_handle_t ctxt_hndl, bool print_asm,
-                             bool print_file_path);
+                             bool print_source_line);
 
 DR_EXPORT
+/**
+ * Legacy, deprecated backtrace list print routine.
+ * \deprecated drcctlib_print_backtrace() should be used instead.
+ */
 void
 drcctlib_print_full_cct(file_t file, context_handle_t ctxt_hndl, bool print_asm,
-                        bool print_file_path, int max_depth);
+                        bool print_source_line, int max_depth);
 
 DR_EXPORT
 app_pc
@@ -255,5 +228,30 @@ drcctlib_get_data_hndl(void *drcontext, void *address);
 DR_EXPORT
 char *
 drcctlib_get_str_from_strpool(int index);
+
+DR_EXPORT
+context_handle_t
+drcctlib_get_hndl_from_strpool(int index);
+
+typedef struct _datacentric_node_t {
+    data_handle_t hndl;
+    uint64_t count;
+} datacentric_node_t;
+
+DR_EXPORT
+std::vector<datacentric_node_t> *
+drcctlib_get_static_datacentric_nodes();
+
+DR_EXPORT
+std::vector<datacentric_node_t> *
+drcctlib_get_dynamic_datacentric_nodes();
+
+DR_EXPORT
+inner_context_t *
+drcctlib_get_full_cct_of_datacentric_nodes(datacentric_node_t datacentric_node);
+
+DR_EXPORT
+inner_context_t *
+drcctlib_get_full_cct_of_static_datacentric_nodes(int index);
 
 #endif // _DRCCTLIB_H_

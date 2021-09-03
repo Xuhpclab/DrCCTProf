@@ -221,7 +221,7 @@ PrintTopN(per_thread_t *pt, uint64_t print_num)
         dr_fprintf(pt->output_file,
                    "=========================create=========================\n");
         if (output_format_list[i].create_hndl > 0) {
-            drcctlib_print_full_cct(pt->output_file, output_format_list[i].create_hndl,
+            drcctlib_print_backtrace(pt->output_file, output_format_list[i].create_hndl,
                                     true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
         } else if (output_format_list[i].create_hndl < 0) {
             dr_fprintf(pt->output_file, "STATIC_OBJECT %s\n",
@@ -231,11 +231,11 @@ PrintTopN(per_thread_t *pt, uint64_t print_num)
         }
         dr_fprintf(pt->output_file,
                    "===========================use===========================\n");
-        drcctlib_print_full_cct(pt->output_file, output_format_list[i].use_hndl, true,
+        drcctlib_print_backtrace(pt->output_file, output_format_list[i].use_hndl, true,
                                 true, MAX_CLIENT_CCT_PRINT_DEPTH);
         dr_fprintf(pt->output_file,
                    "==========================reuse==========================\n");
-        drcctlib_print_full_cct(pt->output_file, output_format_list[i].reuse_hndl, true,
+        drcctlib_print_backtrace(pt->output_file, output_format_list[i].reuse_hndl, true,
                                 true, MAX_CLIENT_CCT_PRINT_DEPTH);
         dr_fprintf(pt->output_file,
                    "=========================================================\n\n\n");
@@ -288,7 +288,7 @@ static void
 ThreadDebugFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    char debug_file_name[MAXIMUM_PATH] = "";
+    char debug_file_name[MAXIMUM_FILEPATH] = "";
     DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(
         debug_file_name, "drcctlib_reuse_distance_mpi", id, "debug.log");
     pt->log_file =
@@ -301,7 +301,7 @@ static void
 ThreadOutputFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    char name[MAXIMUM_PATH] = "";
+    char name[MAXIMUM_FILEPATH] = "";
     DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(
         name, "drcctlib_reuse_distance_mpi", id, "topn.log");
     pt->output_file =

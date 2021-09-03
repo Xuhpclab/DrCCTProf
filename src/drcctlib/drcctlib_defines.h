@@ -70,6 +70,7 @@
 
 #define DISASM_CACHE_SIZE 80
 #define MAXIMUM_SYMNAME 256
+#define MAXIMUM_FILEPATH 1024
 
 #define THREAD_MAX_NUM 8192
 #define SPEEDUP_SUPPORT_THREAD_MAX_NUM 32
@@ -84,5 +85,57 @@
 #define DRCCTLIB_MODULE_REGISTER_PRI 5
 
 // #define DRCCTLIB_SUPPORT_ATTACH_DETACH
+
+/**
+ * DrCCTLib Calling Context.
+ * Clients may access this calling context
+ * via drcctlib_get_full_cct.
+ */
+typedef struct _inner_context_t {
+    /**
+     * The name of the function/symbol
+     * associated with this calling context
+     */
+    char func_name[MAXIMUM_SYMNAME];
+
+    /**
+     * The file path of the source code of the guest program
+     * at the current point in the program.
+     * Will not be available when the guest program is
+     * compiled without debug information.
+     */
+    char file_path[MAXIMUM_FILEPATH];
+
+    char module_path[MAXIMUM_FILEPATH];
+
+    /**
+     * String representation of the dissassembly of the code.
+     */
+    char code_asm[DISASM_CACHE_SIZE];
+
+    /**
+     * The context handle that refers to this context.
+     */
+    context_handle_t ctxt_hndl;
+
+    /**
+     * The line of the source code of the guest program
+     * at the current point in the program.
+     * Will not be available when the guest program is compiled
+     * without debug information.
+     */
+    int line_no;
+
+    /**
+     * The instruction pointer at the current point in the program.
+     * May be null.
+     */
+    app_pc ip;
+
+    /**
+     * The context that occurs before this context.
+     */
+    struct _inner_context_t *pre_ctxt;
+} inner_context_t;
 
 #endif //_DRCCTLIB_GLOBAL_SHARE_H_

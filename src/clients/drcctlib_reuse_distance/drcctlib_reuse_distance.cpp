@@ -214,7 +214,7 @@ PrintTopN(per_thread_t *pt, uint64_t print_num)
         dr_fprintf(pt->output_file,
                    "=========================create=========================\n");
         if (output_format_list[i].create_hndl > 0) {
-            drcctlib_print_full_cct(pt->output_file, output_format_list[i].create_hndl,
+            drcctlib_print_backtrace(pt->output_file, output_format_list[i].create_hndl,
                                     true, true, MAX_CLIENT_CCT_PRINT_DEPTH);
         } else if (output_format_list[i].create_hndl < 0) {
             dr_fprintf(pt->output_file, "STATIC_OBJECT %s\n",
@@ -224,11 +224,11 @@ PrintTopN(per_thread_t *pt, uint64_t print_num)
         }
         dr_fprintf(pt->output_file,
                    "===========================use===========================\n");
-        drcctlib_print_full_cct(pt->output_file, output_format_list[i].use_hndl, true,
+        drcctlib_print_backtrace(pt->output_file, output_format_list[i].use_hndl, true,
                                 true, MAX_CLIENT_CCT_PRINT_DEPTH);
         dr_fprintf(pt->output_file,
                    "==========================reuse==========================\n");
-        drcctlib_print_full_cct(pt->output_file, output_format_list[i].reuse_hndl, true,
+        drcctlib_print_backtrace(pt->output_file, output_format_list[i].reuse_hndl, true,
                                 true, MAX_CLIENT_CCT_PRINT_DEPTH);
         dr_fprintf(pt->output_file,
                    "=========================================================\n\n\n");
@@ -280,7 +280,7 @@ static void
 ThreadDebugFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    char name[MAXIMUM_PATH] = "";
+    char name[MAXIMUM_FILEPATH] = "";
     sprintf(name + strlen(name), "%s/thread-%d.debug.log", g_folder_name.c_str(), id);
     pt->log_file = dr_open_file(name, DR_FILE_WRITE_APPEND | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->log_file != INVALID_FILE);
@@ -291,7 +291,7 @@ static void
 ThreadOutputFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    char name[MAXIMUM_PATH] = "";
+    char name[MAXIMUM_FILEPATH] = "";
     sprintf(name + strlen(name), "%s/thread-%d.topn.log", g_folder_name.c_str(), id);
     pt->output_file = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->output_file != INVALID_FILE);
@@ -335,7 +335,7 @@ ClientThreadEnd(void *drcontext)
 static void
 ClientInit(int argc, const char *argv[])
 {
-    char name[MAXIMUM_PATH] = "";
+    char name[MAXIMUM_FILEPATH] = "";
     DRCCTLIB_INIT_LOG_FILE_NAME(
         name, "drcctlib_reuse_distance", "out");
     g_folder_name.assign(name, strlen(name));
