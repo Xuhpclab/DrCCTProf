@@ -4,6 +4,24 @@
  *  See LICENSE file for more information.
  */
 
+/* DrCCTProf Client Sample:
+ * instr_statistics_clean_call.cpp
+ *
+ * This sample client will display the top 200 instructions with their execution times and
+ * calling paths in the output file.
+ *
+ * If you are new to the DynamoRIO Dynamic Binary Instrumentation (DBI) tool platform in
+ * general, and DynamoRIO in particular, ensure you understand the method by which
+ * instrumentation is added to application code.
+ *
+ * Remember that instrumentation occurs in two phases, transformation and execution:
+ * - Transformation
+ *      Instrumentation code is inserted into the application code.
+ * - Execution
+ *      The application code runs, including the instrumentation code which was inserted
+ *      during transformation.
+ */
+
 #include <iterator>
 #include <vector>
 #include <map>
@@ -30,33 +48,25 @@ static file_t gTraceFile;
 
 using namespace std;
 
-// client want to do
+// Execution
 void
-DoWhatClientWantTodo(void *drcontext, context_handle_t cur_ctxt_hndl)
-{
-    // use {cur_ctxt_hndl}
-    gloabl_hndl_call_num[cur_ctxt_hndl]++;
-}
-
-// dr clean call
-void
-InsertCleancall(int32_t slot)
+InsCount(int32_t slot)
 {
     void *drcontext = dr_get_current_drcontext();
     context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
-    DoWhatClientWantTodo(drcontext, cur_ctxt_hndl);
+    gloabl_hndl_call_num[cur_ctxt_hndl]++;
 }
 
-// analysis
+// Transformation
 void
-InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
+InsTransEventCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
 {
 
     instrlist_t *bb = instrument_msg->bb;
     instr_t *instr = instrument_msg->instr;
     int32_t slot = instrument_msg->slot;
 
-    dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 1, OPND_CREATE_CCT_INT(slot));
+    dr_insert_clean_call(drcontext, bb, instr, (void *)InsCount, false, 1, OPND_CREATE_CCT_INT(slot));
 }
 
 static inline void
@@ -88,7 +98,7 @@ ClientInit(int argc, const char *argv[])
     DR_ASSERT(gTraceFile != INVALID_FILE);
 
     InitGlobalBuff();
-    drcctlib_init(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InstrumentInsCallback, false);
+    drcctlib_init(DRCCTLIB_FILTER_ALL_INSTR, INVALID_FILE, InsTransEventCallback, false);
 }
 
 typedef struct _output_format_t {
