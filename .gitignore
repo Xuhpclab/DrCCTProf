@@ -13,3 +13,8 @@ scripts/lulesh_test.sh
 rebuild.sh
 
 src/clients/drcctlib_custom_client
+proto/__pycache__
+
+.drcctprof/
+
+src/clients/drcctlib_standalone

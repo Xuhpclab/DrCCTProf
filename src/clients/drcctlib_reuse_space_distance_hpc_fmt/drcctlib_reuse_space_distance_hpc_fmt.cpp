@@ -264,7 +264,7 @@ static void
 ThreadDebugFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    char debug_file_name[MAXIMUM_PATH] = "";
+    char debug_file_name[MAXIMUM_FILEPATH] = "";
     DRCCTLIB_INIT_THREAD_LOG_FILE_NAME(
         debug_file_name, "drcctlib_reuse_space_distance_hpc_fmt", id, "debug.log");
     pt->log_file =

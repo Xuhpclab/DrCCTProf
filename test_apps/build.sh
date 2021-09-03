@@ -16,10 +16,11 @@ if [ ! -d ${BUILD} ]; then
 fi
 
 echo -e "\033[32m Start build test apps... \033[0m"
-g++ -g ${SRC}/test_app_cct.cpp -o ${BUILD}/test_app_cct
+gcc -g ${SRC}/test_app_cct.c -o ${BUILD}/test_app_cct
 g++ -g ${SRC}/test_app_multithread.cpp -o ${BUILD}/test_app_multithread -pthread
 g++ -g ${SRC}/test_app_reuse.cpp -o ${BUILD}/test_app_reuse 
 g++ -g ${SRC}/test_app_signal.cpp -o ${BUILD}/test_app_signal
 g++ -g ${SRC}/test_app_keep_running.cpp -o ${BUILD}/test_app_keep_running
 g++ -g ${SRC}/test_app_keep_running_multithread.cpp -o ${BUILD}/test_app_keep_running_multithread -pthread
+g++ -g -fopenmp ${SRC}/test_numa.cpp -o ${BUILD}/test_numa
 echo -e "\033[32m Build test apps successfully! \033[0m"

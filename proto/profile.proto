@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package drcctprof.profile;
+
+message Profile {
+
+  repeated MetricType metric_type = 1;
+
+  repeated Sample sample = 2;
+
+  repeated Context context = 3;
+
+  repeated Location location = 4;
+
+  repeated Function function = 5;
+
+  repeated SourceFile source_file = 6;
+
+  // string_table[0] must always be "".
+  repeated string string_table = 7;
+}
+
+message Sample {
+  
+  uint64 context_id = 1;
+
+  repeated Metric metric = 2;
+}
+
+// MetricType describes the semantics and measurement units of a value.
+message MetricType {
+  int64 value_type = 1;  
+  int64 unit = 2; // Index into string table.
+  int64 des = 3; // Index into string table.
+}
+
+message Metric {
+  int64 int_value = 1;
+  uint64 uint_value = 2;
+  int64 str_value = 3; // Index into string table.
+}
+
+message Context {
+  // Unique nonzero id for the context item.
+  uint64 id = 1;
+
+  uint64 location_id = 2;
+
+  uint64 parent_id = 3;
+
+  repeated uint64 children_id = 4;
+}
+
+// Describes function and line table debug information.
+message Location {
+  // Unique nonzero id for the location.  A profile could use
+  // instruction addresses or any integer sequence as ids.
+  uint64 id = 1;
+  // Multiple line indicates this location has inlined functions,
+  // where the last entry represents the caller into which the
+  // preceding entries were inlined.
+  //
+  // E.g., if memcpy() is inlined into printf:
+  //    line[0].function_name == "memcpy"
+  //    line[1].function_name == "printf"
+  repeated Line line = 2;
+}
+
+message Line {
+  // The id of the corresponding profile.Function for this line.
+  uint64 function_id = 1;
+  // Line number in source code.
+  int64 line = 2;
+}
+
+message Function {
+  // Unique nonzero id for the function.
+  uint64 id = 1;
+  // Name of the function, in human-readable form if available.
+  int64 name = 2; // Index into string table
+  // Name of the function, as identified by the system.
+  // For instance, it can be a C++ mangled name.
+  int64 system_name = 3; // Index into string table
+  // Source file containing the function.
+  uint64 source_file_id = 4;
+  // Line number in source file.
+  int64 start_line = 5;
+}
+
+message SourceFile {
+  // Unique nonzero id for the source file.
+  uint64 id = 1;
+  
+  int64 filename = 2; // Index into string table
+
+  int64 location_path = 3; // Index into string table
+
+  int64 type = 4;
+}

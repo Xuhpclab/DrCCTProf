@@ -92,7 +92,7 @@
 typedef struct _offline_module_data_t {
     int id;
     bool app;
-    char path[MAXIMUM_PATH];
+    char path[MAXIMUM_FILEPATH];
     app_pc start;
     app_pc end;
 } offline_module_data_t;
@@ -545,18 +545,18 @@ hpcrun_files_next_id(struct fileid *id)
 static int
 hpcrun_open_file(int thread, const char *suffix, int flags, const char *fileName)
 {
-    char name[MAXIMUM_PATH];
+    char name[MAXIMUM_FILEPATH];
     struct fileid *id;
     int fd, ret;
 
     id = (flags & FILES_EARLY) ? &earlyid : &lateid;
     for (;;) {
         errno = 0;
-        ret = snprintf(name, MAXIMUM_PATH, FILENAME_TEMPLATE,
+        ret = snprintf(name, MAXIMUM_FILEPATH, FILENAME_TEMPLATE,
                        global_hpc_fmt_config.dirName.c_str(), fileName, RANK, thread,
                        id->host, mypid, id->gen, suffix);
 
-        if (ret >= MAXIMUM_PATH) {
+        if (ret >= MAXIMUM_FILEPATH) {
             fd = -1;
             errno = ENAMETOOLONG;
             break;
