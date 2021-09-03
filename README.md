@@ -89,7 +89,7 @@ $ $drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication arg
 
 ### How to build your own custom tools?
 
-See [documentation](doc/build_custom_client_tool.md) for details.
+See [documentation](https://drcctprof.readthedocs.io/en/latest/) for details.
 
 ## Support Platforms
 
