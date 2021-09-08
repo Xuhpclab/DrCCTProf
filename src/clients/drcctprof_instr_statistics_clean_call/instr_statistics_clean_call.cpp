@@ -52,8 +52,12 @@ using namespace std;
 void
 InsCount(int32_t slot)
 {
+    // Get the context unique Id during the application runtime
     void *drcontext = dr_get_current_drcontext();
     context_handle_t cur_ctxt_hndl = drcctlib_get_context_handle(drcontext, slot);
+
+    // Add one for the count number of the context’s instruction and
+    // store it to a global array.
     gloabl_hndl_call_num[cur_ctxt_hndl]++;
 }
 
@@ -115,7 +119,12 @@ ClientExit(void)
         output_list[i].handle = 0;
         output_list[i].count = 0;
     }
+
+    // Get the number of all contexts. 
     context_handle_t max_ctxt_hndl = drcctlib_get_global_context_handle_num();
+
+    // Select the top contexts with the most number of instruction execute times and order
+    // them.
     for (context_handle_t i = 0; i < max_ctxt_hndl; i++) {
         if (gloabl_hndl_call_num[i] <= 0) {
             continue;
@@ -135,7 +144,6 @@ ClientExit(void)
             output_list[min_idx].handle = i;
         }
     }
-
     output_format_t temp;
     for (int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
         for (int32_t j = i; j < TOP_REACH_NUM_SHOW; j++) {
@@ -147,6 +155,7 @@ ClientExit(void)
         }
     }
 
+    // Output the execution times and backtrace of the ordered top contexts
     for (int32_t i = 0; i < TOP_REACH_NUM_SHOW; i++) {
         if (output_list[i].handle == 0) {
             break;
@@ -157,10 +166,9 @@ ClientExit(void)
                    output_list[i].count);
         drcctlib_print_backtrace(gTraceFile, output_list[i].handle, true, true, -1);
         dr_fprintf(gTraceFile, "\n\n\n");
-        
-        
     }
     dr_global_free(output_list, TOP_REACH_NUM_SHOW * sizeof(output_format_t));
+
     FreeGlobalBuff();
     drcctlib_exit();
 
