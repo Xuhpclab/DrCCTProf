@@ -1,6 +1,9 @@
 # DrCCTProf
 
-DrCCTProf is a fine-grained call path profiling framework for binaries running on ARM and X86 architectures. Please see our [blog](https://xl10.github.io/blog/drcctprof.html) for more details.
+DrCCTProf is a fine-grained call path profiling framework for binaries running on ARM and X86 architectures. 
+
+-   Please see our [blog](https://xl10.github.io/blog/drcctprof.html) for the high-level introduction.
+-   Please refer [documentation](https://drcctprof.readthedocs.io/en/latest/) for detailed tutorial and API references. 
 
 ![build master](https://github.com/Xuhpclab/DrCCTProf/workflows/build%20master/badge.svg)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/d9708750f8b24b60bc0102dd5b89e4dd)](https://www.codacy.com/gh/Xuhpclab/DrCCTProf/dashboard?utm_source=github.com&utm_medium=referral&utm_content=Xuhpclab/DrCCTProf&utm_campaign=Badge_Grade)
@@ -87,9 +90,6 @@ $ $drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication arg
 | drcctlib_instr_statistics            | (Code cache mode) A instruction counting tool that counts each instruction. | beta    |
 | drcctlib_reuse_distance              | (Code cache mode) A reuse distance measurement tool.                        | beta    |
 
-### How to build your own custom tools atop DrCCTProf?
-
-See [documentation](https://drcctprof.readthedocs.io/en/latest/) for details.
 
 ## Support Platforms
 
