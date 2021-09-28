@@ -1470,24 +1470,23 @@ ClientInit(int argc, const char *argv[])
     }
     /* Creating result directories */
     pid_t pid = getpid();
+    char buff[MAXIMUM_PATH];
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH+1] = "arm-";
+    std::string name("arm-");
 #else
-    char name[MAXIMUM_PATH+1] = "x86-";
+    std::string name("x86-");
 #endif
-    name[MAXIMUM_PATH] = '\0';
-    gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    name[MAXIMUM_PATH] = '\0';
-    snprintf(name + strlen(name), MAXIMUM_PATH-strlen(name), "-%d-zerospy", pid);
-    name[MAXIMUM_PATH] = '\0';
-    g_folder_name.assign(name, strlen(name));
+    gethostname(buff, MAXIMUM_PATH);
+    name += std::string(buff);
+    snprintf(buff, MAXIMUM_PATH, "-%d-zerospy", pid);
+    name += std::string(buff);
+    g_folder_name = name;
     mkdir(g_folder_name.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
     dr_fprintf(STDOUT, "[ZEROSPY INFO] Profiling result directory: %s\n", g_folder_name.c_str());
 
-    name[MAXIMUM_PATH] = '\0';
-    snprintf(name+strlen(name), MAXIMUM_PATH-strlen(name), "/zerospy.log");
-    gFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+    name += "/zerospy.log";
+    gFile = dr_open_file(name.c_str(), DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(gFile != INVALID_FILE);
     if (op_enable_sampling.get_value()) {
         dr_fprintf(STDOUT, "[ZEROSPY INFO] Sampling Enabled\n");
@@ -1507,15 +1506,15 @@ ClientInit(int argc, const char *argv[])
         exit(1);
     }
 #ifndef _WERROR
-    name[MAXIMUM_PATH] = '\0';
-    snprintf(name+strlen(name), MAXIMUM_PATH-strlen(name), ".warn");
-    fwarn = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+    std::string warn_fn(name);
+    warn_fn += ".warn";
+    fwarn = dr_open_file(warn_fn.c_str(), DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(fwarn != INVALID_FILE);
 #endif
 #ifdef ZEROSPY_DEBUG
-    name[MAXIMUM_PATH] = '\0';
-    snprintf(name+strlen(name), MAXIMUM_PATH-strlen(name), ".debug");
-    gDebug = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
+    std::string debug_fn(name);
+    debug_fn += ".debug";
+    gDebug = dr_open_file(debug_fn.c_str(), DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(gDebug != INVALID_FILE);
 #endif
 }
