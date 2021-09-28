@@ -30,9 +30,6 @@ uint64_t get_miliseconds() {
 // different frequency configurations:
 //      Rate:   1/10, 1/100, 1/1000, 5/10, 5/100, 5/1000
 //      Window: 1e6, 1e7, 1e8, 1e9, 1e10 
-// #define WINDOW_ENABLE 1000000
-// #define WINDOW_DISABLE 100000000
-// #define WINDOW_CLEAN 10
 // Enumuration of RATEs
 #define RATE_NUM 6
 #define RATE_0 (0.5)
@@ -286,7 +283,7 @@ inline __attribute__((always_inline)) bool hasRedundancy_dp(void * addr) {
 typedef union {
   float f;
   struct {
-    uint32_t sign : 1;
+    uint32_t : 1;
     uint32_t value : 31;
   } vars;
 } float_cast;
@@ -294,7 +291,7 @@ typedef union {
 typedef union {
   double f;
   struct {
-    uint64_t sign : 1;
+    uint64_t : 1;
     uint64_t value : 63;
   } vars;
 } double_cast;
@@ -303,7 +300,7 @@ typedef union {
   float f;
   struct {
     uint32_t value : 31;
-    uint32_t sign : 1;
+    uint32_t : 1;
   } vars;
 } float_cast;
 
@@ -311,7 +308,7 @@ typedef union {
   double f;
   struct {
     uint64_t value : 63;
-    uint64_t sign : 1;
+    uint64_t : 1;
   } vars;
 } double_cast;
 #else
@@ -728,27 +725,6 @@ struct ZeroSpyAnalysis{
             }
         }
 #endif
-// #ifdef ZEROSPY_DEBUG
-//         byte* base;
-//         size_t size;
-//         uint prot; 
-//         bool printDisassemble = false;
-//         if(!dr_query_memory((byte*)addr, &base, &size, &prot)) {
-//             dr_fprintf(STDERR, "\nWARNING: dr_query_memory failed!\n");
-//             printDisassemble = true;
-//         } else if((prot&DR_MEMPROT_READ)==0) {
-//             dr_fprintf(STDERR, "\nWARNING: memory address %p is protected and cannot read!\n", addr);
-//             printDisassemble = true;
-//         }
-//         if(printDisassemble) {
-//             dr_fprintf(STDERR, "^^ Disassembled Instruction instr=%p, PC=%p ^^^\n", instr, instr_get_app_pc(instr));
-//             dr_fprintf(STDERR, "addr=%p, AccessLen=%d, ElemLen=%d, isApprox=%d\n", addr, AccessLen, ElemLen, isApprox);
-//             disassemble(drcontext, instr_get_app_pc(instr), STDERR);
-//             dr_fprintf(STDERR, "ADDR[0]: %d\n", *((uint8_t*)addr));
-//             dr_fprintf(STDERR, "ADDR[%d]: %d\n", AccessLen-1, *((uint8_t*)addr+AccessLen-1));
-//             dr_fprintf(STDERR, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-//         }
-// #endif
         context_handle_t curCtxtHandle = drcctlib_get_context_handle(drcontext, slot);
         uint8_t* bytes = static_cast<uint8_t*>(addr);
         if(isApprox) {
@@ -977,7 +953,6 @@ struct ZerospyInstrument{
 #ifdef ARM_CCTLIB
         // Currently, we cannot identify the difference between floating point operand 
         // and inter operand from instruction type (both is LD), so just ignore the fp
-        // FIXME i#4: to identify the floating point through data flow analysis.
         if (false)
 #else
         if (instr_is_floating(ins))
@@ -1292,7 +1267,7 @@ static uint64_t PrintRedundancyPairs(per_thread_t *pt, uint64_t threadBytesLoad,
     
     uint64_t grandTotalRedundantBytes = 0;
     tmpList.reserve(pt->INTRedMap->size());
-    dr_fprintf(STDOUT, "Dumping INTEGER Redundancy Info... Total num : %lu\n",pt->INTRedMap->size());
+    dr_fprintf(STDOUT, "Dumping INTEGER Redundancy Info... Total num : %lu\n",(uint64_t)pt->INTRedMap->size());
     fflush(stdout);
     dr_fprintf(gTraceFile, "\n--------------- Dumping INTEGER Redundancy Info ----------------\n");
     dr_fprintf(gTraceFile, "\n*************** Dump Data from Thread %d ****************\n", threadId);
@@ -1318,23 +1293,6 @@ static uint64_t PrintRedundancyPairs(per_thread_t *pt, uint64_t threadBytesLoad,
     dr_fprintf(gTraceFile, "\n Total redundant bytes = %f %%\n", grandTotalRedundantBytes * 100.0 / threadBytesLoad);
     dr_fprintf(gTraceFile, "\n INFO : Total redundant bytes = %f %% (%lu / %lu) \n", grandTotalRedundantBytes * 100.0 / threadBytesLoad, grandTotalRedundantBytes, threadBytesLoad);
     
-#ifdef ENABLE_FILTER_BEFORE_SORT
-#define FILTER_THESHOLD 1000
-    dr_fprintf(gTraceFile, "\n Filter out small redundancies according to the predefined threshold: %.2lf %%\n", 100.0/(double)FILTER_THESHOLD);
-    vector<RedundacyData> tmpList2;
-    tmpList2 = move(tmpList);
-    tmpList.clear(); // make sure it is empty
-    tmpList.reserve(tmpList2.size());
-    for(tmpIt = tmpList2.begin();tmpIt != tmpList2.end(); ++tmpIt) {
-        if(tmpIt->frequency * FILTER_THESHOLD > tmpIt->ltot) {
-            tmpList.push_back(*tmpIt);
-        }
-    }
-    dr_fprintf(gTraceFile, " Remained Redundancies: %ld (%.2lf %%)\n", tmpList.size(), (double)tmpList.size()/(double)tmpList2.size());
-    tmpList2.clear();
-#undef FILTER_THRESHOLD
-#endif
-
     sort(tmpList.begin(), tmpList.end(), RedundacyCompare);
     printf("Sorted, Now generating reports...\n");
     fflush(stdout);
@@ -1383,7 +1341,7 @@ static uint64_t PrintApproximationRedundancyPairs(per_thread_t *pt, uint64_t thr
     dr_fprintf(gTraceFile, "\n--------------- Dumping Approximation Redundancy Info ----------------\n");
     dr_fprintf(gTraceFile, "\n*************** Dump Data(delta=%.2f%%) from Thread %d ****************\n", delta*100,threadId);
 
-    printf("Dumping INTEGER Redundancy Info... Total num : %lu\n",pt->FPRedMap->size());
+    printf("Dumping INTEGER Redundancy Info... Total num : %lu\n", (uint64_t)pt->FPRedMap->size());
     uint64_t count = 0; uint64_t rep = -1;
     for (unordered_map<uint64_t, FPRedLogs>::iterator it = pt->FPRedMap->begin(); it != pt->FPRedMap->end(); ++it) {
         ++count;
@@ -1519,12 +1477,15 @@ ClientInit(int argc, const char *argv[])
 #endif
     name[MAXIMUM_PATH] = '\0';
     gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
+    name[MAXIMUM_PATH] = '\0';
     snprintf(name + strlen(name), MAXIMUM_PATH-strlen(name), "-%d-zerospy", pid);
+    name[MAXIMUM_PATH] = '\0';
     g_folder_name.assign(name, strlen(name));
     mkdir(g_folder_name.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
     dr_fprintf(STDOUT, "[ZEROSPY INFO] Profiling result directory: %s\n", g_folder_name.c_str());
 
+    name[MAXIMUM_PATH] = '\0';
     snprintf(name+strlen(name), MAXIMUM_PATH-strlen(name), "/zerospy.log");
     gFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(gFile != INVALID_FILE);
@@ -1546,12 +1507,14 @@ ClientInit(int argc, const char *argv[])
         exit(1);
     }
 #ifndef _WERROR
-    sprintf(name+strlen(name), ".warn");
+    name[MAXIMUM_PATH] = '\0';
+    snprintf(name+strlen(name), MAXIMUM_PATH-strlen(name), ".warn");
     fwarn = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(fwarn != INVALID_FILE);
 #endif
 #ifdef ZEROSPY_DEBUG
-    sprintf(name+strlen(name), ".debug");
+    name[MAXIMUM_PATH] = '\0';
+    snprintf(name+strlen(name), MAXIMUM_PATH-strlen(name), ".debug");
     gDebug = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(gDebug != INVALID_FILE);
 #endif
