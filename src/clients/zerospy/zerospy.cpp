@@ -287,22 +287,12 @@ typedef union {
   float f;
   struct {
     uint32_t sign : 1;
-    uint32_t exponent : 8;
-    uint32_t mantisa : 23;
-  } parts;
-  struct {
-    uint32_t sign : 1;
     uint32_t value : 31;
   } vars;
 } float_cast;
 
 typedef union {
   double f;
-  struct {
-    uint64_t sign : 1;
-    uint64_t exponent : 11;
-    uint64_t mantisa : 52;
-  } parts;
   struct {
     uint64_t sign : 1;
     uint64_t value : 63;
@@ -312,11 +302,6 @@ typedef union {
 typedef union {
   float f;
   struct {
-    uint32_t mantisa : 23;
-    uint32_t exponent : 8;
-    uint32_t sign : 1;
-  } parts;
-  struct {
     uint32_t value : 31;
     uint32_t sign : 1;
   } vars;
@@ -324,11 +309,6 @@ typedef union {
 
 typedef union {
   double f;
-  struct {
-    uint64_t mantisa : 52;
-    uint64_t exponent : 11;
-    uint64_t sign : 1;
-  } parts;
   struct {
     uint64_t value : 63;
     uint64_t sign : 1;
@@ -1009,15 +989,15 @@ struct ZerospyInstrument{
                     case 1:
                     case 2:
 #ifdef _WERROR
-                        printf("\nERROR: refSize for floating point instruction is too small: %d!\n", refSize);
-                        printf("^^ Disassembled Instruction ^^^\n");
-                        disassemble(drcontext, instr_get_app_pc(ins), 1/*sdtout file desc*/);
-                        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+                        dr_fprintf(STDOUT, "\nERROR: refSize for floating point instruction is too small: %u!\n", refSize);
+                        dr_fprintf(STDOUT, "^^ Disassembled Instruction ^^^\n");
+                        disassemble(drcontext, instr_get_app_pc(ins), STDOUT);
+                        dr_fprintf(STDOUT, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
                         fflush(stdout);
                         assert(0 && "memory read floating data with unexptected small size");
 #else
                         dr_mutex_lock(gLock);
-                        dr_fprintf(fwarn, "\nERROR: refSize for floating point instruction is too small: %d!\n", refSize);
+                        dr_fprintf(fwarn, "\nERROR: refSize for floating point instruction is too small: %u!\n", refSize);
                         dr_fprintf(fwarn, "^^ Disassembled Instruction ^^^\n");
                         disassemble(drcontext, instr_get_app_pc(ins), fwarn);
                         dr_fprintf(fwarn, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
@@ -1045,10 +1025,10 @@ struct ZerospyInstrument{
                     }break;
                     default: 
 #ifdef _WERROR
-                        printf("\nERROR: refSize for floating point instruction is too large: %d!\n", refSize);
-                        printf("^^ Disassembled Instruction ^^^\n");
-                        disassemble(drcontext, instr_get_app_pc(ins), 1/*sdtout file desc*/);
-                        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+                        dr_fprintf(STDOUT, "\nERROR: refSize for floating point instruction is too large: %u!\n", refSize);
+                        dr_fprintf(STDOUT, "^^ Disassembled Instruction ^^^\n");
+                        disassemble(drcontext, instr_get_app_pc(ins), STDOUT);
+                        dr_fprintf(STDOUT, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
                         fflush(stdout);
                         assert(0 && "unexpected large memory read\n"); break;
 #else
@@ -1091,13 +1071,6 @@ struct ZerospyInstrument{
         per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
         instr_t* ins_clone = instr_clone(drcontext, ins);
         pt->instr_clones->push_back(ins_clone);
-#ifdef DEBUG_VGATHER
-        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-        printf("^^ refSize = %d, operSize = %d\n", refSize, operSize);
-        printf("^^ Disassembled Instruction ^^^\n");
-        disassemble(drcontext, instr_get_app_pc(ins), STDOUT);
-        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-#endif
         switch(refSize) {
             case 1:
             case 2: 
@@ -1105,15 +1078,15 @@ struct ZerospyInstrument{
             case 8: 
             case 10: 
 #ifdef _WERROR
-                    printf("\nERROR: refSize for floating point instruction is too small: %d!\n", refSize);
-                    printf("^^ Disassembled Instruction ^^^\n");
-                    disassemble(drcontext, instr_get_app_pc(ins), 1/*sdtout file desc*/);
-                    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+                    dr_fprintf(STDOUT, "\nERROR: refSize for floating point instruction is too small: %u!\n", refSize);
+                    dr_fprintf(STDOUT, "^^ Disassembled Instruction ^^^\n");
+                    disassemble(drcontext, instr_get_app_pc(ins), STDOUT);
+                    dr_fprintf(STDOUT, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
                     fflush(stdout);
                     assert(0 && "memory read floating data with unexptected small size");
 #else
                     dr_mutex_lock(gLock);
-                    dr_fprintf(fwarn, "\nERROR: refSize for floating point instruction is too small: %d!\n", refSize);
+                    dr_fprintf(fwarn, "\nERROR: refSize for floating point instruction is too small: %u!\n", refSize);
                     dr_fprintf(fwarn, "^^ Disassembled Instruction ^^^\n");
                     disassemble(drcontext, instr_get_app_pc(ins), fwarn);
                     dr_fprintf(fwarn, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
@@ -1138,15 +1111,15 @@ struct ZerospyInstrument{
             }break;
             default: 
 #ifdef _WERROR
-                    printf("\nERROR: refSize for floating point instruction is too large: %d!\n", refSize);
-                    printf("^^ Disassembled Instruction ^^^\n");
-                    disassemble(drcontext, instr_get_app_pc(ins), 1/*sdtout file desc*/);
-                    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+                    dr_fprintf(STDOUT, "\nERROR: refSize for floating point instruction is too large: %u!\n", refSize);
+                    dr_fprintf(STDOUT, "^^ Disassembled Instruction ^^^\n");
+                    disassemble(drcontext, instr_get_app_pc(ins), STDOUT);
+                    dr_fprintf(STDOUT, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
                     fflush(stdout);
                     assert(0 && "unexpected large memory read\n"); break;
 #else
                     dr_mutex_lock(gLock);
-                    dr_fprintf(fwarn, "\nERROR: refSize for floating point instruction is too large: %d!\n", refSize);
+                    dr_fprintf(fwarn, "\nERROR: refSize for floating point instruction is too large: %u!\n", refSize);
                     dr_fprintf(fwarn, "^^ Disassembled Instruction ^^^\n");
                     disassemble(drcontext, instr_get_app_pc(ins), fwarn);
                     dr_fprintf(fwarn, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
@@ -1248,8 +1221,9 @@ static void
 ThreadOutputFileInit(per_thread_t *pt)
 {
     int32_t id = drcctlib_get_thread_id();
-    char name[MAXIMUM_PATH] = "";
-    sprintf(name + strlen(name), "%s/thread-%d.topn.log", g_folder_name.c_str(), id);
+    char name[MAXIMUM_PATH+1];
+    name[MAXIMUM_PATH] = '\0';
+    snprintf(name, MAXIMUM_PATH, "%s/thread-%d.topn.log", g_folder_name.c_str(), id);
     pt->output_file = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(pt->output_file != INVALID_FILE);
     if (op_enable_sampling.get_value()) {
@@ -1318,7 +1292,7 @@ static uint64_t PrintRedundancyPairs(per_thread_t *pt, uint64_t threadBytesLoad,
     
     uint64_t grandTotalRedundantBytes = 0;
     tmpList.reserve(pt->INTRedMap->size());
-    printf("Dumping INTEGER Redundancy Info... Total num : %ld\n",pt->INTRedMap->size());
+    dr_fprintf(STDOUT, "Dumping INTEGER Redundancy Info... Total num : %lu\n",pt->INTRedMap->size());
     fflush(stdout);
     dr_fprintf(gTraceFile, "\n--------------- Dumping INTEGER Redundancy Info ----------------\n");
     dr_fprintf(gTraceFile, "\n*************** Dump Data from Thread %d ****************\n", threadId);
@@ -1327,14 +1301,14 @@ static uint64_t PrintRedundancyPairs(per_thread_t *pt, uint64_t threadBytesLoad,
         ++count;
         if(100 * count / pt->INTRedMap->size()!=rep) {
             rep = 100 * count / pt->INTRedMap->size();
-            printf("\r%ld%%  Finish",rep);
+            dr_fprintf(STDOUT, "\r%lu%%  Finish",rep);
             fflush(stdout);
         }
         RedundacyData tmp = { DECODE_KILL((*it).first), (*it).second.red,(*it).second.fred,(*it).second.tot,(*it).second.redByteMap,DECODE_DEAD((*it).first)};
         tmpList.push_back(tmp);
         grandTotalRedundantBytes += tmp.frequency;
     }
-    printf("\r100%%  Finish\n");
+    dr_fprintf(STDOUT, "\r100%%  Finish\n");
     fflush(stdout);
     
     __sync_fetch_and_add(&grandTotBytesRedLoad,grandTotalRedundantBytes);
@@ -1342,7 +1316,7 @@ static uint64_t PrintRedundancyPairs(per_thread_t *pt, uint64_t threadBytesLoad,
     fflush(stdout);
     
     dr_fprintf(gTraceFile, "\n Total redundant bytes = %f %%\n", grandTotalRedundantBytes * 100.0 / threadBytesLoad);
-    dr_fprintf(gTraceFile, "\n INFO : Total redundant bytes = %f %% (%ld / %ld) \n", grandTotalRedundantBytes * 100.0 / threadBytesLoad, grandTotalRedundantBytes, threadBytesLoad);
+    dr_fprintf(gTraceFile, "\n INFO : Total redundant bytes = %f %% (%lu / %lu) \n", grandTotalRedundantBytes * 100.0 / threadBytesLoad, grandTotalRedundantBytes, threadBytesLoad);
     
 #ifdef ENABLE_FILTER_BEFORE_SORT
 #define FILTER_THESHOLD 1000
@@ -1367,7 +1341,7 @@ static uint64_t PrintRedundancyPairs(per_thread_t *pt, uint64_t threadBytesLoad,
     int cntxtNum = 0;
     for (vector<RedundacyData>::iterator listIt = tmpList.begin(); listIt != tmpList.end(); ++listIt) {
         if (cntxtNum < MAX_REDUNDANT_CONTEXTS_TO_LOG) {
-            dr_fprintf(gTraceFile, "\n\n======= (%f) %% of total Redundant, with local redundant %f %% (%ld Bytes / %ld Bytes) ======\n", 
+            dr_fprintf(gTraceFile, "\n\n======= (%f) %% of total Redundant, with local redundant %f %% (%lu Bytes / %lu Bytes) ======\n", 
                 (*listIt).frequency * 100.0 / grandTotalRedundantBytes,
                 (*listIt).frequency * 100.0 / (*listIt).ltot,
                 (*listIt).frequency,(*listIt).ltot);
@@ -1406,17 +1380,16 @@ static uint64_t PrintApproximationRedundancyPairs(per_thread_t *pt, uint64_t thr
     file_t gTraceFile = pt->output_file;
 
     uint64_t grandTotalRedundantBytes = 0;
-    uint64_t grandTotalRedundantIns = 0;
     dr_fprintf(gTraceFile, "\n--------------- Dumping Approximation Redundancy Info ----------------\n");
     dr_fprintf(gTraceFile, "\n*************** Dump Data(delta=%.2f%%) from Thread %d ****************\n", delta*100,threadId);
 
-    printf("Dumping INTEGER Redundancy Info... Total num : %ld\n",pt->FPRedMap->size());
+    printf("Dumping INTEGER Redundancy Info... Total num : %lu\n",pt->FPRedMap->size());
     uint64_t count = 0; uint64_t rep = -1;
     for (unordered_map<uint64_t, FPRedLogs>::iterator it = pt->FPRedMap->begin(); it != pt->FPRedMap->end(); ++it) {
         ++count;
         if(100 * count / pt->INTRedMap->size()!=rep) {
             rep = 100 * count / pt->INTRedMap->size();
-            printf("\r%ld%%  Finish",rep);
+            printf("\r%lu%%  Finish",rep);
             fflush(stdout);
         }
         ApproxRedundacyData tmp = { static_cast<context_handle_t>((*it).first), (*it).second.fred,(*it).second.ftot, (*it).second.redByteMap,(*it).second.AccessLen, (*it).second.size};
@@ -1429,7 +1402,7 @@ static uint64_t PrintApproximationRedundancyPairs(per_thread_t *pt, uint64_t thr
     __sync_fetch_and_add(&grandTotBytesApproxRedLoad,grandTotalRedundantBytes);
     
     dr_fprintf(gTraceFile, "\n Total redundant bytes = %f %%\n", grandTotalRedundantBytes * 100.0 / threadBytesLoad);
-    dr_fprintf(gTraceFile, "\n INFO : Total redundant bytes = %f %% (%ld / %ld) \n", grandTotalRedundantBytes * 100.0 / threadBytesLoad, grandTotalRedundantBytes, threadBytesLoad);
+    dr_fprintf(gTraceFile, "\n INFO : Total redundant bytes = %f %% (%lu / %lu) \n", grandTotalRedundantBytes * 100.0 / threadBytesLoad, grandTotalRedundantBytes, threadBytesLoad);
     
 #ifdef ENABLE_FILTER_BEFORE_SORT
 #define FILTER_THESHOLD 1000
@@ -1504,7 +1477,7 @@ ClientThreadEnd(void *drcontext)
     uint64_t threadRedByteLoadFP = PrintApproximationRedundancyPairs(pt, threadByteLoad, threadId);
 #ifdef TIMING
     time = get_miliseconds() - time;
-    printf("Thread %d: Time %ld ms for generating outputs\n", threadId, time);
+    printf("Thread %d: Time %lu ms for generating outputs\n", threadId, time);
 #endif
 
     dr_mutex_lock(gLock);
@@ -1540,18 +1513,19 @@ ClientInit(int argc, const char *argv[])
     /* Creating result directories */
     pid_t pid = getpid();
 #ifdef ARM_CCTLIB
-    char name[MAXIMUM_PATH] = "arm-";
+    char name[MAXIMUM_PATH+1] = "arm-";
 #else
-    char name[MAXIMUM_PATH] = "x86-";
+    char name[MAXIMUM_PATH+1] = "x86-";
 #endif
+    name[MAXIMUM_PATH] = '\0';
     gethostname(name + strlen(name), MAXIMUM_PATH - strlen(name));
-    sprintf(name + strlen(name), "-%d-zerospy", pid);
+    snprintf(name + strlen(name), MAXIMUM_PATH-strlen(name), "-%d-zerospy", pid);
     g_folder_name.assign(name, strlen(name));
     mkdir(g_folder_name.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
     dr_fprintf(STDOUT, "[ZEROSPY INFO] Profiling result directory: %s\n", g_folder_name.c_str());
 
-    sprintf(name+strlen(name), "/zerospy.log");
+    snprintf(name+strlen(name), MAXIMUM_PATH-strlen(name), "/zerospy.log");
     gFile = dr_open_file(name, DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(gFile != INVALID_FILE);
     if (op_enable_sampling.get_value()) {
