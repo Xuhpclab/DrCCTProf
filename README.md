@@ -1,6 +1,9 @@
 # DrCCTProf
 
-DrCCTProf is a fine-grained call path profiling framework for binaries running on ARM and X86 architectures. Please see our [blog](https://xl10.github.io/blog/drcctprof.html) for more details.
+DrCCTProf is a fine-grained call path profiling framework for binaries running on ARM and X86 architectures. 
+
+-   Please see our [blog](https://xl10.github.io/blog/drcctprof.html) for the high-level introduction.
+-   Please refer [documentation](https://drcctprof.readthedocs.io/en/latest/) for detailed tutorial and API references. 
 
 ![build master](https://github.com/Xuhpclab/DrCCTProf/workflows/build%20master/badge.svg)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/d9708750f8b24b60bc0102dd5b89e4dd)](https://www.codacy.com/gh/Xuhpclab/DrCCTProf/dashboard?utm_source=github.com&utm_medium=referral&utm_content=Xuhpclab/DrCCTProf&utm_campaign=Badge_Grade)
@@ -11,7 +14,7 @@ DrCCTProf is a fine-grained call path profiling framework for binaries running o
 -   [Installation](#installation)
 -   [Usage](#usage)
 -   [Client tools](#client-tools)
--   [Support Platforms](#support-platforms)
+-   [Supported Platforms](#support-platforms)
 -   [Obtaining Help](#obtaining-help)
 -   [License](#license)
 
@@ -23,16 +26,16 @@ DrCCTProf is a fine-grained call path profiling framework for binaries running o
 
 In order to build you'll need the following packages:
 
--   gcc (at least version 4.8)
--   binutils (at least version 2.26)
--   [cmake](https://cmake.org/download/) (at least version 3.7)
+-   gcc (>= 4.8)
+-   binutils (>= 2.26)
+-   [cmake](https://cmake.org/download/) (>= 3.7)
 -   perl
 
-To avoid conflicts with installed original version packages, we recommend that use [Spack](https://spack.io/) to manage the above packages and create a virtual environment to build and run DrCCTProf. 
+To avoid version conflicts with any packages, we recommend to use [Spack](https://spack.io/) to manage the above packages and create a virtual environment to build and run DrCCTProf. 
 
 #### 2 Build
 
-Use the following commands to get sources and build DrCCTProf:
+Use the following commands to get source code and build DrCCTProf:
 
 ```console
 $ git clone --recurse https://github.com/Xuhpclab/DrCCTProf.git
@@ -46,7 +49,7 @@ $ ./build.sh
 
 ### Linux
 
-To run DrCCTProf, one needs to issue the following command:
+To run DrCCTProf, one needs to use the following command:
 
 #### 1 Set the global environment variable
 
@@ -87,13 +90,10 @@ $ $drrun -unsafe_build_ldstex -t <client tool> -- <application> [apllication arg
 | drcctlib_instr_statistics            | (Code cache mode) A instruction counting tool that counts each instruction. | beta    |
 | drcctlib_reuse_distance              | (Code cache mode) A reuse distance measurement tool.                        | beta    |
 
-### How to build your own custom tools?
-
-See [documentation](doc/build_custom_client_tool.md) for details.
 
 ## Support Platforms
 
-The following platforms passed our tests.
+The following platforms pass our tests.
 
 ### Linux
 
