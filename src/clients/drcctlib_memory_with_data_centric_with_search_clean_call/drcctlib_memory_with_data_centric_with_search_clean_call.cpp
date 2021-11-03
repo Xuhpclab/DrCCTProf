@@ -226,6 +226,7 @@ ClientInit(int argc, const char *argv[])
 static void
 ClientExit(void)
 {
+    // add output module here
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
