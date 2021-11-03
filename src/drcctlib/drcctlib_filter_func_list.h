@@ -10,24 +10,15 @@
 
 DR_EXPORT
 bool
-drcctlib_filter_0_instr(instr_t *instr)
-{
-    return false;
-}
+drcctlib_filter_0_instr(instr_t *instr);
 
 DR_EXPORT
 bool
-drcctlib_filter_all_instr(instr_t *instr)
-{
-    return true;
-}
+drcctlib_filter_all_instr(instr_t *instr);
 
 DR_EXPORT
 bool
-drcctlib_filter_mem_access_instr(instr_t *instr)
-{
-    return (instr_reads_memory(instr) || instr_writes_memory(instr));
-}
+drcctlib_filter_mem_access_instr(instr_t *instr);
 
 #define DRCCTLIB_FILTER_ZERO_INSTR drcctlib_filter_0_instr
 #define DRCCTLIB_FILTER_ALL_INSTR drcctlib_filter_all_instr

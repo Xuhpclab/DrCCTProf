@@ -20,6 +20,7 @@ set(DynamoRIO_USE_LIBC OFF)
 set(srcs
   protobuf-c/protobuf-c.c
   profile.pb-c.c
+  drcctlib_filter_func_list.cpp
   drcctlib_vscodeex_format.cpp
   splay_tree.cpp
   drcctlib.cpp
