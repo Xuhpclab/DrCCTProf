@@ -3,6 +3,7 @@
 DrCCTProf is a fine-grained call path profiling framework for binaries running on ARM and X86 architectures. 
 
 -   Please see our [blog](https://xl10.github.io/blog/drcctprof.html) for the high-level introduction.
+-   Please watch our [introductory talk](https://www.youtube.com/watch?v=oUB9yh_78hE) to learn more.
 -   Please refer [documentation](https://drcctprof.readthedocs.io/en/latest/) for detailed tutorial and API references. 
 
 ![build master](https://github.com/Xuhpclab/DrCCTProf/workflows/build%20master/badge.svg)
