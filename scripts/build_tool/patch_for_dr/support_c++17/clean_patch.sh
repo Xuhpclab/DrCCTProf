@@ -8,11 +8,9 @@
 
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
-echo -e "init env..."
-$CUR_DIR/scripts/build_tool/env_init.sh
+DYNAMORIO_ROOT_PATH=$CUR_DIR/../../../../dynamorio
 
-echo -e "make -DEBUG..."
-$CUR_DIR/scripts/build_tool/make.sh -DEBUG
-
-echo -e "make test -DEBUG..."
-$CUR_DIR/scripts/build_tool/make_tests.sh -DEBUG
+cd $DYNAMORIO_ROOT_PATH
+# CUR_DR_VERSION=$(git rev-parse HEAD)
+# echo "CUR_DR_VERSION=$CUR_DR_VERSION"
+git apply -R $CUR_DIR/dr-c++17-patch.diff

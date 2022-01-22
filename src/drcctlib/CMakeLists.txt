@@ -9,7 +9,6 @@ cmake_minimum_required(VERSION 3.7)
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
 if (UNIX)
-  # add_compile_options(-std=c++11)
   if (DEBUG)
     add_compile_options(-g)
   endif (DEBUG)

@@ -6,12 +6,22 @@
 # See LICENSE file for more information.
 # **********************************************************
 
-CUR_DIR=$(cd "$(dirname "$0")";pwd)
+for i in "$@"; do
+  case $i in
+    --debug=*)
+      DEBUG="${i#*=}"
+      shift # past argument=value
+      ;;
+    -*|--*)
+      echo "Unknown option $i"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
 
-DEBUG_MODE=false
-if [ "$1" == "-DEBUG" ]; then
-    DEBUG_MODE=true
-fi
+CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
 PLATFORM=$(uname -m)
 IS_ARM=false
@@ -37,12 +47,12 @@ TEST_APP4_FULL_PATH=$TEST_APPS_ROOT/build/test_app_signal
 $TEST_APPS_ROOT/build.sh
 
 DRRUN=$CUR_DIR/../../build/bin64/drrun
-if [ "$DEBUG_MODE" == "true" ]; then
+if [ "$DEBUG" == "true" ]; then
     DRRUN=$CUR_DIR/../../build_debug/bin64/drrun
 fi
 
 DEBUG_FLAG=
-if [ "$DEBUG_MODE" == "true" ]; then
+if [ "$DEBUG" == "true" ]; then
     DEBUG_FLAG=-debug
 fi
 

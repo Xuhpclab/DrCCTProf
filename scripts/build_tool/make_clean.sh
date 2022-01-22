@@ -8,13 +8,25 @@
 
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
-DEBUG_MODE=false
-if [ "$1" == "-DEBUG" ] ; then
-    DEBUG_MODE=true
-fi
+for i in "$@"; do
+  case $i in
+    --debug=*)
+      DEBUG="${i#*=}"
+      shift # past argument=value
+      ;;
+    -*|--*)
+      echo "Unknown option $i"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
+
+CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
 BUILD_PATH=$CUR_DIR/../../build
-if [ "$DEBUG_MODE" == "true" ]; then
+if [ "$DEBUG" == "true" ]; then
     BUILD_PATH=$CUR_DIR/../../build_debug
 fi
 echo -e "Remove \033[34m$BUILD_PATH\033[0m .."

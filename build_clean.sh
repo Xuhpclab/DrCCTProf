@@ -18,9 +18,12 @@ echo -e "make clean..."
 $CUR_DIR/scripts/build_tool/make_clean.sh
 
 echo -e "make debug clean..."
-$CUR_DIR/scripts/build_tool/make_clean.sh -DEBUG
+$CUR_DIR/scripts/build_tool/make_clean.sh --debug=true
 
 echo -e "clean env config..."
 $CUR_DIR/scripts/build_tool/env_clean.sh
+
+echo -e "clean dynamorio patch..."
+$CUR_DIR/scripts/build_tool/dr_patch_clean.sh
 
 
