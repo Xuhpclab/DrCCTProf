@@ -2435,19 +2435,48 @@ insert_func_instrument_by_drwap(const module_data_t *info, const char *func_name
                                                     INOUT void **user_data),
                                 void (*post_func_cb)(void *wrapcxt, void *user_data))
 {
-    app_pc func_entry = moudle_get_function_entry(info, func_name, false);
+    app_pc func_entry = moudle_get_function_entry(info, func_name, true);
     if (func_entry != NULL) {
         return drwrap_wrap(func_entry, pre_func_cb, post_func_cb);
     } else {
         return false;
     }
 }
+static void
+capture_cudamallocmanaged_size(void *wrapcxt, void **user_data)
+{
+    // Remember the CCT node and the allocation size
+    void *drcontext = (void *)drwrap_get_drcontext(wrapcxt);
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    void **ptr = (void **)drwrap_get_arg(wrapcxt, 0);
+    pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
+    IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
+    pt->dmem_alloc_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx;
+    *user_data = ptr;
+}
+
+static void
+datacentric_dynamic_alloc_gpu(void *wrapcxt, void *user_data)
+{
+
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
+        (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
+
+    void *ptr = *((void **)user_data);
+    data_handle_t data_hndl;
+    data_hndl.object_type = DYNAMIC_OBJECT;
+    data_hndl.path_handle = pt->dmem_alloc_ctxt_hndl;
+    init_shadow_memory_space(ptr, pt->dmem_alloc_size, data_hndl);
+    (*pt->thread_dynamic_datacentric_nodes).push_back({ data_hndl, pt->dmem_alloc_size });
+}
+
 
 #define FUNC_NAME_MMAP "mmap"
 #define FUNC_NAME_MALLOC "malloc"
 #define FUNC_NAME_CALLOC "calloc"
 #define FUNC_NAME_REALLOC "realloc"
 #define FUNC_NAME_FREE "free"
+#define FUNC_NAME_CUDAMALLOCMANAGED "cudaMallocManaged"
 static void
 drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info,
                                     bool loaded)
@@ -2464,6 +2493,9 @@ drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info,
                                         datacentric_dynamic_alloc);
         insert_func_instrument_by_drwap(info, FUNC_NAME_REALLOC, capture_realloc_size,
                                         datacentric_dynamic_alloc);
+        insert_func_instrument_by_drwap(info, FUNC_NAME_CUDAMALLOCMANAGED,
+                                        capture_cudamallocmanaged_size,
+                                        datacentric_dynamic_alloc_gpu);
     }
 }
 
