@@ -16,7 +16,7 @@ if (UNIX)
   add_compile_options(-Wno-unused-function)
   add_compile_options(-Werror=sign-compare)
   add_compile_options(-Werror=narrowing)
-  add_compile_options(-std=c++11)
+  
 
   if (DEBUG)
     add_compile_options(-g)

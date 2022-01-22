@@ -242,7 +242,7 @@ static uint tls_offs2;
 static reg_id_t tls_seg3;
 static uint tls_offs3;
 #define TLS_SLOT(tls_base, tls_offs, enum_val) \
-    (void **)((byte *)(tls_base) + (tls_offs) + (enum_val))
+    (void **)((byte_t *)(tls_base) + (tls_offs) + (enum_val))
 #define BUF_PTR1(tls_base, enum_val) \
     *(aligned_ctxt_hndl_t **)TLS_SLOT(tls_base, tls_offs1, enum_val)
 #define BUF_PTR2(tls_base, enum_val) \

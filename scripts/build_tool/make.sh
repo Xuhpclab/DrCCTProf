@@ -6,16 +6,26 @@
 # See LICENSE file for more information.
 # **********************************************************
 
-CUR_DIR=$(cd "$(dirname "$0")";pwd)
+for i in "$@"; do
+  case $i in
+    --debug=*)
+      DEBUG="${i#*=}"
+      shift # past argument=value
+      ;;
+    -*|--*)
+      echo "Unknown option $i"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
 
-DEBUG_MODE=false
-if [ "$1" == "-DEBUG" ] ; then
-    DEBUG_MODE=true
-fi
+CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
 TIMESTAMP=$(date +%s)
 BUILD_PATH=$CUR_DIR/../../build
-if [ "$DEBUG_MODE" == "true" ] ; then
+if [ "$DEBUG" == "true" ] ; then
     BUILD_PATH=$CUR_DIR/../../build_debug
 fi
 LOG_PATH=$CUR_DIR/../../logs
@@ -23,7 +33,7 @@ DYNAMORIO_ROOT_PATH=$CUR_DIR/../../dynamorio
 
 CMAKE_LOG_FILE=$LOG_PATH/cmake.log.$TIMESTAMP
 MAKE_LOG_FILE=$LOG_PATH/make.log.$TIMESTAMP
-if [ "$DEBUG_MODE" == "true" ] ; then
+if [ "$DEBUG" == "true" ] ; then
     CMAKE_LOG_FILE=$LOG_PATH/cmake_debug.log.$TIMESTAMP
     MAKE_LOG_FILE=$LOG_PATH/make_debug.log.$TIMESTAMP
 fi
@@ -41,7 +51,7 @@ cd $BUILD_PATH
 
 # run cmake
 echo -e "Running Cmake .. (See \033[34m$CMAKE_LOG_FILE\033[0m for detail)"
-if [ "$DEBUG_MODE" == "true" ] ; then
+if [ "$DEBUG" == "true" ] ; then
     cmake $DYNAMORIO_ROOT_PATH \
         -DDEBUG=ON \
         -DINTERNAL=ON \
