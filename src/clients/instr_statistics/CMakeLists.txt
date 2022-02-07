@@ -16,6 +16,7 @@ if (UNIX)
   add_compile_options(-Wno-unused-function)
   add_compile_options(-Werror=sign-compare)
   add_compile_options(-Werror=narrowing)
+  
 
   if (DEBUG)
     add_compile_options(-g)
@@ -24,40 +25,40 @@ endif (UNIX)
 
 # add third-party libraries
 
-add_library(drcctlib_instr_statistics_vse_fmt SHARED
-drcctlib_instr_statistics_vse_fmt.cpp
+add_library(instr_statistics SHARED
+instr_statistics.cpp
   )
 
-configure_DynamoRIO_client(drcctlib_instr_statistics_vse_fmt)
-use_DynamoRIO_extension(drcctlib_instr_statistics_vse_fmt drcctlib)
-place_shared_lib_in_lib_dir(drcctlib_instr_statistics_vse_fmt)
+configure_DynamoRIO_client(instr_statistics)
+use_DynamoRIO_extension(instr_statistics drcctlib)
+place_shared_lib_in_lib_dir(instr_statistics)
 
-add_dependencies(drcctlib_instr_statistics_vse_fmt api_headers)
+add_dependencies(instr_statistics api_headers)
 
 # Provide a hint for how to use the client
 if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-  add_custom_command(TARGET drcctlib_instr_statistics_vse_fmt
+  add_custom_command(TARGET instr_statistics
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
-    ARGS -E echo "Usage: pass to drconfig or drrun: -t drcctlib_instr_statistics_vse_fmt"
+    ARGS -E echo "Usage: pass to drconfig or drrun: -t instr_statistics"
     VERBATIM)
 endif ()
 
-install_target(drcctlib_instr_statistics_vse_fmt ${INSTALL_CLIENTS_LIB})
+install_target(instr_statistics ${INSTALL_CLIENTS_LIB})
 
 set(INSTALL_DRCCTLIB_CLIENTS_LIB ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
-  file(WRITE  ${dst} "# drcctlib_instr_statistics_vse_fmt tool config file\n")
-  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcctlib_instr_statistics_vse_fmt${LIB_EXT}\n")
+  file(WRITE  ${dst} "# instr_statistics tool config file\n")
+  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}instr_statistics${LIB_EXT}\n")
 endfunction ()
 
 if (X64)
-  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_instr_statistics_vse_fmt.drrun64)
-  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_instr_statistics_vse_fmt.drrun64)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/instr_statistics.drrun64)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/instr_statistics.drrun64)
 else (X64)
-  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcctlib_instr_statistics_vse_fmt.drrun32)
-  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcctlib_instr_statistics_vse_fmt.drrun32)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/instr_statistics.drrun32)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/instr_statistics.drrun32)
 endif (X64)
 
 set(BUILD_CLIENTS_BIN clients/${INSTALL_BIN})
@@ -67,7 +68,7 @@ write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB
 write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCCTLIB_CLIENTS_LIB})
-register_tool_file("drcctlib_instr_statistics_vse_fmt")
+register_tool_file("instr_statistics")
 
 ##################################################
 # Documentation

@@ -125,6 +125,10 @@ bool
 drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl);
 
 DR_EXPORT
+context_handle_t
+drcctlib_get_parent_ctxt(context_handle_t ctxt_hndl);
+
+DR_EXPORT
 inner_context_t *
 drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth);
 

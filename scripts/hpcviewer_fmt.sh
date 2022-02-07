@@ -6,7 +6,7 @@
 # See LICENSE file for more information.
 # **********************************************************
 
-# hpc_fmt.sh <application> <application_src_dir>
+# hpcviewer_fmt.sh <application_bin_dir> <application_src_dir> <log_search_dir>
 
 CUR_DIR=$(pwd)
 DEBUG_MODE=false
@@ -63,4 +63,3 @@ fi
 
 DATABASE_DIR_NAME=hpctoolkit-${APP_NAME}-database
 echo -e "\033[32mSuccess generate hpcviewer datebase directory(\033[34m${LOG_SEARCH_DIR}/${DATABASE_DIR_NAME}\033[32m).\033[0m"
-

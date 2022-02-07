@@ -3098,6 +3098,20 @@ drcctlib_ctxt_hndl_is_valid(context_handle_t ctxt_hndl)
 }
 
 DR_EXPORT
+context_handle_t
+drcctlib_get_parent_ctxt(context_handle_t ctxt_hndl)
+{
+    if (!drcctlib_ctxt_hndl_is_valid(ctxt_hndl)) {
+        return INVALID_CTXT_HNDL;
+    }
+    if (ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
+        return INVALID_CTXT_HNDL;
+    }
+
+    return bb_node_caller_ctxt_hndl(ctxt_hndl_parent_bb_node(ctxt_hndl));
+}
+
+DR_EXPORT
 inner_context_t *
 drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth)
 {

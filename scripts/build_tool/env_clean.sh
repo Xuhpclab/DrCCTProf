@@ -25,5 +25,4 @@ fi
 
 DYNAMORIO_CLIENT_PATH=$CUR_DIR/../../dynamorio/clients
 echo -e "Remove \033[34m$DYNAMORIO_CLIENT_PATH/drcctlib*\033[0m.."
-rm -rf $DYNAMORIO_CLIENT_PATH/drcctlib*
 rm -rf $DYNAMORIO_CLIENT_PATH/drcctprof*

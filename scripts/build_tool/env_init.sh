@@ -38,6 +38,6 @@ ln -s  $SRC_PATH/CMakeLists.txt   $DYNAMORIO_EXT_PATH/CMakeLists.txt
 # link drcctlib test to dynamorio clients path
 for CLIENT in $DRCCTLIB_CLIENTS_NAME_LIST
 do
-    rm -rf $DYNAMORIO_CLIENT_PATH/$CLIENT
-    ln -s $DRCCTLIB_CLIENTS_ROOT_PATH/$CLIENT $DYNAMORIO_CLIENT_PATH/$CLIENT
+    rm -rf $DYNAMORIO_CLIENT_PATH/drcctprof_$CLIENT
+    ln -s $DRCCTLIB_CLIENTS_ROOT_PATH/$CLIENT $DYNAMORIO_CLIENT_PATH/drcctprf_$CLIENT
 done

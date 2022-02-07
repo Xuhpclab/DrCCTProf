@@ -76,27 +76,27 @@ $DRRUN -- echo hi > /dev/null &&
         (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 1 (null tool single thread)---------\033[0m"
-$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t drcctlib_all_instr_cct -- $TEST_APP1_FULL_PATH > /dev/null &&
+$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t all_instr_cct -- $TEST_APP1_FULL_PATH > /dev/null &&
     echo -e "\033[32m----------PASSED---------\033[0m" ||
         (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 2 (null tool multithread)---------\033[0m"
-$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t drcctlib_all_instr_cct -- $TEST_APP2_FULL_PATH > /dev/null &&
+$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t all_instr_cct -- $TEST_APP2_FULL_PATH > /dev/null &&
     echo -e "\033[32m----------PASSED---------\033[0m" ||
         (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 3 (insCount tool single thread)---------\033[0m"
-$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t drcctlib_instr_statistics -- $TEST_APP1_FULL_PATH > /dev/null &&
+$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t instr_statistics -- $TEST_APP1_FULL_PATH > /dev/null &&
     echo -e "\033[32m----------PASSED---------\033[0m" ||
         (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 4 (insCount tool multithread)---------\033[0m"
-$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t drcctlib_instr_statistics -- $TEST_APP2_FULL_PATH > /dev/null &&
+$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t instr_statistics -- $TEST_APP2_FULL_PATH > /dev/null &&
     echo -e "\033[32m----------PASSED---------\033[0m" ||
         (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
 echo -e "\033[32m----------Test 5 (reuse distance tool single thread)---------\033[0m"
-$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t drcctlib_reuse_distance -- $TEST_APP3_FULL_PATH > /dev/null &&
+$DRRUN $DEBUG_FLAG $ARM_SPECIAL_FLAG -t reuse_distance -- $TEST_APP3_FULL_PATH > /dev/null &&
     echo -e "\033[32m----------PASSED---------\033[0m" ||
         (echo -e "\033[31m----------FAILED---------\033[0m"; exit -1)
 
