@@ -2275,6 +2275,8 @@ capture_malloc_size(void *wrapcxt, void **user_data)
     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 0);
     IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
     pt->dmem_alloc_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx;
+    // dr_printf("capture_malloc_size\n");
+    // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
 }
 
 static void
@@ -2287,6 +2289,8 @@ capture_calloc_size(void *wrapcxt, void **user_data)
         (size_t)drwrap_get_arg(wrapcxt, 0) * (size_t)drwrap_get_arg(wrapcxt, 1);
     IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
     pt->dmem_alloc_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx;
+    // dr_printf("capature_calloc_size");
+    // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
 }
 
 static void
@@ -2298,6 +2302,19 @@ capture_realloc_size(void *wrapcxt, void **user_data)
     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
     IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
     pt->dmem_alloc_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx;
+    // dr_printf("capature_realloc_size");
+    // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
+}
+
+static bool is_alloc_filtered(context_handle_t ctxt_hndl)
+{
+    inner_context_t *ctxt = ctxt_get_from_ctxt_hndl(ctxt_hndl);
+    if (strstr(ctxt->module_path, "libgputrigger.so") != NULL ||
+        strstr(ctxt->module_path, "libsanitizer-public.so") != NULL ||
+        strstr(ctxt->module_path, "libmonitor.so") != NULL) {
+        return true;
+    }
+    return false;
 }
 
 static void
@@ -2307,6 +2324,10 @@ datacentric_dynamic_alloc(void *wrapcxt, void *user_data)
         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
 
     void *ptr = drwrap_get_retval(wrapcxt);
+    context_handle_t caller = drcctlib_get_caller_handle(pt->dmem_alloc_ctxt_hndl);
+    if (is_alloc_filtered(caller)) {
+        return;
+    }
     data_handle_t data_hndl;
     data_hndl.object_type = DYNAMIC_OBJECT;
     data_hndl.path_handle = pt->dmem_alloc_ctxt_hndl;
@@ -2442,6 +2463,8 @@ insert_func_instrument_by_drwap(const module_data_t *info, const char *func_name
         return false;
     }
 }
+
+
 static void
 capture_cudamallocmanaged_size(void *wrapcxt, void **user_data)
 {
@@ -2453,6 +2476,8 @@ capture_cudamallocmanaged_size(void *wrapcxt, void **user_data)
     IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
     pt->dmem_alloc_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx;
     *user_data = ptr;
+    // dr_printf("capture_cudamallocmanaged_size\n");
+    // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
 }
 
 static void
@@ -2463,6 +2488,10 @@ datacentric_dynamic_alloc_gpu(void *wrapcxt, void *user_data)
         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
 
     void *ptr = *((void **)user_data);
+    context_handle_t caller = drcctlib_get_caller_handle(pt->dmem_alloc_ctxt_hndl);
+    if (is_alloc_filtered(caller)) {
+        return;
+    }
     data_handle_t data_hndl;
     data_hndl.object_type = DYNAMIC_OBJECT;
     data_hndl.path_handle = pt->dmem_alloc_ctxt_hndl;
@@ -2481,7 +2510,12 @@ static void
 drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info,
                                     bool loaded)
 {
-    if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
+    if ((global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE ) != 0) {
+        if (strstr(info->full_path, "libgputrigger.so") != NULL ||
+            strstr(info->full_path, "libsanitizer-public.so") != NULL ||
+            strstr(info->full_path, "libmonitor.so") != NULL) {
+            return;
+        }
         // static analysis
         datacentric_static_alloc(info);
         // dynamic analysis
@@ -2687,7 +2721,7 @@ ctxt_free(inner_context_t *ctxt)
     dr_raw_mem_free(ctxt, sizeof(inner_context_t));
 }
 
-static inline inner_context_t *
+inline inner_context_t *
 ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl)
 {
     if (ctxt_hndl == THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
@@ -3181,7 +3215,7 @@ drcctlib_print_backtrace_first_item(file_t file, context_handle_t ctxt_hndl, boo
         dr_fprintf(file, " \"%s\"", ctxt->code_asm);
     }
     if (print_source_line) {
-        dr_fprintf(file, " in %s at [%s:%d]", ctxt->func_name, ctxt->file_path,
+        dr_fprintf(file, " in %s at [%s :%s:%d]", ctxt->func_name, ctxt->file_path,ctxt->module_path,
                    ctxt->line_no);
     }
     dr_fprintf(file, "\n");

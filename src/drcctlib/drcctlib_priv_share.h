@@ -60,5 +60,8 @@ drcctlib_priv_share_get_ip_from_ip_node(cct_ip_node_t *ip_node);
 void
 drcctlib_priv_share_get_full_calling_ip_vector(context_handle_t ctxt_hndl, std::vector<app_pc> &list);
 
+inner_context_t *
+ctxt_get_from_ctxt_hndl(context_handle_t ctxt_hndl);
+
 #endif // _DRCCTLIB_PRIV_SHARE_H_ 
 
