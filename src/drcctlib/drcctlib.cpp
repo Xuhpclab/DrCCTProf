@@ -2312,6 +2312,7 @@ static bool is_alloc_filtered(context_handle_t ctxt_hndl)
     if (strstr(ctxt->module_path, "libgputrigger.so") != NULL ||
         strstr(ctxt->module_path, "libsanitizer-public.so") != NULL ||
         strstr(ctxt->module_path, "libmonitor.so") != NULL) {
+            // dr_printf("is_alloc_filtered: %s\n", ctxt->module_path);
         return true;
     }
     return false;
@@ -2458,6 +2459,7 @@ insert_func_instrument_by_drwap(const module_data_t *info, const char *func_name
 {
     app_pc func_entry = moudle_get_function_entry(info, func_name, true);
     if (func_entry != NULL) {
+        // dr_printf("func_name %s insert_func_instrument_by_drwap %s\n", func_name, info->full_path);
         return drwrap_wrap(func_entry, pre_func_cb, post_func_cb);
     } else {
         return false;
@@ -2480,9 +2482,23 @@ capture_cudamallocmanaged_size(void *wrapcxt, void **user_data)
     // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
 }
 
+static bool is_alloc_notfiltered_for_cudamallocmanaged(context_handle_t ctxt_hndl)
+{
+    context_handle_t context = ctxt_hndl;
+    while(ctxt_hndl != THREAD_ROOT_SHARDED_CALLER_CONTEXT_HANDLE) {
+        inner_context_t *ctxt = ctxt_get_from_ctxt_hndl(context);
+        if (strstr(ctxt->module_path, "libcuda.so") != NULL) {
+            return true;
+        }
+        context = drcctlib_get_caller_handle(context);
+    }
+    return false;
+}
+
 static void
 datacentric_dynamic_alloc_gpu(void *wrapcxt, void *user_data)
 {
+    // dr_printf("datacentric_dynamic_alloc_gpu\n");
 
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(
         (void *)drwrap_get_drcontext(wrapcxt), tls_idx);
@@ -2490,8 +2506,13 @@ datacentric_dynamic_alloc_gpu(void *wrapcxt, void *user_data)
     void *ptr = *((void **)user_data);
     context_handle_t caller = drcctlib_get_caller_handle(pt->dmem_alloc_ctxt_hndl);
     if (is_alloc_filtered(caller)) {
-        return;
+        if (!is_alloc_notfiltered_for_cudamallocmanaged(pt->dmem_alloc_ctxt_hndl)) {
+            return;
+        }
     }
+    // dr_printf("=1=\n");
+    // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
+
     data_handle_t data_hndl;
     data_hndl.object_type = DYNAMIC_OBJECT;
     data_hndl.path_handle = pt->dmem_alloc_ctxt_hndl;
