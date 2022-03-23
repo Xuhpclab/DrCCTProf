@@ -1,0 +1,154 @@
+
+<html>
+    <head>
+      <title>CCTLib Tutorial at CGO'17</title>
+      
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="stylesheet" href="css/bootstrap.css">
+      <link rel="stylesheet" href="css/bootstrap-theme.css">
+      <link rel="stylesheet" type="text/css" href="css/conf.css">
+      <style>
+       /* PHONE */
+    @media screen and (max-width: 420px) {
+      .main-img{height:30%;margin-top:%}
+      .tut-title{text-align:center;color:black;font-size:1.2em;font-weight:bold;}
+      .tut-subtitle{font-size:1.1em}
+      .tut-subtitle2{font-size:0.6em}
+      .place{font-size:1.0em;font-weight:bold;margin-top:2%;color:blue;}
+      .txt-container{width:85%}
+       p{text-align:justify;font-size:1.0em;}
+       ul{font-size:1.0em;}
+       .cp1{color:black;margin-left:2%;float:left}
+      .cp2{color:black;margin-right:2%;float:right}
+    }
+    @media screen and (min-width: 421px) {
+      .main-img{height:30%;margin-top:%}
+      .tut-title{ text-align:center;color:black;font-size:1.6em; width: 100%; }
+      .tut-title{font-size:1.7em;font-weight:bold;}
+      .tut-subtitle{font-size:1.3em}
+      .tut-subtitle2{font-size:0.6em}
+      .txt-container{width:60%}
+      .place{font-size:1.2em;font-weight:bold;margin-top:2%;color:blue;}
+      .cp1{color:black;margin-left:20%;float:left}
+      .cp2{color:black;margin-right:20%;float:right}
+      }
+      </style>
+    </head>
+    <body>
+    <div class="container"> 
+          <div class="row">
+              <div class="col-md-12">
+                      <img alt="" class="img-responsive main-img" src="images/img1.png" width="100%" />
+              </div>
+          </div>     
+  </div> 
+  <div class="container txt-container">
+      <div class="row">
+              <div class="col-md-12">
+                  <div class="tut-title">
+                          <span class="tut-title">CCTLib Tutorial</span></br>
+                          <span class="tut-subtitle">Pinpointing Software Inefficiencies  with </br> Fine-grained Program Monitoring</span></br></br>
+                          <span class="tut-subtitle2">HELD IN CONJUNCTION WITH 2017 INTERNATIONAL SYMPOSIUM ON CODE GENERATION AND OPTIMIZATION (CGO'17)</span>
+                  </div>
+              </div>
+          </div> 
+  </div>
+  
+  <div class="container txt-container">
+      <div class="row">
+        <div class="col-md-12">
+         <div class="place">
+          When:  8:30 - 11:45 AM, Feb 5th, 2017.</br>
+          Where: Room 615A, Hilton Austin, 500 East 4th street, Austin,  Texas, 78701, USA.</br></br>
+          <a href="CCTLibTutorial.pdf">Slides are available</a>
+          </div>
+        </div>
+      </div>
+      
+      <div class="row">
+              <div class="col-md-12">
+                  <p class="title">Audience</p>
+                  <p> Researchers, practitioners, and students interested in performace analysis and tuning.
+                  <p class="title">Overview</p>
+  
+                  <p >Complex code bases with several layers of abstractions have abundant inefficiencies that affect the execution time.
+                   Inefficiencies arise from myriad causes such as developer's inattention to performance, inappropriate choice of abstractions,
+                    algorithms and data structures, ineffective or detrimental compiler optimizations, among others. 
+                    Not all inefficiencies are easy to detect or eliminate with compiler optimization; compilers have inherent limitations
+                     of static analysis and optimization scope. Classical "hotspot" performance analysis tools are also incapable of 
+                     identifying many kinds of software inefficiencies. Microscopic observation of whole executions at instruction- 
+                     and operand-level granularity breaks down abstractions and helps recognize inefficiencies that masquerade in complex programs.
+                  </p>
+                  <p >Intel's Pin is a dynamic binary-instrumentation tool widely used in microscopic program introspection such as 
+                  performance analysis, debugging, software security, among others. Delivering deep insights about executions requires
+                   attributing runtime measurements to execution contexts--primarily the calling context. A detailed call path attribution 
+                   of execution measurements enhances a tool's capability and usability. Pin, however, lacks a native API to collect calling 
+                   context on an event of interest. Moreover, fine-grain tools such as a data-race detector may require storing call paths 
+                   on every instruction, which can result in a deluge of call paths.
+                   </p>
+  
+                  <p>In this tutorial, we will introduce CCTLib, a library for efficiently collecting execution-wide call paths 
+                  and associating execution metrics with call paths in any Pin tool. CCTLib is simple to use and effective in 
+                  improving a Pin-tool's diagnostic capabilities. We introduce simple, yet effective, CCTLib APIs that offer 
+                  rich calling context capabilities for Pin tools. We will introduce advanced CCTlib features for attributing 
+                  every memory access to the corresponding data object in the program. We will introduce CCTLib internals 
+                  for advanced users. We will show example Pin tools for detecting certain classes of software inefficiencies 
+                  such as dead stores and redundant computations. Using CCTLib for these clients, we will show how one can
+                   pinpoint software inefficiencies in large, complex code bases and show how one can gain a superior 
+                   understanding of execution profiles. Using CCTLib's pinpointing capabilities we show how one can tune 
+                   their code to eliminate inefficiencies and obtain significant performance improvements. Finally, 
+                   we will show an emerging GUI for CCTLib, which facilitates intuitive visualization of huge amounts 
+                   of data obtained from fine-grained analysis.
+                  </p>
+              </div>
+       </div>
+  
+       <div class="row">
+              <div class="col-md-12">
+                  <hr class="line-break"></hr>    
+                    <p class="title1" >Organizers</p>
+                      <ul>
+                          <li> Milind Chabbi, Hewlett Packard Labs</li>
+                          <li> Xu Liu, College of William and Mary</li>
+                          <li> Shasha Wen, College of William and Mary</li>
+                      </ul>
+                  <hr class="line-break"></hr>    
+                      <p class="title1">Questions</p>
+                  <p> For questions about this tutorial please contact <a href=mailto:xl10@cs.wm.edu>Xu Liu</a> and <a href=mailto:milind.chabbi@hpe.com>Milind Chabbi</a>.</p>
+              </div>
+      </div> 
+     <div class="row">
+              <div class="col-md-12">
+                  <hr class="line-break"></hr>    
+                    <p class="title1">Related Publications</p>
+                      <ul>
+                      <li>"RedSpy: Exploring Value Locality in Software", Shasha Wen, Milind Chabbi and Xu Liu, The 22nd International Conference on Architectural Support for Programming Languages and Operating Systems (ASPLOS), Apr 8-12, 2017, Xi'an, China.</li>
+                      <li>"Characterizing Emerging Heterogeneous Memory", Du Shen, Xu Liu and Felix Xiaozhu Lin, The 2016 ACM SIGPLAN International Symposium on Memory Management (ISMM), Jun 14, 2016, Santa Barbara, California, USA.</li>
+                      <li>"Runtime Value Numbering: A Profiling Technique to Pinpoint Redundant Computations", Shasha Wen, Xu Liu and Milind Chabbi, The 24th International Conference on Parallel Architectures and Compilation Techniques (PACT), Oct 18-21, 2015, San Francisco, California, USA.</li>
+                      <li>"Call Paths for Pin Tools", Milind Chabbi, Xu Liu and John Mellor-Crummey, The 2014 International Symposium on Code Generation and Optimization (CGO), Feb 15-19, 2014, Orlando, Florida, USA.</li>
+                      <li>"DeadSpy: a tool to pinpoint program inefficiencies", Milind Chabbi and John Mellor-Crummey, The 2012 International Symposium on Code Generation and Optimization (CGO), Mar 31 - Apr 04, 2012, San Jose, California, USA.</li>
+                      </ul>
+  </div>
+  </div>
+   <div class="row">
+              <div class="col-md-12">
+                  <hr class="line-break"></hr>    
+                    <p class="title1">Program</p>
+                     <p>Start from 8:30 AM</p>
+  </div>
+  </div>        
+   </div></br> 
+   <div class="container" style="width:100%">
+              <div class="row copyright">
+                      <div class="col-sm-12"></br>
+                      <p class="cp1">2017</p> 
+                      <p class="cp2">College of William and Mary</p>
+                          
+                      </div>
+              </div>
+          </div>
+      </section>  
+    </body>
+  </html>
+  
+  
