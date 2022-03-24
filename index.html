@@ -46,7 +46,7 @@
       <div class="row">
               <div class="col-md-12">
                   <div class="tut-title">
-                          <span class="tut-title">CCTLib Tutorial</span></br>
+                          <span class="tut-title">DrCCTProf Tutorial</span></br>
                           <span class="tut-subtitle">Pinpointing Software Inefficiencies  with </br> Fine-grained Program Monitoring</span></br></br>
                           <span class="tut-subtitle2">HELD IN CONJUNCTION WITH 2022 INTERNATIONAL SYMPOSIUM ON CODE GENERATION AND OPTIMIZATION (CGO'22)</span>
                   </div>
@@ -71,7 +71,7 @@
                   <p> Researchers, practitioners, and students interested in performace/correctness/security analysis of ARM/X86 binaries.
                   <p class="title">Overview</p>
   
-                  <p >Complex code bases with several layers of abstractions have abundant inefficiencies that affect the execution time.
+                  <p >Complex codebases with several layers of abstractions have abundant inefficiencies that affect the execution time.
                    Inefficiencies arise from myriad causes such as developer's inattention to performance, inappropriate choice of abstractions,
                     algorithms and data structures, ineffective or detrimental compiler optimizations, among others. 
                     Not all inefficiencies are easy to detect or eliminate with compiler optimization; compilers have inherent limitations
@@ -79,25 +79,23 @@
                      identifying many kinds of software inefficiencies. Microscopic observation of whole executions at instruction- 
                      and operand-level granularity breaks down abstractions and helps recognize inefficiencies that masquerade in complex programs.
                   </p>
-                  <p >Intel's Pin is a dynamic binary-instrumentation tool widely used in microscopic program introspection such as 
-                  performance analysis, debugging, software security, among others. Delivering deep insights about executions requires
-                   attributing runtime measurements to execution contexts--primarily the calling context. A detailed call path attribution 
-                   of execution measurements enhances a tool's capability and usability. Pin, however, lacks a native API to collect calling 
-                   context on an event of interest. Moreover, fine-grain tools such as a data-race detector may require storing call paths 
-                   on every instruction, which can result in a deluge of call paths.
+                  <p >Dynamic binary-instrumentation tools are widely used in microscopic program introspection such as 
+                  performance analysis, debugging, software security, among others. However, existing tools, such as Pin, DynamoRIO, and Dyninst, are difficult to use with their complex APIs. One needs to spend subtantial efforts to develop a useful tool. Moreover, existing tools do not provide efficient APIs to attribute runtime measurements to execution contexts--primarily the calling context. A detailed call path attribution 
+                   of execution measurements enhances a tool's capability and usability. 
+
                    </p>
   
-                  <p>In this tutorial, we will introduce CCTLib, a library for efficiently collecting execution-wide call paths 
-                  and associating execution metrics with call paths in any Pin tool. CCTLib is simple to use and effective in 
-                  improving a Pin-tool's diagnostic capabilities. We introduce simple, yet effective, CCTLib APIs that offer 
-                  rich calling context capabilities for Pin tools. We will introduce advanced CCTlib features for attributing 
-                  every memory access to the corresponding data object in the program. We will introduce CCTLib internals 
-                  for advanced users. We will show example Pin tools for detecting certain classes of software inefficiencies 
-                  such as dead stores and redundant computations. Using CCTLib for these clients, we will show how one can
+                  <p>In this tutorial, we will introduce DrCCTProf, a library for efficiently collecting execution-wide call paths 
+                  and associating execution metrics with call paths for fine-grained analysis tools. DrCCTProf is based on DynamoRIO, which works for both ARM and X86 binaries. DrCCTProf is simple to use and effective in 
+                  improving diagnostic capabilities of fine-grained analysis tools. We introduce simple, yet effective, DrCCTProf APIs that offer 
+                  rich calling context capabilities. We will introduce advanced DrCCTProf features for attributing 
+                  every memory access to the corresponding data object in the program. We will introduce DrCCTProf internals 
+                  for advanced users. We will show example tools atop DrCCTProf for detecting certain classes of software inefficiencies 
+                  such as dead stores and redundant computations. Using DrCCTProf for these clients, we will show how one can
                    pinpoint software inefficiencies in large, complex code bases and show how one can gain a superior 
-                   understanding of execution profiles. Using CCTLib's pinpointing capabilities we show how one can tune 
+                   understanding of execution profiles. Using DrCCTProf's pinpointing capabilities we show how one can tune 
                    their code to eliminate inefficiencies and obtain significant performance improvements. Finally, 
-                   we will show an emerging GUI for CCTLib, which facilitates intuitive visualization of huge amounts 
+                   we will show the visualization support for DrCCTProf, which facilitates intuitive visualization of huge amounts 
                    of data obtained from fine-grained analysis.
                   </p>
               </div>
@@ -108,13 +106,11 @@
                   <hr class="line-break"></hr>    
                     <p class="title1" >Organizers</p>
                       <ul>
-                          <li> Milind Chabbi, Hewlett Packard Labs</li>
-                          <li> Xu Liu, College of William and Mary</li>
-                          <li> Shasha Wen, College of William and Mary</li>
+                          <li> Xu Liu, North Carolina State University</li>
                       </ul>
                   <hr class="line-break"></hr>    
                       <p class="title1">Questions</p>
-                  <p> For questions about this tutorial please contact <a href=mailto:xl10@cs.wm.edu>Xu Liu</a> and <a href=mailto:milind.chabbi@hpe.com>Milind Chabbi</a>.</p>
+                  <p> For questions about this tutorial please contact <a href=mailto:xliu88@ncsu.edu>Xu Liu</a>.</p>
               </div>
       </div> 
      <div class="row">
@@ -133,8 +129,14 @@
    <div class="row">
               <div class="col-md-12">
                   <hr class="line-break"></hr>    
-                    <p class="title1">Program</p>
-                     <p>Start from 8:30 AM</p>
+                    <p class="title1">Agenda</p>
+                     <p>1:00 - 1:10pm: Welcome</p>
+                     <p>1:10 - 1:40pm: Introduction to DynamoRIO</p>
+                     <p>2:00 - 2:45pm: Introduction to DrCCTProf</p>
+                     <p>1:00 - 1:10pm: Pinpointing Program Inefficiencies with DrCCTProf Clients -- LoadSpy</p>
+                     <p>1:00 - 1:10pm: Identifying Inefficient Memory Stores with DrCCTProf Clients -- DeadSpy and RedSpy</p>
+                     <p>1:00 - 1:10pm: DrCCTProf APIs and GUIs</p>
+                     <p>1:00 - 1:10pm: A hands-on lab: developing the first DrCCTProf client tool on ARM</p>
   </div>
   </div>        
    </div></br> 
