@@ -14,317 +14,319 @@
             <img src="./media/img/Logo.png" alt=""/>
         </div>
     </div>
-    <div class="container">
-        <div class="columns is-multiline">
-            <div class="column is-full has-text-centered">
-                <h1 class="title is-1 has-text-weight-bold">DrCCTProf Tutorial</h1>
-                <h2 class="subtitle is-3  has-text-weight-semibold">
-                    Pinpointing Software Inefficiencies with
-                    </br>
-                    Fine-grained Program Monitoring
-                </h2>
-                <h2 class="subtitle is-6">
-                    HELD IN CONJUNCTION WITH 2022 INTERNATIONAL SYMPOSIUM ON CODE GENERATION AND OPTIMIZATION
-                    (CGO'22)
-                </h2>
-            </div>
-            <div class="column is-full">
-                <div class="block">
-                    <p class="is-size-4">
-                        <strong>When:</strong>
-                        13:00 - 17:00, April 2nd, 2022.
-                    </p>
-                    <p class="is-size-4">
-                        <strong>Where:</strong>
-                        Zoom (TBD)
-                    </p>
+    <section class="section">
+        <div class="container">
+            <div class="columns is-multiline">
+                <div class="column is-full has-text-centered">
+                    <h1 class="title is-1 has-text-weight-bold">DrCCTProf Tutorial</h1>
+                    <h2 class="subtitle is-3  has-text-weight-semibold">
+                        Pinpointing Software Inefficiencies with
+                        </br>
+                        Fine-grained Program Monitoring
+                    </h2>
+                    <h2 class="subtitle is-6">
+                        HELD IN CONJUNCTION WITH 2022 INTERNATIONAL SYMPOSIUM ON CODE GENERATION AND OPTIMIZATION
+                        (CGO'22)
+                    </h2>
                 </div>
-                <div class="block">
-                    <a class="is-size-4" href="">Slides will be available</a>
-                </div>
-            </div>
-            <div class="column is-full">
-                <div class="content">
-                    <p class="title is-3">Audience</p>
-                    <p class="has-text-justified is-size-5">
-                        Researchers, practitioners, and students interested in performace/correctness/security
-                        analysis
-                        of ARM/X86 binaries.
-                    </p>
-                    <p class="title is-3">Overview</p>
-                    <p class="has-text-justified is-size-5">
-                        Complex codebases with several layers of abstractions have abundant inefficiencies that
-                        affect the execution time.
-                        Inefficiencies arise from myriad causes such as developer's inattention to performance,
-                        inappropriate choice of abstractions,
-                        algorithms and data structures, ineffective or detrimental compiler optimizations, among
-                        others.
-                        Not all inefficiencies are easy to detect or eliminate with compiler optimization; compilers
-                        have inherent limitations of static analysis and optimization scope.
-                        Classical "hotspot" performance analysis tools are also incapable of identifying many kinds
-                        of software inefficiencies.
-                        Microscopic observation of whole executions at instruction- and operand-level granularity
-                        breaks down abstractions and helps recognize inefficiencies that masquerade in complex
-                        programs.
-                    </p>
-                    <p class="has-text-justified is-size-5">
-                        Dynamic binary-instrumentation tools are widely used in microscopic program introspection
-                        such as performance analysis, debugging, software security, among others.
-                        However, existing tools, such as Pin, DynamoRIO, and Dyninst, are difficult to use with
-                        their complex APIs.
-                        One needs to spend subtantial efforts to develop a useful tool.
-                        Moreover, existing tools do not provide efficient APIs to attribute runtime measurements to
-                        execution contexts--primarily the calling context.
-                        A detailed call path attribution of execution measurements enhances a tool's capability and
-                        usability.
-                    </p>
-                    <p class="has-text-justified is-size-5">
-                        In this tutorial, we will introduce DrCCTProf, a library for efficiently collecting
-                        execution-wide call paths and associating execution metrics with call paths for fine-grained
-                        analysis tools.
-                        DrCCTProf is based on DynamoRIO, which works for both ARM and X86 binaries.
-                        DrCCTProf is simple to use and effective in improving diagnostic capabilities of
-                        fine-grained analysis tools.
-                        We introduce simple, yet effective, DrCCTProf APIs that offer rich calling context
-                        capabilities.
-                        We will introduce advanced DrCCTProf features for attributing every memory access to the
-                        corresponding data object in the program.
-                        We will introduce DrCCTProf internals for advanced users.
-                        We will show example tools atop DrCCTProf for detecting certain classes of software
-                        inefficiencies such as dead stores and redundant computations.
-                        Using DrCCTProf for these clients, we will show how one can pinpoint software inefficiencies
-                        in large, complex code bases and show how one can gain a superior understanding of execution
-                        profiles.
-                        Using DrCCTProf's pinpointing capabilities we show how one can tune their code to eliminate
-                        inefficiencies and obtain significant performance improvements.
-                        Finally, we will show the visualization support for DrCCTProf, which facilitates intuitive
-                        visualization of huge amounts of data obtained from fine-grained analysis.
-                    </p>
-                </div>
-            </div>
-            <div class="column is-full">
-                <div class="content">
-                    <p class="title is-3">Agenda (The time is EST)</p>
-                    <div class="media">
-                        <div class="media-left">
-                            <span class="icon">
-                                <i class="fa-solid fa-lg fa-play"></i>
-                            </span>
-                        </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                13:00 - 13:10
-                                <span class="has-text-weight-medium">&nbsp;&nbsp;Welcome Notes</span>
-                                <span class="is-size-6 has-text-weight-light is-italic">Xu Liu, North Carolina State University</span>
-                            </p>
-                        </div>
+                <div class="column is-full">
+                    <div class="block">
+                        <p class="is-size-4">
+                            <strong>When:</strong>
+                            13:00 - 17:00, April 2nd, 2022.
+                        </p>
+                        <p class="is-size-4">
+                            <strong>Where:</strong>
+                            Zoom (TBD)
+                        </p>
                     </div>
-                    <div class="media">
-                        <div class="media-left">
-                            <span class="icon">
-                                <i class="fa-solid fa-lg fa-chalkboard"></i>
-                            </span>
-                        </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                13:10 - 13:40
-                                <span class="has-text-weight-medium">&nbsp;&nbsp;Introduction to DynamoRIO</span>
-                                <span class="is-size-6 has-text-weight-light is-italic">Derek Bruening, Google</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="media">
-                        <div class="media-left">
-                            <span class="icon">
-                                <i class="fa-solid fa-lg fa-chalkboard"></i>
-                            </span>
-                        </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                13:40 - 14:30
-                                <span class="has-text-weight-medium">&nbsp;&nbsp;Introduction to DrCCTProf</span>
-                                <span class="is-size-6 has-text-weight-light is-italic">Xu Liu, North Carolina State University</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="media">
-                        <div class="media-left">
-                            <span class="icon">
-                                <i class="fa-solid fa-lg fa-mug-saucer"></i>
-                            </span>
-                        </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                14:30 - 14:45
-                                <span class="has-text-weight-medium">&nbsp;&nbsp;Break</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="media">
-                        <div class="media-left">
-                            <span class="icon">
-                                <i class="fa-solid fa-lg fa-chalkboard"></i>
-                            </span>
-                        </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                14:45 - 15:15
-                                <span class="has-text-weight-medium">&nbsp;&nbsp;Pinpointing Program Inefficiencies with DrCCTProf Clients -- LoadSpy</span>
-                                <span class="has-text-weight-light is-italic">Pengfei Su, University of California, Merced</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="media">
-                        <div class="media-left">
-                            <span class="icon">
-                                <i class="fa-solid fa-lg fa-chalkboard"></i>
-                            </span>
-                        </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                15:15 - 15:45
-                                <span class="has-text-weight-medium">&nbsp;&nbsp;Identifying Inefficient Memory Stores with DrCCTProf Clients -- DeadSpy</span>
-                                <span class="is-size-6 has-text-weight-light is-italic">Milind Chabbi, Scalable Machine Research</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="media">
-                        <div class="media-left">
-                            <span class="icon">
-                                <i class="fa-solid fa-lg fa-chalkboard"></i>
-                            </span>
-                        </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                15:45 - 16:15
-                                <span class="has-text-weight-medium">&nbsp;&nbsp;DrCCTProf APIs and GUIs</span>
-                                <span class="is-size-6 has-text-weight-light is-italic">Qidong Zhao, North Carolina State University</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="media">
-                        <div class="media-left">
-                            <span class="icon">
-                                <i class="fa-solid fa-lg fa-mug-saucer"></i>
-                            </span>
-                        </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                16:15 - 16:25
-                                <span class="has-text-weight-medium">&nbsp;&nbsp;Break</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="media">
-                        <div class="media-left">
-                            <span class="icon">
-                                <i class="fa-solid fa-lg fa-laptop-code"></i>
-                            </span>
-                        </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                16:25 - 17:00
-                                <span class="has-text-weight-medium">&nbsp;&nbsp;A hands-on lab: developing the first DrCCTProf client tool on ARM</span>
-                                <span class="is-size-6 has-text-weight-light is-italic">Qidong Zhao & Xu Liu, North Carolina State University</span>
-                            </p>
-                        </div>
+                    <div class="block">
+                        <a class="is-size-4" href="">Slides will be available</a>
                     </div>
                 </div>
-            </div>
-            <div class="column is-full">
-                <div class="content">
-                    <p class="title is-3">Organizers</p>
-                    <div class="media">
-                        <div class="media-left">
-                            <figure class="image is-48x48">
-                                <img class="is-rounded" src="media/img/XuLiu.png" alt="Image"
-                                    style="height:100%; max-width:auto; width:auto;">
-                            </figure>
+                <div class="column is-full">
+                    <div class="content">
+                        <p class="title is-3">Audience</p>
+                        <p class="has-text-justified is-size-5">
+                            Researchers, practitioners, and students interested in performace/correctness/security
+                            analysis
+                            of ARM/X86 binaries.
+                        </p>
+                        <p class="title is-3">Overview</p>
+                        <p class="has-text-justified is-size-5">
+                            Complex codebases with several layers of abstractions have abundant inefficiencies that
+                            affect the execution time.
+                            Inefficiencies arise from myriad causes such as developer's inattention to performance,
+                            inappropriate choice of abstractions,
+                            algorithms and data structures, ineffective or detrimental compiler optimizations, among
+                            others.
+                            Not all inefficiencies are easy to detect or eliminate with compiler optimization; compilers
+                            have inherent limitations of static analysis and optimization scope.
+                            Classical "hotspot" performance analysis tools are also incapable of identifying many kinds
+                            of software inefficiencies.
+                            Microscopic observation of whole executions at instruction- and operand-level granularity
+                            breaks down abstractions and helps recognize inefficiencies that masquerade in complex
+                            programs.
+                        </p>
+                        <p class="has-text-justified is-size-5">
+                            Dynamic binary-instrumentation tools are widely used in microscopic program introspection
+                            such as performance analysis, debugging, software security, among others.
+                            However, existing tools, such as Pin, DynamoRIO, and Dyninst, are difficult to use with
+                            their complex APIs.
+                            One needs to spend subtantial efforts to develop a useful tool.
+                            Moreover, existing tools do not provide efficient APIs to attribute runtime measurements to
+                            execution contexts--primarily the calling context.
+                            A detailed call path attribution of execution measurements enhances a tool's capability and
+                            usability.
+                        </p>
+                        <p class="has-text-justified is-size-5">
+                            In this tutorial, we will introduce DrCCTProf, a library for efficiently collecting
+                            execution-wide call paths and associating execution metrics with call paths for fine-grained
+                            analysis tools.
+                            DrCCTProf is based on DynamoRIO, which works for both ARM and X86 binaries.
+                            DrCCTProf is simple to use and effective in improving diagnostic capabilities of
+                            fine-grained analysis tools.
+                            We introduce simple, yet effective, DrCCTProf APIs that offer rich calling context
+                            capabilities.
+                            We will introduce advanced DrCCTProf features for attributing every memory access to the
+                            corresponding data object in the program.
+                            We will introduce DrCCTProf internals for advanced users.
+                            We will show example tools atop DrCCTProf for detecting certain classes of software
+                            inefficiencies such as dead stores and redundant computations.
+                            Using DrCCTProf for these clients, we will show how one can pinpoint software inefficiencies
+                            in large, complex code bases and show how one can gain a superior understanding of execution
+                            profiles.
+                            Using DrCCTProf's pinpointing capabilities we show how one can tune their code to eliminate
+                            inefficiencies and obtain significant performance improvements.
+                            Finally, we will show the visualization support for DrCCTProf, which facilitates intuitive
+                            visualization of huge amounts of data obtained from fine-grained analysis.
+                        </p>
+                    </div>
+                </div>
+                <div class="column is-full">
+                    <div class="content">
+                        <p class="title is-3">Agenda (The time is EST)</p>
+                        <div class="media">
+                            <div class="media-left">
+                                <span class="icon">
+                                    <i class="fa-solid fa-lg fa-play"></i>
+                                </span>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    13:00 - 13:10
+                                    <span class="has-text-weight-medium">&nbsp;&nbsp;Welcome Notes</span>
+                                    <span class="is-size-6 has-text-weight-light is-italic">Xu Liu, North Carolina State University</span>
+                                </p>
+                            </div>
                         </div>
-                        <div class="media-content">
-                            <p class="title is-5 has-text-weight-normal">
-                                Xu Liu
-                            </p>
-                            <p class="subtitle is-5">Associate Professor at North Carolina State University</p>
+                        <div class="media">
+                            <div class="media-left">
+                                <span class="icon">
+                                    <i class="fa-solid fa-lg fa-chalkboard"></i>
+                                </span>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    13:10 - 13:40
+                                    <span class="has-text-weight-medium">&nbsp;&nbsp;Introduction to DynamoRIO</span>
+                                    <span class="is-size-6 has-text-weight-light is-italic">Derek Bruening, Google</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="media">
+                            <div class="media-left">
+                                <span class="icon">
+                                    <i class="fa-solid fa-lg fa-chalkboard"></i>
+                                </span>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    13:40 - 14:30
+                                    <span class="has-text-weight-medium">&nbsp;&nbsp;Introduction to DrCCTProf</span>
+                                    <span class="is-size-6 has-text-weight-light is-italic">Xu Liu, North Carolina State University</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="media">
+                            <div class="media-left">
+                                <span class="icon">
+                                    <i class="fa-solid fa-lg fa-mug-saucer"></i>
+                                </span>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    14:30 - 14:45
+                                    <span class="has-text-weight-medium">&nbsp;&nbsp;Break</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="media">
+                            <div class="media-left">
+                                <span class="icon">
+                                    <i class="fa-solid fa-lg fa-chalkboard"></i>
+                                </span>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    14:45 - 15:15
+                                    <span class="has-text-weight-medium">&nbsp;&nbsp;Pinpointing Program Inefficiencies with DrCCTProf Clients -- LoadSpy</span>
+                                    <span class="has-text-weight-light is-italic">Pengfei Su, University of California, Merced</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="media">
+                            <div class="media-left">
+                                <span class="icon">
+                                    <i class="fa-solid fa-lg fa-chalkboard"></i>
+                                </span>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    15:15 - 15:45
+                                    <span class="has-text-weight-medium">&nbsp;&nbsp;Identifying Inefficient Memory Stores with DrCCTProf Clients -- DeadSpy</span>
+                                    <span class="is-size-6 has-text-weight-light is-italic">Milind Chabbi, Scalable Machine Research</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="media">
+                            <div class="media-left">
+                                <span class="icon">
+                                    <i class="fa-solid fa-lg fa-chalkboard"></i>
+                                </span>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    15:45 - 16:15
+                                    <span class="has-text-weight-medium">&nbsp;&nbsp;DrCCTProf APIs and GUIs</span>
+                                    <span class="is-size-6 has-text-weight-light is-italic">Qidong Zhao, North Carolina State University</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="media">
+                            <div class="media-left">
+                                <span class="icon">
+                                    <i class="fa-solid fa-lg fa-mug-saucer"></i>
+                                </span>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    16:15 - 16:25
+                                    <span class="has-text-weight-medium">&nbsp;&nbsp;Break</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="media">
+                            <div class="media-left">
+                                <span class="icon">
+                                    <i class="fa-solid fa-lg fa-laptop-code"></i>
+                                </span>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    16:25 - 17:00
+                                    <span class="has-text-weight-medium">&nbsp;&nbsp;A hands-on lab: developing the first DrCCTProf client tool on ARM</span>
+                                    <span class="is-size-6 has-text-weight-light is-italic">Qidong Zhao & Xu Liu, North Carolina State University</span>
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="content">
-                    <p class="title is-3">Questions</p>
-                    <div class="media">
-                        <div class="media-content">
-                            <p class="is-size-5"> For questions about this tutorial please contact <a href=mailto:xliu88@ncsu.edu>Xu Liu</a>.</p>
+                <div class="column is-full">
+                    <div class="content">
+                        <p class="title is-3">Organizers</p>
+                        <div class="media">
+                            <div class="media-left">
+                                <figure class="image is-48x48">
+                                    <img class="is-rounded" src="media/img/XuLiu.png" alt="Image"
+                                        style="height:100%; max-width:auto; width:auto;">
+                                </figure>
+                            </div>
+                            <div class="media-content">
+                                <p class="title is-5 has-text-weight-normal">
+                                    Xu Liu
+                                </p>
+                                <p class="subtitle is-5">Associate Professor at North Carolina State University</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="content">
+                        <p class="title is-3">Questions</p>
+                        <div class="media">
+                            <div class="media-content">
+                                <p class="is-size-5"> For questions about this tutorial please contact <a href=mailto:xliu88@ncsu.edu>Xu Liu</a>.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="column is-full">
-                <div class="block">
-                    <p class="title is-3">Related Publications</p>
-                    <p class="is-size-5">
-                        <strong>[SC'20]</strong>
-                        "DRCCTPROF: A Fine-grained Call Path Profiler for ARM-based Clusters", 
-                        Qidong Zhao, Xu Liu, Milind Chabbi, 
-                        The International Conference for High Performance Computing, Networking, Storage and Analysis, 
-                        Nov 15-20, 2020, Atlanta, GA, USA. 
-                        <strong class="has-text-danger">Best Paper Finalist</strong>
-                    </p>
-                    <p class=" is-size-5">
-                        <strong>[SC'20]</strong> 
-                        "Zerospy: Exploring the Software Inefficiencies with Redundant Zeros", 
-                        Xin You, Hailong Yang, Zhongzhi Luan, Depei Qian, Xu Liu, 
-                        The International Conference for High Performance Computing, Networking, Storage and Analysis, 
-                        Nov 15-20, 2020, Atlanta, GA, USA.
-                    </p>
-                    <p class=" is-size-5">
-                        <strong>[ICS'20]</strong> "What Every Scientific Programmer Should Know About Compiler Optimizations?",
-                        Jialiang Tan, Shuyin Jiao, Milind Chabbi, Xu Liu, 
-                        The 34th ACM International Conference on Supercomputing, 
-                        Jun 29 - Jul 2, 2020, Barcelona, Spain.
-                    </p>
-                    <p class=" is-size-5">
-                        <strong>[ICSE'19]</strong> "Redundant Loads: A Software Inefficiency Indicator", 
-                        Pengfei Su, Shasha Wen, Hailong Yang, Milind Chabbi, Xu Liu, 
-                        The International Conference on Software Engineering, 
-                        May 25 - Jun 1, 2019, Montreal, Canada. 
-                        Acceptance ratio: 21% (109/529). 
-                        <strong class="has-text-danger">Distinguished Paper Award</strong>
-                    </p>
-                    <p class=" is-size-5">
-                        <strong>[ASPLOS'17]</strong> "RedSpy: Exploring Value Locality in Software", 
-                        Shasha Wen, Milind Chabbi and Xu Liu, 
-                        The 22nd International Conference on Architectural Support for Programming Languages and Operating Systems, 
-                        Apr 8-12, 2017, Xi'an, China. 
-                        <strong class="has-text-danger">ASPLOS Highlights</strong>
-                    </p>
-                    <p class=" is-size-5">
-                        <strong>[ISMM'16]</strong> "Characterizing Emerging Heterogeneous Memory", 
-                        Du Shen, Xu Liu and Felix Xiaozhu Lin,
-                        The 2016 ACM SIGPLAN International Symposium on Memory Management (ISMM), 
-                        Jun 14, 2016, Santa Barbara, California, USA.
-                    </p>
-                    <p class=" is-size-5">
-                        <strong>[PACT'15]</strong> "Runtime Value Numbering: A Profiling Technique to Pinpoint Redundant Computations",
-                        Shasha Wen, Xu Liu and Milind Chabbi, 
-                        The 24th International Conference on Parallel Architectures and Compilation Techniques (PACT), 
-                        Oct 18-21, 2015, San Francisco, California, USA.
-                    </p>
-                    <p class=" is-size-5">
-                        <strong>[CGO'14]</strong> "Call Paths for Pin Tools", 
-                        Milind Chabbi, Xu Liu and John Mellor-Crummey, 
-                        The 2014 International Symposium on Code Generation and Optimization (CGO), 
-                        Feb 15-19, 2014, Orlando, Florida, USA.
-                    </p>
-                    <p class=" is-size-5">
-                        <strong>[CGO'12]</strong> "DeadSpy: a tool to pinpoint program inefficiencies", 
-                        Milind Chabbi and John Mellor-Crummey, 
-                        The 2012 International Symposium on Code Generation and Optimization,
-                        Mar 31 - Apr 04, 2012, San Jose, California, USA.
-                    </p>
+                <div class="column is-full">
+                    <div class="block">
+                        <p class="title is-3">Related Publications</p>
+                        <p class="is-size-5">
+                            <strong>[SC'20]</strong>
+                            "DRCCTPROF: A Fine-grained Call Path Profiler for ARM-based Clusters", 
+                            Qidong Zhao, Xu Liu, Milind Chabbi, 
+                            The International Conference for High Performance Computing, Networking, Storage and Analysis, 
+                            Nov 15-20, 2020, Atlanta, GA, USA. 
+                            <strong class="has-text-danger">Best Paper Finalist</strong>
+                        </p>
+                        <p class=" is-size-5">
+                            <strong>[SC'20]</strong> 
+                            "Zerospy: Exploring the Software Inefficiencies with Redundant Zeros", 
+                            Xin You, Hailong Yang, Zhongzhi Luan, Depei Qian, Xu Liu, 
+                            The International Conference for High Performance Computing, Networking, Storage and Analysis, 
+                            Nov 15-20, 2020, Atlanta, GA, USA.
+                        </p>
+                        <p class=" is-size-5">
+                            <strong>[ICS'20]</strong> "What Every Scientific Programmer Should Know About Compiler Optimizations?",
+                            Jialiang Tan, Shuyin Jiao, Milind Chabbi, Xu Liu, 
+                            The 34th ACM International Conference on Supercomputing, 
+                            Jun 29 - Jul 2, 2020, Barcelona, Spain.
+                        </p>
+                        <p class=" is-size-5">
+                            <strong>[ICSE'19]</strong> "Redundant Loads: A Software Inefficiency Indicator", 
+                            Pengfei Su, Shasha Wen, Hailong Yang, Milind Chabbi, Xu Liu, 
+                            The International Conference on Software Engineering, 
+                            May 25 - Jun 1, 2019, Montreal, Canada. 
+                            Acceptance ratio: 21% (109/529). 
+                            <strong class="has-text-danger">Distinguished Paper Award</strong>
+                        </p>
+                        <p class=" is-size-5">
+                            <strong>[ASPLOS'17]</strong> "RedSpy: Exploring Value Locality in Software", 
+                            Shasha Wen, Milind Chabbi and Xu Liu, 
+                            The 22nd International Conference on Architectural Support for Programming Languages and Operating Systems, 
+                            Apr 8-12, 2017, Xi'an, China. 
+                            <strong class="has-text-danger">ASPLOS Highlights</strong>
+                        </p>
+                        <p class=" is-size-5">
+                            <strong>[ISMM'16]</strong> "Characterizing Emerging Heterogeneous Memory", 
+                            Du Shen, Xu Liu and Felix Xiaozhu Lin,
+                            The 2016 ACM SIGPLAN International Symposium on Memory Management (ISMM), 
+                            Jun 14, 2016, Santa Barbara, California, USA.
+                        </p>
+                        <p class=" is-size-5">
+                            <strong>[PACT'15]</strong> "Runtime Value Numbering: A Profiling Technique to Pinpoint Redundant Computations",
+                            Shasha Wen, Xu Liu and Milind Chabbi, 
+                            The 24th International Conference on Parallel Architectures and Compilation Techniques (PACT), 
+                            Oct 18-21, 2015, San Francisco, California, USA.
+                        </p>
+                        <p class=" is-size-5">
+                            <strong>[CGO'14]</strong> "Call Paths for Pin Tools", 
+                            Milind Chabbi, Xu Liu and John Mellor-Crummey, 
+                            The 2014 International Symposium on Code Generation and Optimization (CGO), 
+                            Feb 15-19, 2014, Orlando, Florida, USA.
+                        </p>
+                        <p class=" is-size-5">
+                            <strong>[CGO'12]</strong> "DeadSpy: a tool to pinpoint program inefficiencies", 
+                            Milind Chabbi and John Mellor-Crummey, 
+                            The 2012 International Symposium on Code Generation and Optimization,
+                            Mar 31 - Apr 04, 2012, San Jose, California, USA.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
     <footer class="footer">
         <div class="content has-text-centered">
             <p> 2022 @ <strong>XPerfLab at NC State</strong></p>
