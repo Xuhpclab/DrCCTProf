@@ -5,6 +5,7 @@ DrCCTProf is a fine-grained call path profiling framework for binaries running o
 -   Please see our [blog](https://xl10.github.io/blog/drcctprof.html) for the high-level introduction.
 -   Please watch our [introductory talk](https://www.youtube.com/watch?v=oUB9yh_78hE) to learn more.
 -   Please refer [documentation](https://drcctprof.readthedocs.io/en/latest/) for detailed tutorial and API references. 
+-   Please refer to [the DrCCTProf tutorial](https://www.xperflab.org/drcctprof/tutorial) co-located with CGO'22.
 
 ![build master](https://github.com/Xuhpclab/DrCCTProf/workflows/build%20master/badge.svg)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/d9708750f8b24b60bc0102dd5b89e4dd)](https://www.codacy.com/gh/Xuhpclab/DrCCTProf/dashboard?utm_source=github.com&utm_medium=referral&utm_content=Xuhpclab/DrCCTProf&utm_campaign=Badge_Grade)
@@ -108,6 +109,7 @@ The following platforms pass our tests.
 | ThunderX2 99xx                    | Ubuntu 20.04  | aarch64      |
 | AWS Graviton1                     | Ubuntu 18.04  | aarch64      |
 | AWS Graviton2                     | Ubuntu 18.04  | aarch64      |
+| Fujitsu A64FX                     | CentOS 8.1    | aarch64      |
 
 ## Obtaining Help
 
