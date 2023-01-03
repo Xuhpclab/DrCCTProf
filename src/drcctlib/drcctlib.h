@@ -30,7 +30,8 @@ enum {
     INSTR_STATE_RETURN = 0x08,
     INSTR_STATE_MEM_ACCESS = 0X10,
     INSTR_STATE_THREAD_ROOT_VIRTUAL = 0x20,
-    INSTR_STATE_BB_START_NOP = 0X40
+    INSTR_STATE_ROUTINE_ROOT_VIRTUAL = 0x40,
+    INSTR_STATE_BB_START_NOP = 0X80
 };
 
 typedef struct _instr_instrument_msg_t {
@@ -131,6 +132,19 @@ drcctlib_get_cct(context_handle_t ctxt_hndl, int max_depth);
 DR_EXPORT
 void
 drcctlib_free_cct(inner_context_t *contxt_list);
+
+// API for thread context switch
+DR_EXPORT
+void
+drcctlib_stop_cct_walk();
+
+DR_EXPORT
+void
+drcctlib_resume_cct_walk();
+
+DR_EXPORT
+void
+drcctlib_set_cur_ctxt_hndl(void *drcontext, context_handle_t ctxt_hndl);
 
 /**
  * Given the context handle,
