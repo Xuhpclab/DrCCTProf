@@ -220,6 +220,8 @@ typedef struct _per_thread_t {
     per_thread_cct_info_t cct_info;
 #endif
     std::vector<datacentric_node_t> *thread_dynamic_datacentric_nodes;
+
+    bool cct_walk;
 } per_thread_t;
 
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
@@ -293,8 +295,6 @@ void *global_cct_info_lock;
 void *dynamic_datacentric_nodes_lock;
 static std::vector<datacentric_node_t> *dynamic_datacentric_nodes;
 static std::vector<datacentric_node_t> *static_datacentric_nodes;
-
-static bool global_cct_walk = true;
 
 // ctxt to ipnode
 static inline context_handle_t
@@ -1505,12 +1505,6 @@ drcctlib_stop()
 static void
 instrument_before_bb_first_instr(bb_shadow_t *cur_bb_shadow)
 {
-    if ((global_flags & DRCCTLIB_CACHE_MODE) == 0 &&
-        (global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) == 0) {
-        if (global_cct_walk) {
-            return;
-        }
-    }
 #ifdef DRCCTLIB_SUPPORT_ATTACH_DETACH
     if (!global_has_call_back_to_native) {
         drcctlib_stop();
@@ -1518,6 +1512,12 @@ instrument_before_bb_first_instr(bb_shadow_t *cur_bb_shadow)
 #endif
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if ((global_flags & DRCCTLIB_CACHE_MODE) == 0 &&
+        (global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) == 0) {
+        if (!pt->cct_walk) {
+            return;
+        }
+    }
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     pt->cct_info.cct_create_clean_call_num++;
 #endif
@@ -2154,6 +2154,8 @@ pt_init(void *drcontext, per_thread_t *pt, int id)
 #ifdef DRCCTLIB_DEBUG_LOG_CCT_INFO
     pt->cct_info = { 0 };
 #endif
+
+    pt->cct_walk = true;
 }
 
 static void
@@ -3158,7 +3160,9 @@ drcctlib_stop_cct_walk()
                               "and data centric mode");
         return;
     }
-    global_cct_walk = false;
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    pt->cct_walk = false;
 }
 
 DR_EXPORT
@@ -3171,7 +3175,9 @@ drcctlib_resume_cct_walk()
                               "and data centric mode");
         return;
     }
-    global_cct_walk = true;
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    pt->cct_walk = true;
 }
 
 DR_EXPORT
@@ -3185,13 +3191,13 @@ drcctlib_routine_init(void *drcontext)
         return;
     }
 
-    if (global_cct_walk) {
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (pt->cct_walk) {
         DRCCTLIB_EXIT_PROCESS(
             "drcctlib_routine_init only work when cct walk is stop");
         return;
     }
 
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     cct_bb_node_t *root_bb_node =
                 bb_node_create(pt->bb_node_cache, THREAD_ROOT_BB_SHARED_BB_KEY, NULL, 1);
     pt->root_bb_node = root_bb_node;
@@ -3213,12 +3219,14 @@ drcctlib_set_cur_ctxt_hndl(void *drcontext, context_handle_t ctxt_hndl)
         DRCCTLIB_EXIT_PROCESS("drcctlib_get_cct !ctxt_hndl_is_valid");
         return;
     }
-    if (global_cct_walk) {
+
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (pt->cct_walk) {
         DRCCTLIB_EXIT_PROCESS(
             "drcctlib_set_cur_ctxt_hndl only work when cct walk is stop");
         return;
     }
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+
     pt->cur_bb_node = ip_node_parent_bb_node(ctxt_hndl_to_ip_node(ctxt_hndl));
     pt->cur_bb_child_ctxt_start_idx = pt->cur_bb_node->child_ctxt_start_idx;
     pt->pre_instr_state =
