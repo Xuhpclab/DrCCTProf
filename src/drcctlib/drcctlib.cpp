@@ -96,7 +96,7 @@
 
 #define INVALID_CTXT_HNDL 0
 #define PROCESS_ROOT_CONTEXT_HANDLE 1
-#define VALID_START_CTXT_HNDL 2
+#define VALID_START_CTXT_HNDL 3
 
 #define THREAD_ROOT_BB_SHARED_BB_KEY 0
 #define ROUTINE_ROOT_BB_SHARED_BB_KEY 1
@@ -3174,28 +3174,30 @@ drcctlib_resume_cct_walk()
     global_cct_walk = true;
 }
 
-// DR_EXPORT
-// void
-// drcctlib_set_root_ctxt_hndl(void *drcontext, context_handle_t ctxt_hndl)
-// {
-//     if ((global_flags & DRCCTLIB_CACHE_MODE) != 0 ||
-//         (global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
-//         DRCCTLIB_EXIT_PROCESS("drcctlib_set_root_ctxt_hndl is not support in cache mode "
-//                               "and data centric mode");
-//         return;
-//     }
-//     if (!ctxt_hndl_is_valid(ctxt_hndl)) {
-//         DRCCTLIB_EXIT_PROCESS("drcctlib_get_cct !ctxt_hndl_is_valid");
-//         return;
-//     }
-//     if (global_cct_walk) {
-//         DRCCTLIB_EXIT_PROCESS(
-//             "drcctlib_set_root_ctxt_hndl only work when cct walk is stop");
-//         return;
-//     }
-//     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-//     pt->root_bb_node = ip_node_parent_bb_node(ctxt_hndl_to_ip_node(ctxt_hndl));
-// }
+DR_EXPORT
+void
+drcctlib_routine_init(void *drcontext)
+{
+    if ((global_flags & DRCCTLIB_CACHE_MODE) != 0 ||
+        (global_flags & DRCCTLIB_COLLECT_DATA_CENTRIC_MESSAGE) != 0) {
+        DRCCTLIB_EXIT_PROCESS("drcctlib_routine_init is not support in cache mode "
+                              "and data centric mode");
+        return;
+    }
+
+    if (global_cct_walk) {
+        DRCCTLIB_EXIT_PROCESS(
+            "drcctlib_routine_init only work when cct walk is stop");
+        return;
+    }
+
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    cct_bb_node_t *root_bb_node =
+                bb_node_create(pt->bb_node_cache, THREAD_ROOT_BB_SHARED_BB_KEY, NULL, 1);
+    pt->root_bb_node = root_bb_node;
+    pt->cur_bb_node = root_bb_node;
+    pt->pre_instr_state = INSTR_STATE_ROUTINE_ROOT_VIRTUAL;
+}
 
 DR_EXPORT
 void

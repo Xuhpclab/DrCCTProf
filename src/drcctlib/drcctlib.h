@@ -144,6 +144,10 @@ drcctlib_resume_cct_walk();
 
 DR_EXPORT
 void
+drcctlib_routine_init(void *drcontext);
+
+DR_EXPORT
+void
 drcctlib_set_cur_ctxt_hndl(void *drcontext, context_handle_t ctxt_hndl);
 
 /**
