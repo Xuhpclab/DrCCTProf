@@ -77,8 +77,10 @@
 // #define FOR_SPEC_TEST
 #ifdef FOR_SPEC_TEST
 #    define CONTEXT_HANDLE_MAX 2147483647L // max context handle num (1^31 - 1) cost 8GB()/16GB
+// #    define CONTEXT_HANDLE_MAX 1073741823L // max context handle num (1^30 - 1) cost
 #else
-#    define CONTEXT_HANDLE_MAX 16777216L // 1^24 64MB
+// #    define CONTEXT_HANDLE_MAX 16777216L // 1^24 64MB
+#    define CONTEXT_HANDLE_MAX 1073741823L
 #endif
 
 #define DRCCTLIB_THREAD_EVENT_PRI 5

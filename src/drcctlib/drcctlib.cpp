@@ -79,7 +79,8 @@
 #    define MEM_CACHE_PAGE1_BIT 11 // 8KB max cost 56GB
 #    define MEM_CACHE_PAGE2_BIT 20 // 28MB
 #else
-#    define MEM_CACHE_PAGE1_BIT 4  // 128B max cost 447MB
+// #    define MEM_CACHE_PAGE1_BIT 4 // 128B max cost 447MB
+#    define MEM_CACHE_PAGE1_BIT 11 // 
 #    define MEM_CACHE_PAGE2_BIT 20 // 28MB
 #endif
 #define TLS_MEM_CACHE_MIN_NUM 8192 // 2^13
@@ -2225,7 +2226,7 @@ next_string_pool_idx(char *name)
             "Preallocated String Pool exhausted. CCTLib couldn't fit your "
             "application in its memory. Try a smaller program.");
     }
-    context_handle_t next_static_datacentric_node_hndl = 0x0FFFFFFF - ATOMIC_ADD_STATIC_DC_NODE_INDEX(global_static_datacentric_node_idx, 1);
+    context_handle_t next_static_datacentric_node_hndl = CONTEXT_HANDLE_MAX + 10000 - ATOMIC_ADD_STATIC_DC_NODE_INDEX(global_static_datacentric_node_idx, 1);
     if (next_static_datacentric_node_hndl < CONTEXT_HANDLE_MAX) {
         DRCCTLIB_EXIT_PROCESS(
             "next_static_datacentric_node_hndl < CONTEXT_HANDLE_MAX");
@@ -2279,32 +2280,32 @@ capture_malloc_size(void *wrapcxt, void **user_data)
     // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
 }
 
-static void
-capture_calloc_size(void *wrapcxt, void **user_data)
-{
-    // Remember the CCT node and the allocation size
-    void *drcontext = (void *)drwrap_get_drcontext(wrapcxt);
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    pt->dmem_alloc_size =
-        (size_t)drwrap_get_arg(wrapcxt, 0) * (size_t)drwrap_get_arg(wrapcxt, 1);
-    IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
-    pt->dmem_alloc_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx;
-    // dr_printf("capature_calloc_size");
-    // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
-}
+// static void
+// capture_calloc_size(void *wrapcxt, void **user_data)
+// {
+//     // Remember the CCT node and the allocation size
+//     void *drcontext = (void *)drwrap_get_drcontext(wrapcxt);
+//     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+//     pt->dmem_alloc_size =
+//         (size_t)drwrap_get_arg(wrapcxt, 0) * (size_t)drwrap_get_arg(wrapcxt, 1);
+//     IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
+//     pt->dmem_alloc_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx;
+//     // dr_printf("capture_calloc_size");
+//     // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
+// }
 
-static void
-capture_realloc_size(void *wrapcxt, void **user_data)
-{
-    // Remember the CCT node and the allocation size
-    void *drcontext = (void *)drwrap_get_drcontext(wrapcxt);
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
-    IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
-    pt->dmem_alloc_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx;
-    // dr_printf("capature_realloc_size");
-    // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
-}
+// static void
+// capture_realloc_size(void *wrapcxt, void **user_data)
+// {
+//     // Remember the CCT node and the allocation size
+//     void *drcontext = (void *)drwrap_get_drcontext(wrapcxt);
+//     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+//     pt->dmem_alloc_size = (size_t)drwrap_get_arg(wrapcxt, 1);
+//     IF_CCTLIB_64_CCTLIB(refresh_per_thread_cct_tree(drcontext, pt);)
+//     pt->dmem_alloc_ctxt_hndl = pt->cur_bb_node->child_ctxt_start_idx;
+//     // dr_printf("capture_realloc_size");
+//     // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
+// }
 
 static bool is_alloc_filtered(context_handle_t ctxt_hndl)
 {
@@ -2510,6 +2511,8 @@ datacentric_dynamic_alloc_gpu(void *wrapcxt, void *user_data)
             return;
         }
     }
+    // g_start_addr = (app_pc)ptr;
+    // g_end_addr = (app_pc)((uint64_t)ptr + pt->dmem_alloc_size);
     // dr_printf("=1=\n");
     // drcctlib_print_backtrace(STDOUT, pt->dmem_alloc_ctxt_hndl, true, true, -1);
 
@@ -2542,12 +2545,13 @@ drcctlib_event_module_load_analysis(void *drcontext, const module_data_t *info,
         // dynamic analysis
         // insert_func_instrument_by_drwap(info, FUNC_NAME_MMAP, capture_mmap_size,
         //                                             datacentric_dynamic_alloc);
+        // @FindHao: for page sharing, comment cpu only allocations.
         insert_func_instrument_by_drwap(info, FUNC_NAME_MALLOC, capture_malloc_size,
                                         datacentric_dynamic_alloc);
-        insert_func_instrument_by_drwap(info, FUNC_NAME_CALLOC, capture_calloc_size,
-                                        datacentric_dynamic_alloc);
-        insert_func_instrument_by_drwap(info, FUNC_NAME_REALLOC, capture_realloc_size,
-                                        datacentric_dynamic_alloc);
+        // insert_func_instrument_by_drwap(info, FUNC_NAME_CALLOC, capture_calloc_size,
+        //                                 datacentric_dynamic_alloc);
+        // insert_func_instrument_by_drwap(info, FUNC_NAME_REALLOC, capture_realloc_size,
+        //                                 datacentric_dynamic_alloc);
         insert_func_instrument_by_drwap(info, FUNC_NAME_CUDAMALLOCMANAGED,
                                         capture_cudamallocmanaged_size,
                                         datacentric_dynamic_alloc_gpu);

@@ -48,6 +48,11 @@ typedef struct _mem_ref_msg_t {
     app_pc addr;
 } mem_ref_msg_t;
 
+
+// app_pc g_start_addr=0;
+// app_pc g_end_addr=0;
+
+
 DR_EXPORT
 /**
  * Initialize DrCCTLib with
