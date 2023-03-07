@@ -99,7 +99,7 @@ The following platforms pass our tests.
 
 ### Linux
 
-| CPU                               | Systems       | Architecture |
+| CPU                               | System        | Architecture |
 | --------------------------------- | ------------- | ------------ |
 | Intel(R) Xeon(R) CPU E5-2699 v3   | Ubuntu 18.04  | x86_64       |
 | Intel(R) Xeon(R) CPU E5-2650 v4   | Ubuntu 14.04  | x86_64       |
