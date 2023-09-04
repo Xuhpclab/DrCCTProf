@@ -6,21 +6,31 @@
 # See LICENSE file for more information.
 # **********************************************************
 
+for i in "$@"; do
+  case $i in
+    --debug=*)
+      DEBUG="${i#*=}"
+      shift # past argument=value
+      ;;
+    -*|--*)
+      echo "Unknown option $i"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
+
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
-DEBUG_MODE=false
-if [ "$1" == "-DEBUG" ] ; then
-    DEBUG_MODE=true
-fi
-
 BUILD_PATH=$CUR_DIR/../../build
-if [ "$DEBUG_MODE" == "true" ] ; then
+if [ "$DEBUG" == "true" ] ; then
     BUILD_PATH=$CUR_DIR/../../build_debug
 fi
 LOG_PATH=$CUR_DIR/../../logs
 
 MAKE_LOG_FILE=$LOG_PATH/remake.log
-if [ "$DEBUG_MODE" == "true" ] ; then
+if [ "$DEBUG" == "true" ] ; then
     MAKE_LOG_FILE=$LOG_PATH/remake_debug.log
 fi
 

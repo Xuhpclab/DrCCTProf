@@ -9,7 +9,6 @@ cmake_minimum_required(VERSION 3.7)
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
 if (UNIX)
-  # add_compile_options(-std=c++11)
   if (DEBUG)
     add_compile_options(-g)
   endif (DEBUG)
@@ -20,6 +19,7 @@ set(DynamoRIO_USE_LIBC OFF)
 set(srcs
   protobuf-c/protobuf-c.c
   profile.pb-c.c
+  drcctlib_filter_func_list.cpp
   drcctlib_vscodeex_format.cpp
   splay_tree.cpp
   drcctlib.cpp

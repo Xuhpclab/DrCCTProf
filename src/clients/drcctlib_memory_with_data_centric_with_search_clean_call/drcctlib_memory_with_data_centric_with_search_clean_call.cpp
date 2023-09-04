@@ -28,7 +28,7 @@ enum {
 
 static reg_id_t tls_seg;
 static uint tls_offs;
-#define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs + (enum_val))
+#define TLS_SLOT(tls_base, enum_val) (void **)((byte_t *)(tls_base) + tls_offs + (enum_val))
 #define BUF_PTR(tls_base, type, offs) *(type **)TLS_SLOT(tls_base, offs)
 #define MINSERT instrlist_meta_preinsert
 
@@ -226,6 +226,7 @@ ClientInit(int argc, const char *argv[])
 static void
 ClientExit(void)
 {
+    // add output module here
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {

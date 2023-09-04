@@ -47,6 +47,8 @@
 #define VERBOSE 0
 #define VERBOSE_VERBOSE 0
 
+#define byte_t unsigned char
+
 /* binary trace dump format is in dr_tools.h */
 
 #define BUF_SIZE 4096
@@ -61,16 +63,16 @@ dis(void *drcontext, app_pc pc, app_pc display_pc)
 /* We use an array of SEPARATE_STUB_MAX_SIZE */
 #define STUB_STRUCT_MAX_SIZE (sizeof(tracedump_stub_data_t) + SEPARATE_STUB_MAX_SIZE)
 #define STUBIDX(stubs, i) \
-    ((tracedump_stub_data_t *)(((byte *)stubs) + (i)*STUB_STRUCT_MAX_SIZE))
+    ((tracedump_stub_data_t *)(((byte_t *)stubs) + (i)*STUB_STRUCT_MAX_SIZE))
 
 static void
 read_data(file_t f, void *drcontext)
 {
-    byte sbuf[BUF_SIZE];
-    byte *dbuf = NULL;
+    byte_t sbuf[BUF_SIZE];
+    byte_t *dbuf = NULL;
     ssize_t read;
     int dlen = 0, i;
-    byte *p = sbuf, *pc, *next_pc;
+    byte_t *p = sbuf, *pc, *next_pc;
     tracedump_trace_header_t hdrs;
     tracedump_file_header_t fhdr;
     tracedump_stub_data_t *stubs;

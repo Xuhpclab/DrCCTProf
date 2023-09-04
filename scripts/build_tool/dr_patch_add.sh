@@ -12,10 +12,6 @@ for i in "$@"; do
       BUILD_CPP_VERSION="${i#*=}"
       shift # past argument=value
       ;;
-    --debug=*)
-      DEBUG="${i#*=}"
-      shift # past argument=value
-      ;;
     -*|--*)
       echo "Unknown option $i"
       exit 1
@@ -28,14 +24,18 @@ done
 
 CUR_DIR=$(cd "$(dirname "$0")";pwd)
 
-echo -e "add dynamorio patch..."
-$CUR_DIR/scripts/build_tool/dr_patch_add.sh --build_cpp_version=${BUILD_CPP_VERSION}
+# PLATFORM=$(uname -m)
+# IS_X86=false
+# if [ $PLATFORM == 'x86_64' ]; then
+#     IS_X86=true
+# fi
 
-echo -e "init env..."
-$CUR_DIR/scripts/build_tool/env_init.sh
+# if [ "$IS_X86" == "true" ]; then
+    # # necessary patch for dynamorio
+    # $CUR_DIR/patch_for_dr/add_update_patch.sh
+# fi
 
-echo -e "make..."
-$CUR_DIR/scripts/build_tool/make.sh --debug=${DEBUG}
-
-echo -e "make test..."
-$CUR_DIR/scripts/build_tool/make_tests.sh --debug=${DEBUG}
+if [ "$BUILD_CPP_VERSION" == "c++17" ]; then
+    # necessary patch for dynamorio
+    $CUR_DIR/patch_for_dr/support_c++17/add_patch.sh
+fi

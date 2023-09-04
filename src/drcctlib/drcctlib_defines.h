@@ -86,6 +86,12 @@
 
 // #define DRCCTLIB_SUPPORT_ATTACH_DETACH
 
+#if __cplusplus >= 201703L
+#   define byte_t unsigned char
+#else
+#   define byte_t byte
+#endif
+
 /**
  * DrCCTLib Calling Context.
  * Clients may access this calling context

@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2020-2021 Xuhpclab. All rights reserved.
  *  Licensed under the MIT License.
  *  See LICENSE file for more information.
@@ -14,9 +14,9 @@
 
 #define DRCCTLIB_PRINTF(_FORMAT, _ARGS...) \
     DRCCTLIB_PRINTF_TEMPLATE("memory_with_addr_and_refsize_clean_call", _FORMAT, ##_ARGS)
-#define DRCCTLIB_EXIT_PROCESS(_FORMAT, _ARGS...)                                           \
-    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("memory_with_addr_and_refsize_clean_call", _FORMAT, \
-                                          ##_ARGS)
+#define DRCCTLIB_EXIT_PROCESS(_FORMAT, _ARGS...)                                     \
+    DRCCTLIB_CLIENT_EXIT_PROCESS_TEMPLATE("memory_with_addr_and_refsize_clean_call", \
+                                          _FORMAT, ##_ARGS)
 
 static int tls_idx;
 
@@ -26,13 +26,17 @@ enum {
 };
 static reg_id_t tls_seg;
 static uint tls_offs;
-#define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base) + tls_offs + (enum_val))
+#define TLS_SLOT(tls_base, enum_val) (void **)((byte_t *)(tls_base) + tls_offs + (enum_val))
 #define BUF_PTR(tls_base, type, offs) *(type **)TLS_SLOT(tls_base, offs)
 #define MINSERT instrlist_meta_preinsert
 #ifdef ARM_CCTLIB
 #    define OPND_CREATE_CCT_INT OPND_CREATE_INT
 #else
-#    define OPND_CREATE_CCT_INT OPND_CREATE_INT32
+#    ifdef CCTLIB_64
+#        define OPND_CREATE_CCT_INT OPND_CREATE_INT64
+#    else
+#        define OPND_CREATE_CCT_INT OPND_CREATE_INT32
+#    endif
 #endif
 
 typedef struct _mem_ref_t {
@@ -52,11 +56,11 @@ void
 DoWhatClientWantTodo(void *drcontext, context_handle_t cur_ctxt_hndl, mem_ref_t *ref)
 {
     // add online analysis here
-    
+
 }
 // dr clean call
 void
-InsertCleancall(int32_t slot,int32_t num)
+InsertCleancall(int32_t slot, int32_t num)
 {
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
@@ -96,18 +100,12 @@ InstrumentMem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
                 opnd_create_reg(free_reg)));
 
     // store mem_ref_t->size
-#ifdef ARM_CCTLIB
     MINSERT(ilist, where,
             XINST_CREATE_load_int(drcontext, opnd_create_reg(free_reg),
                                   OPND_CREATE_CCT_INT(drutil_opnd_mem_size_in_bytes(ref, where))));
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(mem_ref_t, size)),
                              opnd_create_reg(free_reg)));
-#else
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_mem_ref_ptr, offsetof(mem_ref_t, size)),
-                             OPND_CREATE_CCT_INT(drutil_opnd_mem_size_in_bytes(ref, where))));
-#endif
 
 #ifdef ARM_CCTLIB
     MINSERT(ilist, where,
@@ -140,6 +138,13 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
     instr_t *instr = instrument_msg->instr;
     int32_t slot = instrument_msg->slot;
     int num = 0;
+
+#ifdef x86_CCTLIB
+    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("instrument_before_every_instr_meta_instr "
+                              "drreg_reserve_aflags != DRREG_SUCCESS");
+    }
+#endif
     for (int i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_is_memory_reference(instr_get_src(instr, i))) {
             num++;
@@ -152,6 +157,11 @@ InstrumentInsCallback(void *drcontext, instr_instrument_msg_t *instrument_msg)
             InstrumentMem(drcontext, bb, instr, instr_get_dst(instr, i));
         }
     }
+#ifdef x86_CCTLIB
+    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS) {
+        DRCCTLIB_EXIT_PROCESS("drreg_unreserve_aflags != DRREG_SUCCESS");
+    }
+#endif
     dr_insert_clean_call(drcontext, bb, instr, (void *)InsertCleancall, false, 2,
                          OPND_CREATE_CCT_INT(slot), OPND_CREATE_CCT_INT(num));
 }
@@ -192,14 +202,15 @@ ClientExit(void)
     drcctlib_exit();
 
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT)) {
-        DRCCTLIB_EXIT_PROCESS(
-            "ERROR: drcctlib_memory_with_addr_and_refsize_clean_call dr_raw_tls_calloc fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_addr_and_refsize_clean_call "
+                              "dr_raw_tls_calloc fail");
     }
     if (!drmgr_unregister_thread_init_event(ClientThreadStart) ||
         !drmgr_unregister_thread_exit_event(ClientThreadEnd) ||
         !drmgr_unregister_tls_field(tls_idx)) {
-        DRCCTLIB_PRINTF("ERROR: drcctlib_memory_with_addr_and_refsize_clean_call failed to "
-                        "unregister in ClientExit");
+        DRCCTLIB_PRINTF(
+            "ERROR: drcctlib_memory_with_addr_and_refsize_clean_call failed to "
+            "unregister in ClientExit");
     }
     drmgr_exit();
     if (drreg_exit() != DRREG_SUCCESS) {
@@ -215,8 +226,9 @@ extern "C" {
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Client 'drcctlib_memory_with_addr_and_refsize_clean_call'",
-                       "http://dynamorio.org/issues");
+    dr_set_client_name(
+        "DynamoRIO Client 'drcctlib_memory_with_addr_and_refsize_clean_call'",
+        "http://dynamorio.org/issues");
     ClientInit(argc, argv);
 
     if (!drmgr_init()) {
@@ -241,10 +253,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                               "drmgr_register_tls_field fail");
     }
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0)) {
-        DRCCTLIB_EXIT_PROCESS(
-            "ERROR: drcctlib_memory_with_addr_and_refsize_clean_call dr_raw_tls_calloc fail");
+        DRCCTLIB_EXIT_PROCESS("ERROR: drcctlib_memory_with_addr_and_refsize_clean_call "
+                              "dr_raw_tls_calloc fail");
     }
-    drcctlib_init(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback, false);
+    drcctlib_init(DRCCTLIB_FILTER_MEM_ACCESS_INSTR, INVALID_FILE, InstrumentInsCallback,
+                  false);
     dr_register_exit_event(ClientExit);
 }
 
