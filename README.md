@@ -1,4 +1,6 @@
-# DrCCTProf
+# DrCCTProf - DrPy Client
+
+DrPy client aims to detect and optimize cross layer inefficiencies across Python program and native layers.
 
 DrCCTProf is a fine-grained call path profiling framework for binaries running on ARM and X86 architectures. DrCCTProf (together with its predecessor CCTLib) won a numbe of paper awards, including ASPLOS'17 Highlight, ICSE'19 Distinguished Paper Award, SC'20 Best Paper Finalist. 
 
